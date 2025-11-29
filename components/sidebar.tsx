@@ -22,25 +22,73 @@ import {
   Moon,
   Star,
   Menu,
+  User as UserIcon,
 } from "lucide-react"
 import { useTheme } from "./theme-provider"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { getUserData, getOrganizationData, logout } from "@/lib/api/index"
+import type { User, Organization, UserRole } from "@/lib/api/index"
 
 export function Sidebar() {
   const { theme, toggleTheme } = useTheme()
+  const router = useRouter()
   const [important, setImportant] = useState<Set<string>>(new Set())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [organization, setOrganization] = useState<Organization | null>(null)
+
+  // Function to load user and organization data
+  const loadUserData = () => {
+    const userData = getUserData()
+    const orgData = getOrganizationData()
+    if (userData) {
+      setUser(userData)
+    }
+    if (orgData) {
+      setOrganization(orgData)
+    }
+  }
 
   // Prevent hydration mismatch by only rendering theme-dependent content after mount
   useEffect(() => {
     setMounted(true)
+    // Load user and organization data on mount
+    loadUserData()
+
+    // Listen for storage changes (when data is updated in another tab/window)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'user_data' || e.key === 'organization_data') {
+        loadUserData()
+      }
+    }
+
+    // Listen for custom storage event (for same-tab updates)
+    const handleCustomStorage = () => {
+      loadUserData()
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('userDataUpdated', handleCustomStorage)
+
+    // Also refresh on window focus (in case data was updated)
+    const handleFocus = () => {
+      loadUserData()
+    }
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('userDataUpdated', handleCustomStorage)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   // FIXED MENU ITEMS - DO NOT CHANGE
@@ -102,7 +150,15 @@ export function Sidebar() {
         {bottomItems.map((item) => (
           <button
             key={item.label}
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={() => {
+              setMobileMenuOpen(false)
+              if (item.label === "Logout") {
+                logout()
+                setUser(null)
+                setOrganization(null)
+                router.push("/login")
+              }
+            }}
             className="w-full px-4 py-3 flex items-center gap-3 text-[13px] font-medium text-sidebar-foreground hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <item.icon className="w-5 h-5" />
@@ -165,9 +221,30 @@ export function Sidebar() {
               <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white font-bold">AI</div>
               <div>
                 <h1 className="text-xl font-bold">AIFlow</h1>
-                <p className="text-xs text-sidebar-accent-foreground mt-1">v1.0.0</p>
               </div>
             </SheetTitle>
+            {/* User Info Tab - Below Logo */}
+            {(user || organization) && (
+              <div className="mt-4 pt-4 border-t border-sidebar-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
+                    <UserIcon className="w-5 h-5 text-sidebar-accent-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {user && (
+                      <p className="text-sm font-semibold text-sidebar-foreground truncate">
+                        {user.full_name || user.email || 'User'}
+                      </p>
+                    )}
+                    {organization?.name && (
+                      <p className="text-xs text-sidebar-accent-foreground truncate">
+                        {organization.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </SheetHeader>
           <div className="flex flex-col h-[calc(100vh-120px)] px-2">
             {renderMenuItems()}
@@ -186,7 +263,28 @@ export function Sidebar() {
             <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white font-bold">AI</div>
             <h1 className="text-xl font-bold">AIFlow</h1>
           </div>
-          <p className="text-xs text-sidebar-accent-foreground mt-1">v1.0.0</p>
+          {/* User Info Tab - Below Logo */}
+          {(user || organization) && (
+            <div className="mt-4 pt-4 border-t border-sidebar-border">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
+                  <UserIcon className="w-5 h-5 text-sidebar-accent-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  {user && (
+                    <p className="text-sm font-semibold text-sidebar-foreground truncate">
+                      {user.full_name || user.email || 'User'}
+                    </p>
+                  )}
+                  {organization?.name && (
+                    <p className="text-xs text-sidebar-accent-foreground truncate">
+                      {organization.name}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {renderMenuItems()}
