@@ -453,7 +453,7 @@ export default function EmailTemplatesPage() {
                           <TabsTrigger value={EmailTemplateCategory.NOTIFICATION} className="text-xs lg:text-sm whitespace-nowrap">Notifications</TabsTrigger>
                           <TabsTrigger value={EmailTemplateCategory.FOLLOW_UP} className="text-xs lg:text-sm whitespace-nowrap">Follow-up</TabsTrigger>
                           <TabsTrigger value={EmailTemplateCategory.REMINDER} className="text-xs lg:text-sm whitespace-nowrap">Reminders</TabsTrigger>
-                        </TabsList>
+                      </TabsList>
                       </div>
 
                       {Object.values(EmailTemplateCategory).map((category) => (
@@ -470,22 +470,22 @@ export default function EmailTemplatesPage() {
                           ) : (
                             <div className="overflow-x-auto -mx-4 sm:mx-0">
                               <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
                                       <TableHead className="min-w-[120px]">Name</TableHead>
                                       <TableHead className="hidden sm:table-cell min-w-[100px]">Type</TableHead>
                                       <TableHead className="min-w-[150px]">Subject</TableHead>
                                       <TableHead className="text-right min-w-[100px]">Actions</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {getCategoryTemplates(category, "master").map((template) => {
-                                      const hasCustomVersion = orgTemplates.some(
-                                        ot => ot.type === template.type && ot.category === template.category
-                                      )
-                                      return (
-                                        <TableRow key={template.id}>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {getCategoryTemplates(category, "master").map((template) => {
+                                    const hasCustomVersion = orgTemplates.some(
+                                      ot => ot.type === template.type && ot.category === template.category
+                                    )
+                                    return (
+                                      <TableRow key={template.id}>
                                           <TableCell className="font-medium">
                                             <div className="flex flex-col sm:block">
                                               <span>{template.name}</span>
@@ -494,36 +494,36 @@ export default function EmailTemplatesPage() {
                                           </TableCell>
                                           <TableCell className="hidden sm:table-cell">{getTypeLabel(template.type)}</TableCell>
                                           <TableCell className="max-w-[150px] sm:max-w-md truncate">{template.subject}</TableCell>
-                                          <TableCell className="text-right">
+                                        <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1 sm:gap-2">
-                                              {hasCustomVersion && (
+                                            {hasCustomVersion && (
                                                 <Badge variant="secondary" className="hidden md:inline-flex mr-2">Customized</Badge>
-                                              )}
-                                              <Button
-                                                variant="ghost"
-                                                size="icon-sm"
+                                            )}
+                                            <Button
+                                              variant="ghost"
+                                              size="icon-sm"
                                                 className="h-7 w-7 sm:h-8 sm:w-8"
-                                                onClick={() => handlePreview(template)}
+                                              onClick={() => handlePreview(template)}
                                                 title="Preview"
-                                              >
+                                            >
                                                 <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                              </Button>
-                                              <Button
-                                                variant="ghost"
-                                                size="icon-sm"
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon-sm"
                                                 className="h-7 w-7 sm:h-8 sm:w-8"
-                                                onClick={() => handleCustomize(template)}
+                                              onClick={() => handleCustomize(template)}
                                                 title="Customize"
-                                              >
+                                            >
                                                 <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                              </Button>
-                                            </div>
-                                          </TableCell>
-                                        </TableRow>
-                                      )
-                                    })}
-                                  </TableBody>
-                                </Table>
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )
+                                  })}
+                                </TableBody>
+                              </Table>
                               </div>
                             </div>
                           )}
@@ -551,7 +551,7 @@ export default function EmailTemplatesPage() {
                           <TabsTrigger value={EmailTemplateCategory.NOTIFICATION} className="text-xs lg:text-sm whitespace-nowrap">Notifications</TabsTrigger>
                           <TabsTrigger value={EmailTemplateCategory.FOLLOW_UP} className="text-xs lg:text-sm whitespace-nowrap">Follow-up</TabsTrigger>
                           <TabsTrigger value={EmailTemplateCategory.REMINDER} className="text-xs lg:text-sm whitespace-nowrap">Reminders</TabsTrigger>
-                        </TabsList>
+                      </TabsList>
                       </div>
 
                       {Object.values(EmailTemplateCategory).map((category) => (
@@ -568,18 +568,18 @@ export default function EmailTemplatesPage() {
                           ) : (
                             <div className="overflow-x-auto -mx-4 sm:mx-0">
                               <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
                                       <TableHead className="min-w-[120px]">Name</TableHead>
                                       <TableHead className="hidden sm:table-cell min-w-[100px]">Type</TableHead>
                                       <TableHead className="min-w-[150px]">Subject</TableHead>
                                       <TableHead className="text-right min-w-[120px]">Actions</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {getCategoryTemplates(category, "custom").map((template) => (
-                                      <TableRow key={template.id}>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {getCategoryTemplates(category, "custom").map((template) => (
+                                    <TableRow key={template.id}>
                                         <TableCell className="font-medium">
                                           <div className="flex flex-col sm:block">
                                             <span>{template.name}</span>
@@ -588,41 +588,41 @@ export default function EmailTemplatesPage() {
                                         </TableCell>
                                         <TableCell className="hidden sm:table-cell">{getTypeLabel(template.type)}</TableCell>
                                         <TableCell className="max-w-[150px] sm:max-w-md truncate">{template.subject}</TableCell>
-                                        <TableCell className="text-right">
+                                      <TableCell className="text-right">
                                           <div className="flex items-center justify-end gap-1 sm:gap-2">
-                                            <Button
-                                              variant="ghost"
-                                              size="icon-sm"
+                                          <Button
+                                            variant="ghost"
+                                            size="icon-sm"
                                               className="h-7 w-7 sm:h-8 sm:w-8"
-                                              onClick={() => handlePreview(template)}
+                                            onClick={() => handlePreview(template)}
                                               title="Preview"
-                                            >
+                                          >
                                               <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon-sm"
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon-sm"
                                               className="h-7 w-7 sm:h-8 sm:w-8"
-                                              onClick={() => handleEdit(template)}
+                                            onClick={() => handleEdit(template)}
                                               title="Edit"
-                                            >
+                                          >
                                               <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon-sm"
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon-sm"
                                               className="h-7 w-7 sm:h-8 sm:w-8"
-                                              onClick={() => handleDelete(template.id)}
+                                            onClick={() => handleDelete(template.id)}
                                               title="Delete"
-                                            >
+                                          >
                                               <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-destructive" />
-                                            </Button>
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
                               </div>
                             </div>
                           )}

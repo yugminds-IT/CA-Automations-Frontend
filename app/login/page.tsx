@@ -206,11 +206,11 @@ export default function LoginPage() {
                     <FormLabel>Password</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input
+                      <Input
                           type={showPassword ? 'text' : 'password'}
-                          placeholder="Enter your password"
-                          {...field}
-                          disabled={isLoading}
+                        placeholder="Enter your password"
+                        {...field}
+                        disabled={isLoading}
                           className="pr-10"
                         />
                         <button

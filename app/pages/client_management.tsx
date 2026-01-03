@@ -62,34 +62,34 @@ export function ClientManagement({
     }
     
     try {
-      // Convert to CSV
-      const headers = ['Name', 'Email', 'Phone', 'Company Name', 'Directories', 'Follow-up Date', 'Onboard Date', 'Last Contacted']
-      const rows = filteredClients.map(client => [
-        client.name,
-        client.email,
-        client.phone || '',
-        client.companyName,
-        Array.isArray(client.directories) ? client.directories.join('; ') : client.directories || '',
-        client.followUpDate ? new Date(client.followUpDate).toLocaleDateString() : '',
-        client.onboardDate ? new Date(client.onboardDate).toLocaleDateString() : '',
-        client.lastContactedDate ? new Date(client.lastContactedDate).toLocaleDateString() : '',
-      ])
-      
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      ].join('\n')
-      
-      // Download CSV
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', `clients_${new Date().toISOString().split('T')[0]}.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+    // Convert to CSV
+    const headers = ['Name', 'Email', 'Phone', 'Company Name', 'Directories', 'Follow-up Date', 'Onboard Date', 'Last Contacted']
+    const rows = filteredClients.map(client => [
+      client.name,
+      client.email,
+      client.phone || '',
+      client.companyName,
+      Array.isArray(client.directories) ? client.directories.join('; ') : client.directories || '',
+      client.followUpDate ? new Date(client.followUpDate).toLocaleDateString() : '',
+      client.onboardDate ? new Date(client.onboardDate).toLocaleDateString() : '',
+      client.lastContactedDate ? new Date(client.lastContactedDate).toLocaleDateString() : '',
+    ])
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n')
+    
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `clients_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
       URL.revokeObjectURL(url)
       
       toast({
