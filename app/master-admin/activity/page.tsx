@@ -1,65 +1,51 @@
-/**
- * Main Page Layout - FIXED STRUCTURE
- * 
- * Layout structure:
- * - Header: 5% height at top
- * - Sidebar: 15% width on desktop, top nav on mobile/tablet
- * - Content area: Adjusts margin/padding based on screen size
- * 
- * DO NOT change the margin-left (15%) or padding-top (16) values
- * as they are synchronized with the sidebar width.
- */
-
 "use client"
 
-import { Sidebar } from "@/components/sidebar"
-import { Header } from "@/components/header"
-import { Dashboard } from "./pages/dashboard"
+import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
+import { MasterAdminHeader } from "@/components/master-admin-header"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated, isMasterAdminUser } from "@/lib/api/index"
-import { UserRole } from "@/lib/api/types"
+import { useToast } from "@/components/ui/use-toast"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Activity } from "lucide-react"
 
-export default function Home() {
+export default function MasterAdminActivity() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const router = useRouter()
+  const { toast } = useToast()
 
-  // Auth guard: redirect to login if not authenticated
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/login")
       return
     }
-    const user = getUserData()
-    const role = user?.role ? String(user.role).toLowerCase() : null
     
-    // Route based on role
-    if (role === 'master_admin' || role === UserRole.MASTER_ADMIN) {
-      router.replace("/master-admin")
+    // Check if user is master admin
+    if (!isMasterAdminUser()) {
+      toast({
+        title: "Access Denied",
+        description: "You must be a master admin to access this page.",
+        variant: "destructive",
+      })
+      router.replace("/")
       return
     }
-    if (role === 'client' || role === UserRole.CLIENT) {
-      router.replace("/uploads")
-      return
-    }
+    
     setIsCheckingAuth(false)
-  }, [router])
+  }, [router, toast])
 
-  // Load sidebar state from localStorage on mount
   useEffect(() => {
     const savedState = localStorage.getItem('sidebarCollapsed')
     if (savedState !== null) {
       setSidebarCollapsed(savedState === 'true')
     } else {
-      // Default to collapsed (closed) if no saved state
       setSidebarCollapsed(true)
     }
   }, [])
 
-  // Check if desktop on mount and resize
   useEffect(() => {
     const checkIsDesktop = () => {
       setIsDesktop(window.innerWidth >= 1024)
@@ -69,7 +55,6 @@ export default function Home() {
     return () => window.removeEventListener('resize', checkIsDesktop)
   }, [])
 
-  // Save sidebar state to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString())
   }, [sidebarCollapsed])
@@ -78,7 +63,6 @@ export default function Home() {
     setSidebarCollapsed(!sidebarCollapsed)
   }
 
-  // Show loading state while redirecting/checking auth
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -89,7 +73,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <Sidebar 
+      <MasterAdminSidebar 
         mobileMenuOpen={mobileMenuOpen} 
         setMobileMenuOpen={setMobileMenuOpen}
         collapsed={sidebarCollapsed}
@@ -101,15 +85,35 @@ export default function Home() {
           width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 15%)') : '100%',
         }}
       >
-        <Header 
+        <MasterAdminHeader 
           onMenuClick={() => setMobileMenuOpen(true)}
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
         <div className="overflow-auto" style={{ height: "calc(100vh - 3vh)", marginTop: "3vh" }}>
-          <Dashboard />
+          <div className="p-4 sm:p-6 space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">System Activity</h1>
+              <p className="text-muted-foreground mt-1">Monitor system-wide activities and events</p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Recent Activity Log
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Activity logs and system events will be displayed here.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
   )
 }
+

@@ -77,7 +77,8 @@ export default function SignupPage() {
 
       toast({
         title: 'Success',
-        description: response.message || 'Account created successfully!',
+        description: response.message || 'Account created successfully! Please login to continue.',
+        variant: 'success',
       })
 
       // Redirect to login page after successful signup

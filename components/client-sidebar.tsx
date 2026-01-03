@@ -1,25 +1,17 @@
 "use client"
 
 /**
- * Sidebar Component - DO NOT MODIFY MENU ITEMS
+ * Client Sidebar Component
  * 
- * This sidebar is configured with only 3 main menu items:
- * - Dashboard (active by default)
- * - Notifications
- * - Settings
- * 
- * DO NOT add: AI Models, Interactions, or Relations
- * These items have been permanently removed from the project.
+ * This sidebar is used specifically for client login functionality.
+ * UI matches the main sidebar.tsx component.
  */
 
 import {
-  LayoutDashboard,
-  Settings,
-  Bell,
-  Menu,
+  Lock,
   Users,
-  Upload,
-  Mail,
+  ArrowLeft,
+  Settings,
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState } from "react"
@@ -30,36 +22,29 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { getUserData } from "@/lib/api/index"
 
-interface SidebarProps {
+interface ClientSidebarProps {
   mobileMenuOpen?: boolean
   setMobileMenuOpen?: (open: boolean) => void
   collapsed?: boolean
 }
 
-export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuOpen: setExternalMobileMenuOpen, collapsed = false }: SidebarProps = {}) {
+export function ClientSidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuOpen: setExternalMobileMenuOpen, collapsed = false }: ClientSidebarProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const [internalMobileMenuOpen, setInternalMobileMenuOpen] = useState(false)
-  const user = getUserData()
-  const role = user?.role as string | undefined
   
   // Use external state if provided, otherwise use internal state
   const mobileMenuOpen = externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen
   const setMobileMenuOpen = setExternalMobileMenuOpen || setInternalMobileMenuOpen
 
-  // Menu items with navigation
-  const menuItems =
-    role === 'client'
-      ? [{ icon: Upload, label: "Uploads", path: "/uploads" }]
-      : [
-          { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-          { icon: Users, label: "Client Management", path: "/client-management" },
-          { icon: Mail, label: "Email Templates", path: "/email-templates" },
-          { icon: Bell, label: "Notifications", path: "/notifications" },
-          { icon: Settings, label: "Settings", path: "/settings" },
-        ]
+  // Menu items with navigation - client login specific
+  const menuItems = [
+    { icon: Lock, label: "Client Login", path: "/client-management" },
+    { icon: Users, label: "Client Management", path: "/client-management" },
+    { icon: ArrowLeft, label: "Back to Dashboard", path: "/" },
+    { icon: Settings, label: "Settings", path: "/settings" },
+  ] as const
 
   // Determine active page based on current pathname
   const getActivePage = () => {
@@ -71,7 +56,7 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
     const pathMatch = menuItems.find(item => pathname.startsWith(item.path) && item.path !== '/')
     if (pathMatch) return pathMatch.label
     
-    return "Dashboard"
+    return "Client Login"
   }
   
   const activePage = getActivePage()

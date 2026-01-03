@@ -1,52 +1,17 @@
-/**
- * Main Page Layout - FIXED STRUCTURE
- * 
- * Layout structure:
- * - Header: 5% height at top
- * - Sidebar: 15% width on desktop, top nav on mobile/tablet
- * - Content area: Adjusts margin/padding based on screen size
- * 
- * DO NOT change the margin-left (15%) or padding-top (16) values
- * as they are synchronized with the sidebar width.
- */
-
 "use client"
 
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
-import { Dashboard } from "./pages/dashboard"
+import { ClientDetails } from "@/components/client/client_details"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { getUserData, isAuthenticated, isMasterAdminUser } from "@/lib/api/index"
-import { UserRole } from "@/lib/api/types"
+import { useParams } from "next/navigation"
 
-export default function Home() {
+export default function ClientDetailsPage() {
+  const params = useParams()
+  const clientId = params?.id as string
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [isDesktop, setIsDesktop] = useState(false)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-  const router = useRouter()
-
-  // Auth guard: redirect to login if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login")
-      return
-    }
-    const user = getUserData()
-    const role = user?.role ? String(user.role).toLowerCase() : null
-    
-    // Route based on role
-    if (role === 'master_admin' || role === UserRole.MASTER_ADMIN) {
-      router.replace("/master-admin")
-      return
-    }
-    if (role === 'client' || role === UserRole.CLIENT) {
-      router.replace("/uploads")
-      return
-    }
-    setIsCheckingAuth(false)
-  }, [router])
 
   // Load sidebar state from localStorage on mount
   useEffect(() => {
@@ -78,17 +43,8 @@ export default function Home() {
     setSidebarCollapsed(!sidebarCollapsed)
   }
 
-  // Show loading state while redirecting/checking auth
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
-  }
-
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <div className="h-screen bg-background text-foreground overflow-hidden w-full relative">
       <Sidebar 
         mobileMenuOpen={mobileMenuOpen} 
         setMobileMenuOpen={setMobileMenuOpen}
@@ -106,8 +62,16 @@ export default function Home() {
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 3vh)", marginTop: "3vh" }}>
-          <Dashboard />
+        <div 
+          className="overflow-y-auto overflow-x-hidden w-full" 
+          style={{ 
+            height: "calc(100vh - 3vh)", 
+            marginTop: "3vh",
+          }}
+        >
+          <div className="w-full max-w-full">
+            <ClientDetails clientId={clientId} />
+          </div>
         </div>
       </div>
     </div>

@@ -1,6 +1,15 @@
 'use client'
 
 import * as React from 'react'
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 import { cn } from '@/lib/utils'
 
@@ -78,6 +87,156 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
   )
 }
 
+type SortDirection = 'asc' | 'desc' | null
+
+interface SortableTableHeadProps extends React.ComponentProps<'th'> {
+  sortable?: boolean
+  sortDirection?: SortDirection
+  onSort?: () => void
+}
+
+function SortableTableHead({ 
+  className, 
+  sortable = false,
+  sortDirection = null,
+  onSort,
+  children,
+  ...props 
+}: SortableTableHeadProps) {
+  return (
+    <th
+      data-slot="table-head"
+      className={cn(
+        'text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-[13px] [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
+        sortable && 'cursor-pointer hover:bg-muted/50 select-none',
+        className,
+      )}
+      onClick={sortable ? onSort : undefined}
+      {...props}
+    >
+      {sortable ? (
+        <div className="flex items-center gap-2">
+          {children}
+          <div className="flex flex-col">
+            {sortDirection === 'asc' ? (
+              <ArrowUp className="h-3 w-3 text-primary" />
+            ) : sortDirection === 'desc' ? (
+              <ArrowDown className="h-3 w-3 text-primary" />
+            ) : (
+              <ArrowUpDown className="h-3 w-3 text-muted-foreground opacity-50" />
+            )}
+          </div>
+        </div>
+      ) : (
+        children
+      )}
+    </th>
+  )
+}
+
+interface TablePaginationProps {
+  totalItems: number
+  currentPage: number
+  pageSize: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
+  pageSizeOptions?: number[]
+}
+
+function TablePagination({
+  totalItems,
+  currentPage,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [10, 20, 30, 40, 50, 100],
+}: TablePaginationProps) {
+  const totalPages = Math.ceil(totalItems / pageSize)
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const endItem = Math.min(currentPage * pageSize, totalItems)
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 border-t">
+      {/* Left side: Showing X to Y of Z entries */}
+      <div className="text-sm text-muted-foreground">
+        Showing {startItem} to {endItem} of {totalItems} entries
+      </div>
+
+      {/* Right side: Show: X per page << < 1 > >> */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Show:</span>
+          <Select
+            value={pageSize.toString()}
+            onValueChange={(value) => {
+              onPageSizeChange(Number(value))
+              onPageChange(1) // Reset to first page when page size changes
+            }}
+          >
+            <SelectTrigger className="h-8 w-[70px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {pageSizeOptions.map((size) => (
+                <SelectItem key={size} value={size.toString()}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">per page</span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1}
+            className="h-8 w-8 p-0"
+            aria-label="First page"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="h-8 w-8 p-0"
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-1 px-2">
+            <span className="text-sm font-medium">{currentPage}</span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="h-8 w-8 p-0"
+            aria-label="Next page"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage >= totalPages}
+            className="h-8 w-8 p-0"
+            aria-label="Last page"
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
   return (
     <td
@@ -110,7 +269,10 @@ export {
   TableBody,
   TableFooter,
   TableHead,
+  SortableTableHead,
   TableRow,
   TableCell,
   TableCaption,
+  TablePagination,
 }
+export type { SortDirection, SortableTableHeadProps, TablePaginationProps }

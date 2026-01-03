@@ -5,6 +5,7 @@ import { API_CONFIG } from './config';
 import type {
   CreateOrganizationRequest,
   CreateOrganizationResponse,
+  Organization,
 } from './types';
 
 /**
@@ -18,7 +19,21 @@ export async function createOrganization(
     {
       method: 'POST',
       body: data,
-      requiresAuth: true, // If auth is required in future
+      requiresAuth: true,
+    }
+  );
+  return response;
+}
+
+/**
+ * Get all Organizations
+ */
+export async function getOrganizations(): Promise<Organization[]> {
+  const response = await apiRequest<Organization[]>(
+    API_CONFIG.endpoints.org.list,
+    {
+      method: 'GET',
+      requiresAuth: true,
     }
   );
   return response;
