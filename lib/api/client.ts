@@ -2,14 +2,135 @@
 
 import { API_CONFIG } from './config';
 
+/**
+ * Extract error message from various response formats
+ * Always returns a string, never an object
+ */
+function extractErrorMessage(data: any, fallback: string = 'An error occurred'): string {
+  // Ensure fallback is always a string
+  const safeFallback = typeof fallback === 'string' ? fallback : 'An error occurred';
+  
+  if (!data) return safeFallback;
+  
+  // If data is already a string, return it
+  if (typeof data === 'string') return data;
+  
+  // Try to extract from common error fields
+  const errorFields = ['detail', 'message', 'error', 'error_message', 'msg', 'description'];
+  
+  for (const field of errorFields) {
+    const value = data[field];
+    if (value !== undefined && value !== null) {
+      // If it's a string, return it immediately
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+      // If it's an array, join the messages
+      if (Array.isArray(value)) {
+        const messages = value
+          .map(item => {
+            if (typeof item === 'string') return item;
+            if (typeof item === 'object') {
+              // Recursively extract from array items
+              return extractErrorMessage(item, '');
+            }
+            return String(item);
+          })
+          .filter(msg => msg && msg.trim().length > 0);
+        if (messages.length > 0) return messages.join(', ');
+      }
+      // If it's an object, try to extract nested messages or stringify
+      if (typeof value === 'object' && value !== null) {
+        // Try to find nested string messages first
+        const nestedMessages: string[] = [];
+        const extractNested = (obj: any, depth = 0): void => {
+          if (depth > 3) return; // Prevent infinite recursion
+          if (typeof obj === 'string' && obj.trim().length > 0) {
+            nestedMessages.push(obj.trim());
+            return;
+          }
+          if (Array.isArray(obj)) {
+            obj.forEach(item => extractNested(item, depth + 1));
+            return;
+          }
+          if (typeof obj === 'object' && obj !== null) {
+            Object.values(obj).forEach(v => extractNested(v, depth + 1));
+          }
+        };
+        extractNested(value);
+        if (nestedMessages.length > 0) {
+          return nestedMessages.join(', ');
+        }
+        // Otherwise stringify the object
+        try {
+          const stringified = JSON.stringify(value, null, 2);
+          return stringified.length > 500 ? stringified.substring(0, 500) + '...' : stringified;
+        } catch {
+          return String(value);
+        }
+      }
+      // For other types, convert to string
+      const stringValue = String(value);
+      if (stringValue && stringValue !== 'null' && stringValue !== 'undefined') {
+        return stringValue;
+      }
+    }
+  }
+  
+  // If data is an array, try to extract messages from it
+  if (Array.isArray(data)) {
+    const messages = data
+      .map(item => {
+        if (typeof item === 'string') return item;
+        return extractErrorMessage(item, '');
+      })
+      .filter(msg => msg && msg.trim().length > 0);
+    if (messages.length > 0) return messages.join(', ');
+  }
+  
+  // If data is an object but no standard error fields found, stringify it
+  if (typeof data === 'object' && data !== null) {
+    try {
+      const stringified = JSON.stringify(data, null, 2);
+      return stringified.length > 500 ? stringified.substring(0, 500) + '...' : stringified;
+    } catch {
+      return String(data);
+    }
+  }
+  
+  // Final fallback - convert to string
+  const finalString = String(data);
+  return finalString && finalString !== 'null' && finalString !== 'undefined' 
+    ? finalString 
+    : safeFallback;
+}
+
 export class ApiError extends Error {
+  public status: number;
+  public detail: string;
+  public response?: Response;
+
   constructor(
-    public status: number,
-    public detail: string,
-    public response?: Response
+    status: number,
+    detail: string | any,
+    response?: Response
   ) {
-    super(detail);
+    // Ensure detail is always a string
+    let detailString: string;
+    if (typeof detail === 'string') {
+      detailString = detail;
+    } else if (detail && typeof detail === 'object') {
+      // Try to extract error message from object
+      detailString = extractErrorMessage(detail, `HTTP ${status} error`);
+    } else {
+      detailString = String(detail || `HTTP ${status} error`);
+    }
+    
+    super(detailString);
     this.name = 'ApiError';
+    this.status = status;
+    this.detail = detailString;
+    this.response = response;
   }
 }
 
@@ -236,14 +357,27 @@ export async function apiRequest<T>(
       // Extract error message from response data
       if (data) {
         if (isJson) {
-          errorMessage = data.detail || data.message || data.error || errorMessage;
+          errorMessage = extractErrorMessage(data, errorMessage);
         } else {
           errorMessage = typeof data === 'string' ? data : errorMessage;
         }
       } else {
         errorMessage = response.statusText || `HTTP ${response.status} error`;
       }
-      throw new ApiError(response.status, errorMessage, response);
+      // Ensure errorMessage is always a string - double check and convert if needed
+      let finalErrorMessage: string;
+      if (typeof errorMessage === 'string') {
+        finalErrorMessage = errorMessage;
+      } else {
+        // If somehow errorMessage is still not a string, extract it again
+        finalErrorMessage = extractErrorMessage(errorMessage, `HTTP ${response.status} error`);
+      }
+      // Final safety check - if still not a string, use a default message
+      if (typeof finalErrorMessage !== 'string') {
+        console.warn('Error message extraction failed, using default:', { data, errorMessage, finalErrorMessage });
+        finalErrorMessage = `HTTP ${response.status} error: ${response.statusText || 'Unknown error'}`;
+      }
+      throw new ApiError(response.status, finalErrorMessage, response);
     }
 
     return data as T;

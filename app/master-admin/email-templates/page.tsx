@@ -202,17 +202,30 @@ export default function EmailTemplatesPage() {
       setCreateDialogOpen(false)
       fetchTemplates()
     } catch (error) {
-      console.error('Error saving template:', error)
+      // Enhanced error logging
       if (error instanceof ApiError) {
+        console.error('Error saving template:', {
+          status: error.status,
+          detail: error.detail,
+          message: error.message,
+          error: error
+        });
+        const errorMessage = typeof error.detail === 'string' 
+          ? error.detail 
+          : (error.detail ? JSON.stringify(error.detail) : error.message) || "Failed to save template";
         toast({
           title: "Error",
-          description: error.detail || "Failed to save template",
+          description: errorMessage,
           variant: "destructive",
         })
       } else {
+        console.error('Error saving template:', error);
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : (error ? String(error) : "Failed to save template. Please try again.");
         toast({
           title: "Error",
-          description: "Failed to save template. Please try again.",
+          description: errorMessage,
           variant: "destructive",
         })
       }
