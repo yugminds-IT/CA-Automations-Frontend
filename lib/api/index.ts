@@ -50,6 +50,7 @@ export {
   refreshTokenAsMasterAdmin,
   logout,
   isAuthenticated,
+  restoreAutoLogoutTimer,
 } from './auth';
 
 // Organization APIs

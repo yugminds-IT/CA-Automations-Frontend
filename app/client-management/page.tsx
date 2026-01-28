@@ -57,62 +57,109 @@ export default function ClientManagementPage() {
     localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString())
   }, [sidebarCollapsed])
 
-  // Fetch enums on mount
+  // Check authentication first
   useEffect(() => {
+    const checkAuth = () => {
+      try {
+        if (!isAuthenticated()) {
+          router.replace("/login")
+          return
+        }
+        setIsCheckingAuth(false)
+      } catch (error) {
+        console.error('Error checking authentication:', error)
+        // If auth check fails, assume not authenticated
+        router.replace("/login")
+      }
+    }
+    
+    checkAuth()
+    
+    // Fallback: if auth check takes too long, stop loading
+    const timeout = setTimeout(() => {
+      setIsCheckingAuth(false)
+    }, 2000)
+    
+    return () => clearTimeout(timeout)
+  }, [router])
+
+  // Fetch enums on mount (after auth check)
+  useEffect(() => {
+    // Don't fetch if still checking auth or not authenticated
+    if (isCheckingAuth) {
+      return
+    }
+    
+    if (!isAuthenticated()) {
+      return
+    }
+
+    let isMounted = true
+
     const fetchEnums = async () => {
       try {
         setIsLoadingEnums(true)
         
-        // Fetch all enums in parallel
+        // Fetch all enums in parallel for better performance
+        // Add timeout wrapper to prevent hanging
+        const fetchWithTimeout = async <T,>(promise: Promise<T>, timeoutMs: number = 10000): Promise<T> => {
+          const timeout = new Promise<T>((_, reject) => {
+            setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+          })
+          return Promise.race([promise, timeout])
+        }
+        
         const [statusResponse, businessTypeResponse, servicesResponse] = await Promise.all([
-          getClientStatusEnum(),
-          getBusinessTypeEnum(),
-          getServices(),
+          fetchWithTimeout(getClientStatusEnum()),
+          fetchWithTimeout(getBusinessTypeEnum()),
+          fetchWithTimeout(getServices()),
         ])
 
-        // Extract values from enum responses
-        setStatusOptions(statusResponse.values || [])
-        setBusinessTypes(businessTypeResponse.values || [])
-        
-        // Extract service names from services response
-        const serviceNames = servicesResponse.services?.map(service => service.name) || []
-        setServices(serviceNames)
+        // Only update state if component is still mounted
+        if (isMounted) {
+          // Extract values from enum responses
+          setStatusOptions(statusResponse.values || [])
+          setBusinessTypes(businessTypeResponse.values || [])
+          
+          // Extract service names from services response
+          const serviceNames = servicesResponse.services?.map((service: { name: string }) => service.name) || []
+          setServices(serviceNames)
+        }
       } catch (error) {
         console.error('Error fetching enums:', error)
-        // Set empty arrays on error to prevent UI issues
-        setStatusOptions([])
-        setBusinessTypes([])
-        setServices([])
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          // Set empty arrays on error to prevent UI issues
+          setStatusOptions([])
+          setBusinessTypes([])
+          setServices([])
 
-        // If we hit auth errors, send user to login
-        if (error instanceof ApiError && error.status === 401) {
-          router.replace("/login")
-        } else {
-          // Error toast will be handled by the ClientTab component
+          // If we hit auth errors, send user to login
+          if (error instanceof ApiError && error.status === 401) {
+            router.replace("/login")
+          } else {
+            // Error toast will be handled by the ClientTab component
+            // But still show the page with empty arrays so user can see something
+          }
         }
       } finally {
-        setIsLoadingEnums(false)
+        if (isMounted) {
+          setIsLoadingEnums(false)
+        }
       }
     }
 
-    // Guard: don't call protected APIs when logged out
-    if (!isAuthenticated()) {
-      router.replace("/login")
-      return
-    }
-
-    setIsCheckingAuth(false)
     fetchEnums()
-  }, [router])
+    
+    return () => {
+      isMounted = false
+    }
+  }, [router, isCheckingAuth])
+  
+  // Show page immediately, even while enums are loading
+  // This prevents the page from appearing completely blank
 
-  // Show loading state while redirecting/checking auth
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
-  }
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed)
@@ -145,17 +192,11 @@ export default function ClientManagementPage() {
           }}
         >
           <div className="w-full max-w-full">
-            {isLoadingEnums ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-muted-foreground">Loading...</div>
-              </div>
-            ) : (
-              <ClientManagement 
-                statusOptions={statusOptions}
-                businessTypes={businessTypes}
-                services={services}
-              />
-            )}
+            <ClientManagement 
+              statusOptions={statusOptions}
+              businessTypes={businessTypes}
+              services={services}
+            />
           </div>
         </div>
       </div>

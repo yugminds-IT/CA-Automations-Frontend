@@ -7,6 +7,14 @@ import { ArrowLeft } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import type { Client } from './client_tab'
 import { DirectorsTab, type Director } from './director_info/directors_tab'
 import { EmailSetup } from './director_info/email-setup'
@@ -201,39 +209,43 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs sm:text-sm overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <button
+      <div className="flex items-center gap-4">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink
+                onClick={() => router.push('/client-management')}
+                className="cursor-pointer hover:text-foreground"
+              >
+                Client Management
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Client Details</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => router.push('/client-management')}
-          className="text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap flex-shrink-0"
+          className="flex items-center gap-2"
         >
-          Client Management
-        </button>
-        <span className="text-muted-foreground flex-shrink-0">/</span>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/client-management')}
-            className="h-6 w-6 p-0 text-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-foreground font-medium whitespace-nowrap">Client Details</span>
-        </div>
+          <ArrowLeft className="h-4 w-4" />
+          <span className="hidden sm:inline">Back</span>
+        </Button>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="directors" className="w-full">
         <div className="w-full sm:w-[60%] overflow-x-auto sm:overflow-x-visible" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <TabsList className="inline-flex w-max min-w-full sm:grid sm:w-full sm:grid-cols-4 sm:min-w-0 h-auto p-0 gap-0 border-b border-border">
+          <TabsList className="inline-flex w-max min-w-full sm:grid sm:w-full sm:grid-cols-3 sm:min-w-0 h-auto p-0 gap-0 border-b border-border">
             <TabsTrigger value="directors" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
               Directors List
             </TabsTrigger>
             <TabsTrigger value="login" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
               Client Login
-            </TabsTrigger>
-            <TabsTrigger value="email" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
-              Email Setup
             </TabsTrigger>
             <TabsTrigger value="files" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
               Files
@@ -251,7 +263,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
         </TabsContent>
 
         {/* Client Login Tab */}
-        <TabsContent value="login" className="mt-4 -mx-4 sm:mx-0 px-4 sm:px-0">
+        <TabsContent value="login" className="mt-4 -mx-4 sm:mx-0 px-4 sm:px-0 space-y-6">
           <ClientLoginTab 
             clientName={client?.name || ''}
             initialLogins={initialLogins}
@@ -296,10 +308,8 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
               }
             }}
           />
-        </TabsContent>
-
-        {/* Email Setup Tab */}
-        <TabsContent value="email" className="mt-4 -mx-4 sm:mx-0 px-4 sm:px-0">
+          
+          {/* Email Setup below Client Login */}
           <EmailSetup 
             clientId={clientId}
             clientName={client?.companyName || ''}

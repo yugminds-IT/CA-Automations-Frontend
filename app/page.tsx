@@ -17,7 +17,7 @@ import { Header } from "@/components/header"
 import { Dashboard } from "./pages/dashboard"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getUserData, isAuthenticated, isMasterAdminUser } from "@/lib/api/index"
+import { getUserData, isAuthenticated, isMasterAdminUser, restoreAutoLogoutTimer } from "@/lib/api/index"
 import { UserRole } from "@/lib/api/types"
 
 export default function Home() {
@@ -33,6 +33,10 @@ export default function Home() {
       router.replace("/login")
       return
     }
+    
+    // Restore auto-logout timer on page load/refresh
+    restoreAutoLogoutTimer()
+    
     const user = getUserData()
     const role = user?.role ? String(user.role).toLowerCase() : null
     

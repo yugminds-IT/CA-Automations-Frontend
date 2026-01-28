@@ -31,6 +31,7 @@ import {
   type EmailTemplate, 
   EmailTemplateCategory,
   type EmailConfig as EmailConfigType,
+  type DateType,
   ApiError,
 } from '@/lib/api/index'
 import { format } from 'date-fns'
@@ -42,8 +43,6 @@ export interface EmailSchedule {
   scheduledTime?: string
 }
 
-export type DateType = 'all' | 'range' | 'single'
-
 export interface ServiceEmailConfig {
   enabled: boolean
   templateId?: number | null
@@ -52,6 +51,7 @@ export interface ServiceEmailConfig {
   scheduledDate?: Date | null
   scheduledDateFrom?: Date | null
   scheduledDateTo?: Date | null
+  scheduledDates?: Date[] // Multiple specific dates for date range
   scheduledTimes?: string[] // Multiple time slots
 }
 
@@ -97,6 +97,8 @@ export function EmailSetup({
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [newEmail, setNewEmail] = useState('')
+  // Track which emails are selected for sending
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
 
   // Fetch email templates and config on mount
   useEffect(() => {
@@ -159,17 +161,34 @@ export function EmailSetup({
           emails: config.emails,
           emailTemplates: config.emailTemplates,
           services: Object.fromEntries(
-            Object.entries(config.services).map(([key, service]) => [
-              key,
-              {
-                ...service,
-                scheduledDate: parseDate(service.scheduledDate),
-                scheduledDateFrom: parseDate(service.scheduledDateFrom),
-                scheduledDateTo: parseDate(service.scheduledDateTo),
-              },
-            ])
+            Object.entries(config.services).map(([key, service]) => {
+              // Parse scheduledDates array if it exists
+              let scheduledDates: Date[] | undefined = undefined
+              if (service.scheduledDates && Array.isArray(service.scheduledDates)) {
+                scheduledDates = service.scheduledDates
+                  .map((dateStr: string | Date) => {
+                    if (dateStr instanceof Date) return dateStr
+                    return parseDate(dateStr)
+                  })
+                  .filter((date): date is Date => date !== null)
+              }
+              
+              return [
+                key,
+                {
+                  ...service,
+                  scheduledDate: parseDate(service.scheduledDate),
+                  scheduledDateFrom: parseDate(service.scheduledDateFrom),
+                  scheduledDateTo: parseDate(service.scheduledDateTo),
+                  scheduledDates,
+                },
+              ]
+            })
           ),
         }
+        
+        // Initialize selected emails - select all by default when loading config
+        setSelectedEmails(new Set(config.emails))
         console.log('Loaded email config from API:', {
           services: Object.fromEntries(
             Object.entries(transformedConfig.services).map(([key, service]) => [
@@ -239,6 +258,9 @@ export function EmailSetup({
       }
     }))
     
+    // Auto-select newly added email for sending
+    setSelectedEmails(prev => new Set([...prev, email]))
+    
     setNewEmail('')
   }
 
@@ -257,6 +279,13 @@ export function EmailSetup({
     
     setEmailConfig(updatedConfig)
     
+    // Remove from selected emails
+    setSelectedEmails(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(emailToRemove)
+      return newSet
+    })
+    
     // Delete email from database using dedicated DELETE endpoint
     if (clientId) {
       try {
@@ -273,11 +302,12 @@ export function EmailSetup({
         
         let errorMessage = 'Failed to remove email from database'
         if (error instanceof ApiError) {
-          const detail = error.detail
+          const detail = error.detail as any
           if (typeof detail === 'string') {
             errorMessage = detail
           } else if (detail && typeof detail === 'object') {
-            errorMessage = detail.detail || detail.message || JSON.stringify(detail)
+            const detailObj = detail as Record<string, any>
+            errorMessage = detailObj.detail || detailObj.message || JSON.stringify(detail)
           }
         } else if (error?.message) {
           errorMessage = error.message
@@ -377,6 +407,7 @@ export function EmailSetup({
             scheduledDate: null,
             scheduledDateFrom: null,
             scheduledDateTo: null,
+            scheduledDates: dateType === 'range_multiple' ? [] : undefined,
           }
         }
       }
@@ -483,6 +514,34 @@ export function EmailSetup({
     })
   }
 
+  const handleScheduleDatesChange = (templateId: number, dates: Date[] | undefined) => {
+    const templateIdStr = templateId.toString()
+    const template = templates.find(t => t.id === templateId)
+    setEmailConfig(prev => {
+      const existingService = prev.services[templateIdStr]
+      return {
+        ...prev,
+        services: {
+          ...prev.services,
+          [templateIdStr]: {
+            ...(existingService || {
+              enabled: true,
+              templateId,
+              templateName: template?.name || undefined,
+              dateType: 'range',
+              scheduledTimes: [],
+            }),
+            scheduledDates: dates || [],
+            // Clear range dates when multiple dates are set
+            scheduledDateFrom: null,
+            scheduledDateTo: null,
+            scheduledDate: null,
+          }
+        }
+      }
+    })
+  }
+
   const handleAddTime = (templateId: number) => {
     const templateIdStr = templateId.toString()
     const template = templates.find(t => t.id === templateId)
@@ -581,11 +640,11 @@ export function EmailSetup({
       
       let errorMessage = 'Failed to delete email configuration'
       if (error instanceof ApiError) {
-        const detail = error.detail
+        const detail: any = error.detail
         if (typeof detail === 'string') {
           errorMessage = detail
         } else if (detail && typeof detail === 'object') {
-          errorMessage = detail.detail || detail.message || JSON.stringify(detail)
+          errorMessage = (detail as Record<string, any>).detail || (detail as Record<string, any>).message || JSON.stringify(detail)
         }
       } else if (error?.message) {
         errorMessage = error.message
@@ -601,11 +660,33 @@ export function EmailSetup({
     }
   }
 
+  const handleToggleEmailSelection = (email: string) => {
+    setSelectedEmails(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(email)) {
+        newSet.delete(email)
+      } else {
+        newSet.add(email)
+      }
+      return newSet
+    })
+  }
+
   const handleSave = async () => {
     if (emailConfig.emails.length === 0) {
       toast({
         title: 'Validation Error',
         description: 'Please add at least one email address',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Check if at least one email is selected
+    if (selectedEmails.size === 0) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select at least one email address to send mail to',
         variant: 'destructive',
       })
       return
@@ -636,6 +717,15 @@ export function EmailSetup({
           return
         }
         
+        if (dateType === 'range_multiple' && (!service.scheduledDates || service.scheduledDates.length === 0)) {
+          toast({
+            title: 'Validation Error',
+            description: `Please select at least one date for ${template?.name || 'selected service'}`,
+            variant: 'destructive',
+          })
+          return
+        }
+        
         // Validate times (skip for 'all' if no times set, but validate if times are set)
         if (dateType !== 'all' && (!service.scheduledTimes || service.scheduledTimes.length === 0 || service.scheduledTimes.some(t => !t))) {
           toast({
@@ -659,9 +749,18 @@ export function EmailSetup({
 
     setIsSaving(true)
     try {
-      // Get all selected template IDs from all emails
+      // Filter to only include selected emails
+      const selectedEmailsArray = Array.from(selectedEmails)
+      const filteredEmailTemplates: Record<string, EmailTemplateSelection> = {}
+      selectedEmailsArray.forEach(email => {
+        if (emailConfig.emailTemplates[email]) {
+          filteredEmailTemplates[email] = emailConfig.emailTemplates[email]
+        }
+      })
+
+      // Get all selected template IDs from selected emails only
       const selectedTemplateIds = new Set<number>()
-      Object.values(emailConfig.emailTemplates).forEach(emailTemplate => {
+      Object.values(filteredEmailTemplates).forEach(emailTemplate => {
         emailTemplate.selectedTemplates.forEach(templateId => {
           selectedTemplateIds.add(templateId)
         })
@@ -685,23 +784,32 @@ export function EmailSetup({
             const templateId = parseInt(templateIdStr)
             return selectedTemplateIds.has(templateId)
           })
-          .map(([key, service]) => [
-            key,
-            {
+          .map(([key, service]) => {
+            const formattedService: any = {
               ...service,
               // Only include date fields if they are actually set (not null/undefined)
               scheduledDate: formatDate(service.scheduledDate),
               scheduledDateFrom: formatDate(service.scheduledDateFrom),
               scheduledDateTo: formatDate(service.scheduledDateTo),
-            },
-          ])
+            }
+            
+            // Format scheduledDates array for range_multiple
+            if (service.dateType === 'range_multiple' && service.scheduledDates && service.scheduledDates.length > 0) {
+              formattedService.scheduledDates = service.scheduledDates
+                .map(date => formatDate(date))
+                .filter((date): date is string => date !== null)
+            }
+            
+            return [key, formattedService]
+          })
       )
       
       // Convert Date objects to ISO date strings for API
       // Ensure we're using the current state values, not stale data
+      // Only include selected emails in the configuration
       const apiConfig: EmailConfigType = {
-        emails: emailConfig.emails,
-        emailTemplates: emailConfig.emailTemplates,
+        emails: selectedEmailsArray,
+        emailTemplates: filteredEmailTemplates,
         services: filteredServices,
       }
       
@@ -767,29 +875,95 @@ export function EmailSetup({
         emails: savedConfig.emails,
         emailTemplates: savedConfig.emailTemplates,
         services: Object.fromEntries(
-          Object.entries(savedConfig.services).map(([key, service]) => [
-            key,
-            {
-              ...service,
-              scheduledDate: service.scheduledDate ? new Date(service.scheduledDate) : null,
-              scheduledDateFrom: service.scheduledDateFrom ? new Date(service.scheduledDateFrom) : null,
-              scheduledDateTo: service.scheduledDateTo ? new Date(service.scheduledDateTo) : null,
-            },
-          ])
+          Object.entries(savedConfig.services).map(([key, service]) => {
+            // Parse scheduledDates array if it exists
+            let scheduledDates: Date[] | undefined = undefined
+            if (service.scheduledDates && Array.isArray(service.scheduledDates)) {
+              const parseDate = (dateString: string | null | undefined): Date | null => {
+                if (!dateString) return null
+                const [year, month, day] = dateString.split('-').map(Number)
+                if (isNaN(year) || isNaN(month) || isNaN(day)) return null
+                const date = new Date(year, month - 1, day)
+                if (isNaN(date.getTime())) return null
+                return date
+              }
+              scheduledDates = service.scheduledDates
+                .map((dateStr: string) => parseDate(dateStr))
+                .filter((date): date is Date => date !== null)
+            }
+            
+            return [
+              key,
+              {
+                ...service,
+                scheduledDate: service.scheduledDate ? new Date(service.scheduledDate) : null,
+                scheduledDateFrom: service.scheduledDateFrom ? new Date(service.scheduledDateFrom) : null,
+                scheduledDateTo: service.scheduledDateTo ? new Date(service.scheduledDateTo) : null,
+                scheduledDates,
+              },
+            ]
+          })
         ),
       }
 
       // Update local state with saved config
       setEmailConfig(transformedConfig)
 
+      // Reset schedule emails after saving - create config with cleared schedules
+      const resetConfig: EmailConfig = {
+        ...transformedConfig,
+        services: Object.fromEntries(
+          Object.entries(transformedConfig.services).map(([key, service]) => [
+            key,
+            {
+              ...service,
+              scheduledDate: null,
+              scheduledDateFrom: null,
+              scheduledDateTo: null,
+              scheduledDates: [],
+              scheduledTimes: [],
+            },
+          ])
+        ),
+      }
+
+      // Save the reset config to backend
+      const resetApiConfig: EmailConfigType = {
+        emails: resetConfig.emails,
+        emailTemplates: resetConfig.emailTemplates,
+        services: Object.fromEntries(
+          Object.entries(resetConfig.services).map(([key, service]) => [
+            key,
+            {
+              ...service,
+              scheduledDate: null,
+              scheduledDateFrom: null,
+              scheduledDateTo: null,
+              scheduledDates: [],
+              scheduledTimes: [],
+            },
+          ])
+        ),
+      }
+
+      // Update the backend with reset schedules
+      try {
+        await updateEmailConfig(clientId, resetApiConfig)
+        setEmailConfig(resetConfig)
+      } catch (error) {
+        console.error('Error resetting schedules:', error)
+        // Still update local state even if backend update fails
+        setEmailConfig(resetConfig)
+      }
+
       // Call optional onSave callback
       if (onSave) {
-        await onSave(transformedConfig)
+        await onSave(resetConfig)
       }
 
       toast({
         title: 'Success',
-        description: 'Email configuration saved successfully',
+        description: 'Email configuration saved successfully. Schedule emails have been reset.',
         variant: 'success',
       })
     } catch (error: any) {
@@ -800,14 +974,15 @@ export function EmailSetup({
       let errorMessage = 'Failed to save email configuration'
       
       if (error instanceof ApiError) {
-        const detail = error.detail
+        const detail = error.detail as any // ApiError.detail is typed as string but can be object at runtime
         if (typeof detail === 'string') {
           errorMessage = detail
         } else if (detail && typeof detail === 'object') {
           // If detail is an object, try to extract a meaningful message
-          if (detail.errors && typeof detail.errors === 'object') {
+          const detailObj = detail as Record<string, any>
+          if (detailObj.errors && typeof detailObj.errors === 'object') {
             // Handle validation errors object
-            const errorMessages = Object.entries(detail.errors)
+            const errorMessages = Object.entries(detailObj.errors)
               .map(([key, value]) => {
                 if (Array.isArray(value)) {
                   return `${key}: ${value.join(', ')}`
@@ -815,9 +990,9 @@ export function EmailSetup({
                 return `${key}: ${String(value)}`
               })
               .join('; ')
-            errorMessage = errorMessages || detail.detail || String(detail)
+            errorMessage = errorMessages || detailObj.detail || String(detail)
           } else {
-            errorMessage = detail.detail || detail.message || JSON.stringify(detail)
+            errorMessage = detailObj.detail || detailObj.message || JSON.stringify(detail)
           }
         } else {
           errorMessage = error.message || `Server error (${error.status})`
@@ -856,7 +1031,13 @@ export function EmailSetup({
   }
 
   // Group templates by category
-  const templatesByCategory = templates.reduce((acc, template) => {
+  // Filter to show only login templates
+  const loginTemplates = templates.filter(template => 
+    template.category === EmailTemplateCategory.LOGIN || 
+    template.name.toLowerCase().includes('login')
+  )
+  
+  const templatesByCategory = loginTemplates.reduce((acc, template) => {
     if (!acc[template.category]) {
       acc[template.category] = []
     }
@@ -923,7 +1104,7 @@ export function EmailSetup({
         <CardHeader>
           <CardTitle className="text-sm md:text-base">1. Add Email Addresses</CardTitle>
           <CardDescription className="text-xs">
-            Add email addresses where automated emails will be sent
+            Add email addresses and select which ones should receive automated emails
           </CardDescription>
       </CardHeader>
         <CardContent className="space-y-4">
@@ -963,9 +1144,14 @@ export function EmailSetup({
                     className="group p-3 md:p-4 border border-border rounded-md bg-card hover:bg-muted/50 transition-all"
               >
                     <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-                      {/* Email Address */}
+                      {/* Email Address with Selection Checkbox */}
                       <div className="flex items-center justify-between gap-2 flex-shrink-0">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Checkbox
+                            checked={selectedEmails.has(email)}
+                            onCheckedChange={() => handleToggleEmailSelection(email)}
+                            className="h-4 w-4 shrink-0"
+                          />
                           <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
                           <span className="text-xs md:text-sm font-medium truncate">{email}</span>
                           {selectedTemplates.length > 0 && (
@@ -1064,6 +1250,7 @@ export function EmailSetup({
                         scheduledDate: null,
                         scheduledDateFrom: null,
                         scheduledDateTo: null,
+                        scheduledDates: [],
                         scheduledTimes: [],
                       }
 
@@ -1097,7 +1284,8 @@ export function EmailSetup({
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="all">All Dates</SelectItem>
-                                    <SelectItem value="range">Date Range</SelectItem>
+                                    <SelectItem value="range">Date Range (From - To)</SelectItem>
+                                    <SelectItem value="range_multiple">Multiple Specific Dates</SelectItem>
                                     <SelectItem value="single">Single Date</SelectItem>
                                   </SelectContent>
                                 </Select>
@@ -1171,6 +1359,47 @@ export function EmailSetup({
                                       </PopoverContent>
                                     </Popover>
                                   </div>
+                                </div>
+                              )}
+
+                              {dateType === 'range_multiple' && (
+                                <div className="w-full space-y-2">
+                                  <Label className="text-xs text-muted-foreground mb-1 block">Select Multiple Dates</Label>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left font-normal h-9 text-xs md:text-sm"
+                                      >
+                                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                                        {service.scheduledDates && service.scheduledDates.length > 0 ? (
+                                          <span>{service.scheduledDates.length} date{service.scheduledDates.length !== 1 ? 's' : ''} selected</span>
+                                        ) : (
+                                          <span className="text-muted-foreground">Select dates</span>
+                                        )}
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                      <Calendar
+                                        mode="multiple"
+                                        selected={service.scheduledDates || []}
+                                        onSelect={(dates) => handleScheduleDatesChange(template.id, dates)}
+                                        disabled={(date) => isBeforeToday(date)}
+                                        initialFocus
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                  {service.scheduledDates && service.scheduledDates.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                      {service.scheduledDates
+                                        .sort((a, b) => a.getTime() - b.getTime())
+                                        .map((date, idx) => (
+                                          <Badge key={idx} variant="secondary" className="text-xs">
+                                            {format(date, 'MMM dd, yyyy')}
+                                          </Badge>
+                                        ))}
+                                    </div>
+                                  )}
                                 </div>
                               )}
 

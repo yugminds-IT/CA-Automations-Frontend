@@ -49,7 +49,10 @@ import type { Client } from './client_tab'
 const clientOnboardSchema = z.object({
   name: z.string().min(2, 'Client name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
-  phone: z.string().min(10, 'Please enter a valid phone number'),
+  phone: z.string().optional().or(z.literal('')).refine(
+    (val) => !val || val === '' || val.length >= 10,
+    'Please enter a valid phone number (at least 10 digits)'
+  ),
   companyName: z.string().min(2, 'Company name must be at least 2 characters'),
   panNumber: z
     .string()
@@ -67,16 +70,17 @@ const clientOnboardSchema = z.object({
     ),
   businessType: z.string().min(1, 'Please select a business type'),
   customBusinessType: z.string().optional(),
-  status: z.string().min(1, 'Please select a status'),
-  addressLine1: z.string().min(5, 'Address must be at least 5 characters'),
-  city: z.string().min(2, 'City must be at least 2 characters'),
-  state: z.string().min(2, 'State must be at least 2 characters'),
-  country: z.string().min(2, 'Country must be at least 2 characters'),
-  pincode: z.string().regex(/^[0-9]{6}$/, 'Pincode must be 6 digits'),
-  directories: z.array(z.string()).min(1, 'Please select at least one service'),
-  onboardDate: z.date({
-    required_error: 'Onboard date is required',
-  }),
+  status: z.string().optional(),
+  addressLine1: z.string().optional().or(z.literal('')),
+  city: z.string().optional().or(z.literal('')),
+  state: z.string().optional().or(z.literal('')),
+  country: z.string().optional().or(z.literal('')),
+  pincode: z.string().optional().or(z.literal('')).refine(
+    (val) => !val || val === '' || /^[0-9]{6}$/.test(val),
+    'Pincode must be 6 digits'
+  ),
+  directories: z.array(z.string()).optional().default([]),
+  onboardDate: z.date().optional().nullable(),
   followUpDate: z.date().optional().nullable(),
   notes: z.string().optional(),
   directors: z.array(z.object({
@@ -157,10 +161,10 @@ export function ClientOnboardForm({
       addressLine1: defaultValues?.addressLine1 || '',
       city: defaultValues?.city || '',
       state: defaultValues?.state || '',
-      country: defaultValues?.country || 'India',
+      country: defaultValues?.country || '',
       pincode: defaultValues?.pincode || '',
       directories: defaultValues?.directories || [],
-      onboardDate: defaultValues?.onboardDate || new Date(),
+      onboardDate: defaultValues?.onboardDate || null,
       followUpDate: defaultValues?.followUpDate || null,
       notes: defaultValues?.notes || '',
       directors: defaultValues?.directors || [],
@@ -219,22 +223,22 @@ export function ClientOnboardForm({
       } = {
         name: data.name,
         email: data.email,
-        phone: data.phone,
+        phone: (data.phone && data.phone.trim() !== '') ? data.phone : null,
         companyName: data.companyName,
-        directories: data.directories,
+        directories: data.directories || [],
         followUpDate: data.followUpDate ? format(data.followUpDate, 'yyyy-MM-dd') : null,
-        onboardDate: format(data.onboardDate, 'yyyy-MM-dd'),
-        status: data.status,
-        panNumber: data.panNumber,
-        gstNumber: data.gstNumber,
+        status: (data.status && data.status.trim() !== '') ? data.status : undefined,
+        panNumber: (data.panNumber && data.panNumber.trim() !== '') ? data.panNumber : undefined,
+        gstNumber: (data.gstNumber && data.gstNumber.trim() !== '') ? data.gstNumber : undefined,
         businessType: finalBusinessType,
-        address: data.addressLine1,
-        city: data.city,
-        state: data.state,
-        country: data.country,
-        pincode: data.pincode,
-        notes: data.notes,
+        address: (data.addressLine1 && data.addressLine1.trim() !== '') ? data.addressLine1 : undefined,
+        city: (data.city && data.city.trim() !== '') ? data.city : undefined,
+        state: (data.state && data.state.trim() !== '') ? data.state : undefined,
+        country: (data.country && data.country.trim() !== '') ? data.country : undefined,
+        pincode: (data.pincode && data.pincode.trim() !== '') ? data.pincode : undefined,
+        notes: (data.notes && data.notes.trim() !== '') ? data.notes : undefined,
         directors: allDirectors,
+        onboardDate: data.onboardDate ? format(data.onboardDate, 'yyyy-MM-dd') : null,
       }
 
       if (onSubmit) {
@@ -407,7 +411,7 @@ export function ClientOnboardForm({
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone Number *</FormLabel>
+                      <FormLabel>Phone Number</FormLabel>
                       <FormControl>
                         <Input type="tel" placeholder="+91 9876543210" {...field} />
                       </FormControl>
@@ -630,11 +634,11 @@ export function ClientOnboardForm({
                   name="status"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Status *</FormLabel>
+                      <FormLabel>Status</FormLabel>
                       <Select 
                         onValueChange={field.onChange} 
                         defaultValue={field.value}
-                        value={field.value}
+                        value={field.value || ''}
                         disabled={clientStatuses.length === 0}
                       >
                         <FormControl>
@@ -676,7 +680,7 @@ export function ClientOnboardForm({
                   name="addressLine1"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5">
-                      <FormLabel>Address *</FormLabel>
+                      <FormLabel>Address</FormLabel>
                       <FormControl>
                         <Input placeholder="Street address, Building name" {...field} />
                       </FormControl>
@@ -692,7 +696,7 @@ export function ClientOnboardForm({
                   name="city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>City *</FormLabel>
+                      <FormLabel>City</FormLabel>
                       <FormControl>
                         <Input placeholder="Mumbai" {...field} />
                       </FormControl>
@@ -706,7 +710,7 @@ export function ClientOnboardForm({
                   name="state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>State *</FormLabel>
+                      <FormLabel>State</FormLabel>
                       <FormControl>
                         <Input placeholder="Maharashtra" {...field} />
                       </FormControl>
@@ -720,7 +724,7 @@ export function ClientOnboardForm({
                   name="country"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Country *</FormLabel>
+                      <FormLabel>Country</FormLabel>
                       <FormControl>
                         <Input placeholder="India" {...field} />
                       </FormControl>
@@ -734,7 +738,7 @@ export function ClientOnboardForm({
                   name="pincode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Pincode *</FormLabel>
+                      <FormLabel>Pincode</FormLabel>
                       <FormControl>
                         <Input 
                           placeholder="400001" 
@@ -755,7 +759,7 @@ export function ClientOnboardForm({
 
             {/* Services Section */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Services *</h3>
+              <h3 className="text-sm font-semibold">Services</h3>
               
               <FormField
                 control={form.control}
@@ -965,7 +969,7 @@ export function ClientOnboardForm({
                   name="onboardDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col sm:col-span-1 md:col-span-1 lg:col-span-2 xl:col-span-2">
-                      <FormLabel>Onboard Date *</FormLabel>
+                      <FormLabel>Onboard Date</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -979,7 +983,7 @@ export function ClientOnboardForm({
                               {field.value ? (
                                 format(field.value, 'PPP')
                               ) : (
-                                <span>Pick a date</span>
+                                <span>Pick a date (optional)</span>
                               )}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
@@ -988,7 +992,7 @@ export function ClientOnboardForm({
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
-                            selected={field.value}
+                            selected={field.value || undefined}
                             onSelect={field.onChange}
                             disabled={(date) =>
                               date > new Date() || date < new Date('1900-01-01')

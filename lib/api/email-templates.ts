@@ -136,6 +136,8 @@ export const TEMPLATE_VARIABLES = {
   
   // Date variables
   CURRENT_DATE: '{{current_date}}',
+  DATE: '{{date}}',
+  TODAY: '{{today}}',
   DEADLINE_DATE: '{{deadline_date}}',
   FOLLOW_UP_DATE: '{{follow_up_date}}',
   

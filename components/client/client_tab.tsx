@@ -409,11 +409,25 @@ export function ClientTab({
   // Fetch clients from API if useApi is true
   useEffect(() => {
     if (useApi) {
-      console.log('useApi is true, fetching clients and services')
+      console.log('useApi is true, fetching clients')
       fetchClients()
-      fetchServices()
+      // Only fetch services if not provided externally (avoid duplicate API call)
+      if (externalServices.length === 0) {
+        fetchServices()
+      } else {
+        // Use external services - map to Service format
+        setApiServices(externalServices.map(name => ({ id: 0, name } as Service)))
+      }
     }
-  }, [useApi, fetchClients, fetchServices])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useApi, fetchClients])
+  
+  // Update services when external services change (if using API)
+  useEffect(() => {
+    if (useApi && externalServices.length > 0) {
+      setApiServices(externalServices.map(name => ({ id: 0, name } as Service)))
+    }
+  }, [useApi, externalServices])
 
   // Determine which clients and loading state to use
   const clients = useApi ? apiClients : externalClients

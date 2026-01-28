@@ -21,6 +21,7 @@ import {
   Upload,
   Mail,
 } from "lucide-react"
+import { Send } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
@@ -56,6 +57,7 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
       : [
           { icon: LayoutDashboard, label: "Dashboard", path: "/" },
           { icon: Users, label: "Client Management", path: "/client-management" },
+          { icon: Send, label: "Mail Scheduler", path: "/all-clients-mail-setup" },
           { icon: Mail, label: "Email Templates", path: "/email-templates" },
           { icon: Bell, label: "Notifications", path: "/notifications" },
           { icon: Settings, label: "Settings", path: "/settings" },

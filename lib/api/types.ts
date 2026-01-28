@@ -232,7 +232,7 @@ export interface EnumResponse {
 }
 
 // Email Configuration Types
-export type DateType = 'all' | 'range' | 'single';
+export type DateType = 'all' | 'range' | 'range_multiple' | 'single';
 
 export interface EmailTemplateSelection {
   email: string;
@@ -247,6 +247,7 @@ export interface ServiceEmailConfig {
   scheduledDate?: string | null; // ISO date string
   scheduledDateFrom?: string | null; // ISO date string
   scheduledDateTo?: string | null; // ISO date string
+  scheduledDates?: string[]; // Array of ISO date strings for multiple dates in date range
   scheduledTimes?: string[]; // Array of times in HH:mm format
 }
 

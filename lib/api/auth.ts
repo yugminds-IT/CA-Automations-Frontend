@@ -1,6 +1,6 @@
 // Authentication API Functions
 
-import { apiRequest, setTokens, clearTokens, getRefreshToken, getAccessToken, setUserData, setOrganizationData, getUserData, setTokenExpiration, ApiError } from './client';
+import { apiRequest, setTokens, clearTokens, getRefreshToken, getAccessToken, setUserData, setOrganizationData, getUserData, setTokenExpiration, getTokenExpiration, isTokenExpired, clearTokenExpiration, ApiError } from './client';
 import { API_CONFIG } from './config';
 import { UserRole } from './types';
 import type {
@@ -70,6 +70,12 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     
     // Auto-store tokens only after validation
     setTokens(response.access_token, response.refresh_token);
+    
+    // Store token expiration time and set auto-logout timer
+    if (response.expires_in) {
+      setTokenExpiration(response.expires_in);
+      setupAutoLogoutTimer(response.expires_in);
+    }
     
     // Store user and organization data
     if (response.user) {
@@ -335,6 +341,36 @@ export function setupAutoLogoutTimer(expiresIn: number): void {
 }
 
 /**
+ * Restore auto-logout timer on page load/refresh
+ * Calculates remaining time until token expiration and sets timer
+ */
+export function restoreAutoLogoutTimer(): void {
+  const expirationTime = getTokenExpiration();
+  
+  if (!expirationTime) {
+    return; // No expiration time stored
+  }
+  
+  const now = Date.now();
+  const remainingTime = expirationTime - now;
+  
+  if (remainingTime <= 0) {
+    // Token already expired, logout immediately
+    logout();
+    return;
+  }
+  
+  // Set timer for remaining time
+  if (autoLogoutTimerId !== null) {
+    clearTimeout(autoLogoutTimerId);
+  }
+  
+  autoLogoutTimerId = setTimeout(() => {
+    logout(); // Auto-logout when token expires
+  }, remainingTime);
+}
+
+/**
  * Clear auto-logout timer
  */
 function clearAutoLogoutTimer(): void {
@@ -360,10 +396,30 @@ export function logout(redirectToLogin = true): void {
 
 /**
  * Check if user is authenticated
- * Validates that access token exists and is not empty
+ * Validates that access token exists, is not empty, and is not expired
  */
 export function isAuthenticated(): boolean {
   const token = getAccessToken();
-  return token !== null && token.trim() !== '';
+  if (!token || token.trim() === '') {
+    return false;
+  }
+  
+  // Check if token is expired
+  // Only check expiration if expiration time is set
+  // If expiration time is not set, assume token is valid (for backward compatibility)
+  const expirationTime = getTokenExpiration();
+  if (expirationTime !== null) {
+    // Expiration time is set, check if expired
+    if (isTokenExpired()) {
+      // Token expired, clear it and return false
+      clearTokens();
+      clearTokenExpiration();
+      return false;
+    }
+  }
+  // If expiration time is not set, token exists so assume valid
+  // (This handles cases where expiration wasn't set during login)
+  
+  return true;
 }
 
