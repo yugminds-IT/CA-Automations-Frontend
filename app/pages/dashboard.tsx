@@ -72,50 +72,39 @@ export function Dashboard() {
       
       const clientsListResponse = await getClients({ limit: 1000 })
       const clients = clientsListResponse.clients || []
-      const now = new Date()
-      const twentyFourHoursAgo = now.getTime() - (24 * 60 * 60 * 1000) // 24 hours in milliseconds
+      const twentyFourHoursAgo = new Date().getTime() - (24 * 60 * 60 * 1000) // 24 hours in milliseconds
       
-      // Fetch scheduled emails for each client
-      for (const client of clients) {
-        try {
-          // Get all scheduled emails (we'll filter by status and time)
-          const allEmailsResponse = await getScheduledEmails(client.id, {
-            limit: 1000
-          }).catch(() => ({ scheduled_emails: [], total: 0 }))
-          
-          const emails = allEmailsResponse.scheduled_emails || []
-          
-          // Count pending emails that are still valid (not more than 24 hours past scheduled time)
-          const pendingEmails = emails.filter(email => {
-            if (email.status !== 'pending') return false
-            const scheduledTime = email.scheduled_datetime ? new Date(email.scheduled_datetime).getTime() : 0
-            // Only count pending emails that are not more than 24 hours past their scheduled time
-            return scheduledTime > twentyFourHoursAgo
+      // Fetch once per view: all clients in parallel (one batch, not N sequential requests)
+      const emailResults = await Promise.all(
+        clients.map((client) =>
+          getScheduledEmails(client.id, { limit: 1000 }).catch(() => ({ scheduled_emails: [] as ScheduledEmail[] }))
+        )
+      )
+      
+      for (const emails of emailResults.map((r) => r.scheduled_emails || [])) {
+        // Count pending emails that are still valid (not more than 24 hours past scheduled time)
+        const pendingEmails = emails.filter(email => {
+          if (email.status !== 'pending') return false
+          const scheduledTime = email.scheduled_datetime ? new Date(email.scheduled_datetime).getTime() : 0
+          return scheduledTime > twentyFourHoursAgo
+        })
+        scheduledCount += pendingEmails.length
+
+        const sentEmails = emails.filter(email => email.status === 'sent')
+        sentCount += sentEmails.length
+
+        const failedEmails = emails.filter(email => email.status === 'failed')
+        failedCount += failedEmails.length
+        
+        const clientRecentEmails = emails
+          .filter(email => email.status === 'sent' || email.status === 'failed')
+          .sort((a, b) => {
+            const dateA = a.scheduled_datetime ? new Date(a.scheduled_datetime).getTime() : 0
+            const dateB = b.scheduled_datetime ? new Date(b.scheduled_datetime).getTime() : 0
+            return dateB - dateA
           })
-          scheduledCount += pendingEmails.length
-
-          // Count sent emails
-          const sentEmails = emails.filter(email => email.status === 'sent')
-          sentCount += sentEmails.length
-
-          // Count failed emails
-          const failedEmails = emails.filter(email => email.status === 'failed')
-          failedCount += failedEmails.length
-          
-          // Collect recent emails (sent and failed) for recent activity section
-          const clientRecentEmails = emails
-            .filter(email => email.status === 'sent' || email.status === 'failed')
-            .sort((a, b) => {
-              const dateA = a.scheduled_datetime ? new Date(a.scheduled_datetime).getTime() : 0
-              const dateB = b.scheduled_datetime ? new Date(b.scheduled_datetime).getTime() : 0
-              return dateB - dateA
-            })
-            .slice(0, 3)
-          recentEmails.push(...clientRecentEmails)
-        } catch (error) {
-          // Silently skip clients without email config
-          console.error(`Error fetching emails for client ${client.id}:`, error)
-        }
+          .slice(0, 3)
+        recentEmails.push(...clientRecentEmails)
       }
 
       // Calculate success rate

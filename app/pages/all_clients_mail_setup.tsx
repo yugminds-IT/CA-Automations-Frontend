@@ -92,14 +92,35 @@ export function AllClientsMailSetup() {
     fetchTemplates()
   }, [])
   
-  // Fetch email history when tab or filter changes
+  // Refs: dedupe and avoid duplicate/concurrent fetches
+  const isFetchingScheduledRef = React.useRef(false)
+  
+  // Fetch email history only when history filter or client list changes (do not refetch scheduled mails here)
   useEffect(() => {
     if (clients.length > 0) {
       setHistoryPage(1) // Reset to first page when filter changes
       fetchEmailHistory()
-      fetchScheduledMails()
     }
   }, [historyStatusFilter, clients.length])
+  
+  // Fetch scheduled mails once when we have clients, then poll every 60s (not on history filter change)
+  useEffect(() => {
+    if (clients.length === 0) return
+    let isMounted = true
+    const doFetch = () => {
+      if (!isMounted || isFetchingScheduledRef.current) return
+      isFetchingScheduledRef.current = true
+      fetchScheduledMails().finally(() => {
+        isFetchingScheduledRef.current = false
+      })
+    }
+    doFetch()
+    const interval = setInterval(doFetch, 60000) // 60s poll (was 30s)
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+  }, [clients.length])
   
   // Update current time every second for countdown timer
   useEffect(() => {
@@ -108,16 +129,6 @@ export function AllClientsMailSetup() {
     }, 1000)
     return () => clearInterval(interval)
   }, [])
-  
-  // Refresh scheduled mails every 30 seconds
-  useEffect(() => {
-    if (clients.length > 0) {
-      const interval = setInterval(() => {
-        fetchScheduledMails()
-      }, 30000) // Refresh every 30 seconds
-      return () => clearInterval(interval)
-    }
-  }, [clients.length])
   
   const fetchClients = async () => {
     try {
@@ -163,13 +174,6 @@ export function AllClientsMailSetup() {
         )
       ]
       
-      console.log('Fetched templates:', {
-        orgTemplates: orgResponse.templates.length,
-        masterTemplates: masterResponse.templates.length,
-        allTemplates: allTemplates.length,
-        templates: allTemplates.map(t => ({ id: t.id, name: t.name, category: t.category }))
-      })
-      
       setTemplates(allTemplates)
     } catch (error) {
       console.error('Error fetching templates:', error)
@@ -186,20 +190,15 @@ export function AllClientsMailSetup() {
   const fetchEmailHistory = async () => {
     try {
       setIsLoadingHistory(true)
-      const allScheduledEmails: ScheduledEmail[] = []
-      const now = new Date()
-      const twentyFourHoursAgo = now.getTime() - (24 * 60 * 60 * 1000) // 24 hours in milliseconds
+      const twentyFourHoursAgo = new Date().getTime() - (24 * 60 * 60 * 1000) // 24 hours in milliseconds
       
-      // Fetch scheduled emails for all clients
-      // Always fetch all emails to properly filter old pending ones
-      for (const client of clients) {
-        try {
-          const response = await getScheduledEmails(client.id, { limit: 1000 })
-          allScheduledEmails.push(...response.scheduled_emails)
-        } catch (error) {
-          // Silently skip clients without email config
-        }
-      }
+      // Single batch: fetch scheduled emails for all clients in parallel (one logical request per view)
+      const results = await Promise.all(
+        clients.map((client) =>
+          getScheduledEmails(client.id, { limit: 1000 }).catch(() => ({ scheduled_emails: [] as ScheduledEmail[] }))
+        )
+      )
+      const allScheduledEmails: ScheduledEmail[] = results.flatMap((r) => r.scheduled_emails || [])
       
       // Remove duplicates
       const uniqueEmails = Array.from(
@@ -246,23 +245,17 @@ export function AllClientsMailSetup() {
   const fetchScheduledMails = async () => {
     try {
       setIsLoadingScheduled(true)
-      const allScheduledEmails: ScheduledEmail[] = []
       const now = new Date()
       const twentyFourHoursAgo = now.getTime() - (24 * 60 * 60 * 1000) // 24 hours in milliseconds
+      const params: GetScheduledEmailsParams = { limit: 1000, status: 'pending' }
       
-      // Fetch only pending scheduled emails for all clients
-      for (const client of clients) {
-        try {
-          const params: GetScheduledEmailsParams = {
-            limit: 1000,
-            status: 'pending'
-          }
-          const response = await getScheduledEmails(client.id, params)
-          allScheduledEmails.push(...response.scheduled_emails)
-        } catch (error) {
-          // Silently skip clients without email config
-        }
-      }
+      // Single batch: fetch pending scheduled emails for all clients in parallel (not N sequential requests)
+      const results = await Promise.all(
+        clients.map((client) =>
+          getScheduledEmails(client.id, params).catch(() => ({ scheduled_emails: [] as ScheduledEmail[] }))
+        )
+      )
+      const allScheduledEmails: ScheduledEmail[] = results.flatMap((r) => r.scheduled_emails || [])
       
       // Filter out emails that are 24+ hours past their scheduled time
       const activeScheduledEmails = allScheduledEmails.filter(email => {
