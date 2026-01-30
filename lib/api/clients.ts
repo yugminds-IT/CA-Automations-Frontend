@@ -416,4 +416,28 @@ export async function retryScheduledEmail(
   );
 }
 
+export interface SendTestEmailRequest {
+  to_email: string;
+  subject?: string;
+  message?: string;
+}
+
+/**
+ * Send a test email (requires admin or employee). Use from Mail Management to verify SMTP.
+ */
+export async function sendTestEmail(
+  payload: SendTestEmailRequest
+): Promise<{ success: boolean; message: string; to_email: string }> {
+  const response = await apiRequestWithRefresh<{
+    success: boolean;
+    message: string;
+    to_email: string;
+  }>(API_CONFIG.endpoints.testEmail, {
+    method: 'POST',
+    body: payload,
+    requiresAuth: true,
+  });
+  return response;
+}
+
 

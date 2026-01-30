@@ -36,11 +36,21 @@ import {
   PaginationNext,
   PaginationEllipsis,
 } from '@/components/ui/pagination'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import { 
   getClients,
   getScheduledEmails,
   createEmailConfig,
   updateEmailConfig,
+  sendTestEmail,
   type Client,
   type ScheduledEmail,
   type GetScheduledEmailsParams,
@@ -94,6 +104,13 @@ export function AllClientsMailSetup() {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [scheduledMailsPage, setScheduledMailsPage] = useState(1)
   const [scheduledMailsPageSize] = useState(10)
+  
+  // Send test email dialog
+  const [testEmailOpen, setTestEmailOpen] = useState(false)
+  const [testEmailTo, setTestEmailTo] = useState('')
+  const [testEmailSubject, setTestEmailSubject] = useState('Test Email from CAA')
+  const [testEmailMessage, setTestEmailMessage] = useState('This is a test email to verify email configuration.')
+  const [isSendingTest, setIsSendingTest] = useState(false)
   
   // Fetch clients and templates on mount
   useEffect(() => {
@@ -316,6 +333,51 @@ export function AllClientsMailSetup() {
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     return emailRegex.test(email)
+  }
+  
+  const handleSendTestEmail = async () => {
+    const to = testEmailTo.trim()
+    if (!to) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a recipient email address',
+        variant: 'destructive',
+      })
+      return
+    }
+    if (!validateEmail(to)) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a valid email address',
+        variant: 'destructive',
+      })
+      return
+    }
+    setIsSendingTest(true)
+    try {
+      await sendTestEmail({
+        to_email: to,
+        subject: testEmailSubject.trim() || undefined,
+        message: testEmailMessage.trim() || undefined,
+      })
+      toast({
+        title: 'Test email sent',
+        description: `Email sent successfully to ${to}. Check the inbox (and spam).`,
+      })
+      setTestEmailOpen(false)
+      setTestEmailTo('')
+      setTestEmailSubject('Test Email from CAA')
+      setTestEmailMessage('This is a test email to verify email configuration.')
+    } catch (err: unknown) {
+      const message = err instanceof ApiError ? err.message : 'Failed to send test email.'
+      toast({
+        title: 'Send failed',
+        description: message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSendingTest(false)
+    }
   }
   
   const handleAddEmail = () => {
@@ -833,9 +895,72 @@ export function AllClientsMailSetup() {
             Manage email templates and schedules for all clients
           </p>
         </div>
-        <Badge variant="outline" className="text-xs w-fit">
-          {selectedEmails.size} email{selectedEmails.size !== 1 ? 's' : ''} • {selectedTemplateIds.length} template{selectedTemplateIds.length !== 1 ? 's' : ''}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Dialog open={testEmailOpen} onOpenChange={setTestEmailOpen}>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="sm" className="gap-2">
+                <Mail className="h-4 w-4" />
+                Send test email
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Send test email</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="test-email-to">To (required)</Label>
+                  <Input
+                    id="test-email-to"
+                    type="email"
+                    placeholder="recipient@example.com"
+                    value={testEmailTo}
+                    onChange={(e) => setTestEmailTo(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="test-email-subject">Subject</Label>
+                  <Input
+                    id="test-email-subject"
+                    placeholder="Test Email from CAA"
+                    value={testEmailSubject}
+                    onChange={(e) => setTestEmailSubject(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="test-email-message">Message</Label>
+                  <Textarea
+                    id="test-email-message"
+                    placeholder="Test message body"
+                    value={testEmailMessage}
+                    onChange={(e) => setTestEmailMessage(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setTestEmailOpen(false)}
+                  disabled={isSendingTest}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSendTestEmail}
+                  disabled={isSendingTest}
+                >
+                  {isSendingTest ? 'Sending…' : 'Send'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Badge variant="outline" className="text-xs w-fit">
+            {selectedEmails.size} email{selectedEmails.size !== 1 ? 's' : ''} • {selectedTemplateIds.length} template{selectedTemplateIds.length !== 1 ? 's' : ''}
+          </Badge>
+        </div>
       </div>
       
       <Tabs defaultValue="setup" className="space-y-4">

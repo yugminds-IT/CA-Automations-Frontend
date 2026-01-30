@@ -128,6 +128,8 @@ export {
   getScheduledEmails,
   cancelScheduledEmail,
   retryScheduledEmail,
+  sendTestEmail,
+  type SendTestEmailRequest,
 } from './clients';
 
 // Health Check

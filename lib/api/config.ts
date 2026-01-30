@@ -75,6 +75,7 @@ export const API_CONFIG = {
       },
     },
     health: '/health',
+    testEmail: '/api/v1/test-email',
   },
 } as const;
 
