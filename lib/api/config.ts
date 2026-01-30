@@ -1,7 +1,8 @@
 // API Configuration
+// Set NEXT_PUBLIC_API_BASE_URL in .env.local (dev) and in your host (e.g. Coolify) for production.
 
 export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000',
+  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? '',
   endpoints: {
     auth: {
       signup: '/api/v1/auth/signup',

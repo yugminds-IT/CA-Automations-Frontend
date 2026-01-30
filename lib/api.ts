@@ -1,13 +1,11 @@
 /**
  * API Utility for making HTTP requests
- * 
- * Process:
- * 1. Set your API base URL in .env.local file: NEXT_PUBLIC_API_URL=http://your-api-url.com
- * 2. Use these functions in your components to make API calls
- * 3. All requests include proper error handling and token management
+ *
+ * Set NEXT_PUBLIC_API_URL in .env.local (dev) and in your host for production.
+ * No default URL – must be set for API calls to work.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 interface ApiError {
   message: string
