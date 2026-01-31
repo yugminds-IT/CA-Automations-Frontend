@@ -2,7 +2,7 @@
 
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminGetUsers, masterAdminCreateUser, masterAdminUpdateUser, masterAdminDeleteUser, ApiError, type Organization } from "@/lib/api/index"
 import { UserRole, type User } from "@/lib/api/types"
@@ -52,6 +52,8 @@ export default function MasterAdminUsers() {
   const [isUpdatingUser, setIsUpdatingUser] = useState(false)
   const [isDeletingUser, setIsDeletingUser] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [users, setUsers] = useState<User[]>([])
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -80,8 +82,9 @@ export default function MasterAdminUsers() {
   const fetchOrganizations = async () => {
     try {
       setIsLoadingOrgs(true)
-      const response = await masterAdminGetOrganizations({ skip: 0, limit: 100 })
-      setOrganizations(response.organizations)
+      // listOrganizations returns Organization[] directly, not { organizations }
+      const list = await masterAdminGetOrganizations()
+      setOrganizations(Array.isArray(list) ? list : [])
     } catch (error) {
       console.error('Error fetching organizations:', error)
       if (error instanceof ApiError && error.status === 401) {
@@ -101,12 +104,9 @@ export default function MasterAdminUsers() {
   const fetchUsers = async () => {
     try {
       setIsLoadingUsers(true)
-      const response = await masterAdminGetUsers({
-        skip: 0,
-        limit: 100,
-        search: searchQuery || undefined,
-      })
-      setUsers(response.users)
+      // Backend GET /users only supports organizationId; listUsers returns User[] directly
+      const list = await masterAdminGetUsers(selectedOrgId ?? undefined)
+      setUsers(Array.isArray(list) ? list : [])
     } catch (error) {
       console.error('Error fetching users:', error)
       if (error instanceof ApiError && error.status === 401) {
@@ -145,14 +145,13 @@ export default function MasterAdminUsers() {
     try {
       setIsCreatingUser(true)
       const userData = {
+        organizationId: selectedOrgId,
+        name: userFormData.full_name || userFormData.email.split('@')[0],
         email: userFormData.email,
         password: userFormData.password,
-        org_id: selectedOrgId,
-        full_name: userFormData.full_name || undefined,
-        phone: userFormData.phone || undefined,
-        role: userFormData.role,
+        phone: userFormData.phone || '',
+        roleName: (userFormData.role === UserRole.ORG_ADMIN ? 'ORG_ADMIN' : userFormData.role === UserRole.CAA ? 'CAA' : 'ORG_EMPLOYEE') as 'ORG_ADMIN' | 'CAA' | 'ORG_EMPLOYEE',
       }
-      
       await masterAdminCreateUser(userData)
       
       toast({
@@ -288,14 +287,15 @@ export default function MasterAdminUsers() {
 
   const handleEditUser = (user: User) => {
     setEditingUser(user)
+    const roleVal = (user as any).role?.name ?? (user as any).roleName ?? user.role
     setUserFormData({
       email: user.email,
       password: "", // Don't show password when editing
-      full_name: user.full_name || "",
+      full_name: (user.name ?? (user as any).full_name) || "",
       phone: user.phone || "",
-      role: user.role,
+      role: roleVal ?? UserRole.ORG_EMPLOYEE,
     })
-    setSelectedOrgId(user.org_id)
+    setSelectedOrgId(user.organizationId ?? (user as any).org_id ?? null)
     setEditUserDialogOpen(true)
   }
 
@@ -328,13 +328,22 @@ export default function MasterAdminUsers() {
     }
   }
 
+  // Refetch when org filter changes; search is applied client-side
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchUsers()
-    }, 300) // Debounce search
+    fetchUsers()
+  }, [selectedOrgId])
 
-    return () => clearTimeout(timeoutId)
-  }, [searchQuery])
+  // Client-side search (backend GET /users does not support search param)
+  const displayUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users
+    const q = searchQuery.toLowerCase()
+    return users.filter(
+      (u) =>
+        (u.email ?? '').toLowerCase().includes(q) ||
+        (u.name ?? '').toLowerCase().includes(q) ||
+        ((u as any).role?.name ?? (u as any).roleName ?? '').toString().toLowerCase().includes(q)
+    )
+  }, [users, searchQuery])
 
   useEffect(() => {
     const savedState = localStorage.getItem('sidebarCollapsed')
@@ -361,9 +370,6 @@ export default function MasterAdminUsers() {
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed)
   }
-
-  const [users, setUsers] = useState<any[]>([])
-  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
 
   if (isCheckingAuth) {
     return (
@@ -428,7 +434,7 @@ export default function MasterAdminUsers() {
                           <SelectValue placeholder={isLoadingOrgs ? "Loading organizations..." : "Select an organization"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {organizations.map((org) => (
+                          {(organizations ?? []).map((org) => (
                             <SelectItem key={org.id} value={org.id.toString()}>
                               {org.name}
                             </SelectItem>
@@ -535,7 +541,7 @@ export default function MasterAdminUsers() {
                           <SelectValue placeholder={isLoadingOrgs ? "Loading organizations..." : "Select an organization"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {organizations.map((org) => (
+                          {(organizations ?? []).map((org) => (
                             <SelectItem key={org.id} value={org.id.toString()}>
                               {org.name}
                             </SelectItem>
@@ -658,26 +664,27 @@ export default function MasterAdminUsers() {
                             Loading users...
                           </TableCell>
                         </TableRow>
-                      ) : users.length === 0 ? (
+                      ) : displayUsers.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                             No users found
                           </TableCell>
                         </TableRow>
                       ) : (
-                        users.map((user) => {
-                          const org = organizations.find(o => o.id === user.org_id)
+                        displayUsers.map((user) => {
+                          const org = (organizations ?? []).find((o) => o.id === (user.organizationId ?? (user as any).org_id))
+                          const roleName = (user as any).role?.name ?? (user as any).roleName ?? user.role ?? '-'
                           return (
                             <TableRow key={user.id}>
                               <TableCell className="font-medium">{user.id}</TableCell>
-                              <TableCell>{user.full_name || "-"}</TableCell>
+                              <TableCell>{(user.name ?? (user as any).full_name) || "-"}</TableCell>
                               <TableCell>{user.email}</TableCell>
                               <TableCell>
                                 <span className="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                                  {user.role}
+                                  {roleName}
                                 </span>
                               </TableCell>
-                              <TableCell>{org?.name || "-"}</TableCell>
+                              <TableCell>{(org?.name ?? (user as any).organization?.name) || "-"}</TableCell>
                               <TableCell>
                                 <span className="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
                                   Active

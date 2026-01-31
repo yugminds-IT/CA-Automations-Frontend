@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -20,7 +20,7 @@ import { DirectorsTab, type Director } from './director_info/directors_tab'
 import { EmailSetup } from './director_info/email-setup'
 import { ClientLoginTab } from './director_info/client-login-tab'
 import { FilesTab } from './director_info/files_tab'
-import { getClientById, updateClientLogin } from '@/lib/api/clients'
+import { getClientById, updateClientLogin, removeClientLogin } from '@/lib/api/clients'
 import { ApiError } from '@/lib/api/client'
 import type { Client as ApiClient } from '@/lib/api/types'
 
@@ -28,48 +28,35 @@ interface ClientDetailsProps {
   clientId: string
 }
 
-// Transform API Client to component Client format
-function transformApiClientToComponent(apiClient: ApiClient): Client {
-  // Extract service names from services array
-  const serviceNames = apiClient.services?.map(s => s.name) || []
-  
+// Transform API Client to component Client format (backend returns camelCase)
+function transformApiClientToComponent(apiClient: ApiClient & Record<string, unknown>): Client {
+  const c = apiClient as any
+  const serviceNames = apiClient.services?.map((s: { name?: string }) => s.name) || []
   return {
     id: apiClient.id,
-    name: apiClient.client_name,
-    email: apiClient.email,
-    phone: apiClient.phone_number,
-    companyName: apiClient.company_name,
+    name: c.name ?? apiClient.client_name ?? '',
+    email: apiClient.email ?? '',
+    phone: c.phone ?? apiClient.phone_number ?? undefined,
+    companyName: c.companyName ?? apiClient.company_name ?? '',
     directories: serviceNames.length > 0 ? serviceNames : '—',
-    followUpDate: apiClient.follow_date,
-    onboardDate: apiClient.onboard_date,
-    lastContactedDate: null, // API doesn't provide this field
-    status: apiClient.status,
+    followUpDate: c.followupDate ?? apiClient.follow_date ?? null,
+    onboardDate: c.onboardDate ?? apiClient.onboard_date ?? null,
+    lastContactedDate: null,
+    status: apiClient.status ?? undefined,
   }
 }
 
-// Transform API Directors to component Director format
-function transformApiDirectors(apiDirectors?: Array<{
-  id?: number
-  director_name: string
-  email: string
-  phone_number: string
-  designation?: string
-  din?: string
-  pan?: string
-  aadhaar?: string
-}>): Director[] {
-  if (!apiDirectors || apiDirectors.length === 0) {
-    return []
-  }
-  
-  return apiDirectors.map(dir => ({
-    name: dir.director_name,
-    email: dir.email || '',
-    phone: dir.phone_number || '',
-    designation: dir.designation || '',
-    din: dir.din || '',
-    pan: dir.pan || '',
-    aadhar: dir.aadhaar || '', // Note: API uses aadhaar, component uses aadhar
+// Transform API Directors to component Director format (backend returns camelCase: directorName, aadharNumber)
+function transformApiDirectors(apiDirectors?: Array<Record<string, unknown>>): Director[] {
+  if (!apiDirectors || apiDirectors.length === 0) return []
+  return apiDirectors.map((dir: any) => ({
+    name: dir.directorName ?? dir.director_name ?? '',
+    email: dir.email ?? '',
+    phone: dir.phone ?? dir.phone_number ?? '',
+    designation: dir.designation ?? '',
+    din: dir.din ?? '',
+    pan: dir.pan ?? '',
+    aadhar: dir.aadharNumber ?? dir.aadhaar ?? dir.aadhar ?? '',
   }))
 }
 
@@ -77,10 +64,32 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [client, setClient] = useState<Client | null>(null)
+  const [clientOrganizationId, setClientOrganizationId] = useState<number | undefined>(undefined)
   const [directors, setDirectors] = useState<Director[]>([])
   const [initialLogins, setInitialLogins] = useState<Array<{ email: string; password: string }>>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Auto-detect emails from client profile + directors for login credentials suggestions
+  const suggestedEmails = useMemo(() => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const seen = new Set<string>()
+    const out: string[] = []
+    const candidates = [
+      client?.email,
+      ...(directors?.map((d) => d.email) ?? []),
+    ].filter((e): e is string => typeof e === 'string' && e.trim().length > 0)
+    for (const e of candidates) {
+      const trimmed = e.trim()
+      if (!emailRegex.test(trimmed)) continue
+      const key = trimmed.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(trimmed)
+    }
+    return out
+  }, [client?.email, directors])
 
   // Load client data from API
   useEffect(() => {
@@ -96,32 +105,31 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
         const apiClient = await getClientById(clientId)
         const transformedClient = transformApiClientToComponent(apiClient)
         setClient(transformedClient)
-        
+        const raw = apiClient as any
+        setClientOrganizationId(raw.organizationId)
+
         // Extract directors from API response
         if (apiClient.directors) {
           const transformedDirectors = transformApiDirectors(apiClient.directors)
           setDirectors(transformedDirectors)
         }
         
-        // Extract login credentials from API response
-        // Note: The GET /api/v1/client/{id} endpoint should return login_email if client has login credentials
-        // Password may be returned by API when it's newly generated
-        if (apiClient.login_email) {
-          // Extract password - handle both null/undefined and empty string
-          const passwordValue = (apiClient.login_password && apiClient.login_password.trim()) 
-            ? apiClient.login_password.trim() 
+        // Extract login credentials: backend may expose login_email/login_password or client.user.email
+        const loginEmail = raw.login_email ?? raw.user?.email ?? null
+        if (loginEmail) {
+          const passwordValue = (raw.login_password && String(raw.login_password).trim())
+            ? String(raw.login_password).trim()
             : ''
-          
           const loginData = {
-            email: apiClient.login_email,
+            email: loginEmail,
             password: passwordValue,
           }
           console.log('Setting initial logins from API response:', {
             email: loginData.email,
             password: loginData.password ? `${loginData.password.substring(0, 3)}***` : 'empty',
             passwordLength: loginData.password?.length || 0,
-            rawLoginPassword: apiClient.login_password ? 'present' : 'missing',
-            rawLoginPasswordType: typeof apiClient.login_password
+            rawLoginPassword: raw.login_password ? 'present' : 'missing',
+            rawLoginPasswordType: typeof raw.login_password
           })
           setInitialLogins([loginData])
         } else {
@@ -170,7 +178,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
     }
 
     loadClientData()
-  }, [clientId, toast])
+  }, [clientId, toast, refreshKey])
 
   const handleRemoveDirector = (index: number) => {
     setDirectors(directors.filter((_, i) => i !== index))
@@ -267,41 +275,27 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
           <ClientLoginTab 
             clientName={client?.name || ''}
             initialLogins={initialLogins}
+            suggestedEmails={suggestedEmails}
+            organizationId={clientOrganizationId}
+            onRemoveLogin={client ? async () => {
+              await removeClientLogin(client.id)
+              setRefreshKey((k) => k + 1)
+            } : undefined}
             onSave={async (logins) => {
               if (!client) {
                 throw new Error('Client not loaded')
               }
               try {
               // Backend supports a single login credential set (login_email/login_password).
-              // If UI has multiple rows, we use the most recently added one.
+              // Send only email; backend generates password and returns it in response.generatedPassword.
               const latest = logins[logins.length - 1]
-                console.log('Saving login credentials (password will be generated by backend):', { 
-                  clientId: client.id, 
-                  email: latest.email
-                })
-                
-                // Only send email - backend will generate password automatically
-                // Pass empty string for password to indicate it should be generated
-                await updateClientLogin(client.id, latest.email, '')
-                
-                // Refresh client data after saving to get updated login info with generated password
-                const updatedClient = await getClientById(clientId)
-                if (updatedClient.login_email) {
-                  const passwordValue = (updatedClient.login_password && updatedClient.login_password.trim()) 
-                    ? updatedClient.login_password.trim() 
-                    : ''
-                  console.log('Updating logins after save:', {
-                    email: updatedClient.login_email,
-                    password: passwordValue ? `${passwordValue.substring(0, 3)}***` : 'empty',
-                    passwordLength: passwordValue?.length || 0
-                  })
-                  setInitialLogins([{
-                    email: updatedClient.login_email,
-                    password: passwordValue,
-                  }])
-                } else {
-                  setInitialLogins([])
-                }
+                const response = await updateClientLogin(client.id, latest.email, '')
+                // Use generated password from PATCH response (one-time; GET never returns password)
+                const passwordValue = response?.generatedPassword?.trim() ?? ''
+                setInitialLogins([{
+                  email: latest.email,
+                  password: passwordValue,
+                }])
               } catch (error) {
                 console.error('Error in onSave callback:', error)
                 throw error // Re-throw to let ClientLoginTab handle the error display

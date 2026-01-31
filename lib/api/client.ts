@@ -385,9 +385,18 @@ export async function apiRequest<T>(
     if (error instanceof ApiError) {
       throw error;
     }
-    // Handle network errors or other fetch failures
-    const message = error instanceof Error ? error.message : 'Network error';
-    throw new ApiError(500, message);
+    // Handle network errors (fetch failed: connection refused, CORS, unreachable, etc.)
+    const rawMessage = error instanceof Error ? error.message : 'Network error';
+    const isNetworkFailure =
+      rawMessage === 'Failed to fetch' ||
+      rawMessage === 'NetworkError when attempting to fetch resource' ||
+      rawMessage === 'Load failed' ||
+      rawMessage === 'Network request failed';
+    const message = isNetworkFailure
+      ? 'Unable to reach the server. Check that the API is running and the URL in .env is correct.'
+      : rawMessage;
+    const status = isNetworkFailure ? 0 : 500;
+    throw new ApiError(status, message);
   }
 }
 
@@ -522,8 +531,17 @@ export async function uploadFiles<T>(
     if (error instanceof ApiError) {
       throw error;
     }
-    const message = error instanceof Error ? error.message : 'Network error';
-    throw new ApiError(500, message);
+    const rawMessage = error instanceof Error ? error.message : 'Network error';
+    const isNetworkFailure =
+      rawMessage === 'Failed to fetch' ||
+      rawMessage === 'NetworkError when attempting to fetch resource' ||
+      rawMessage === 'Load failed' ||
+      rawMessage === 'Network request failed';
+    const message = isNetworkFailure
+      ? 'Unable to reach the server. Check that the API is running and the URL in .env is correct.'
+      : rawMessage;
+    const status = isNetworkFailure ? 0 : 500;
+    throw new ApiError(status, message);
   }
 }
 

@@ -18,18 +18,24 @@ interface ClientManagementProps {
   statusOptions?: string[]
   services?: string[]
   businessTypes?: string[]
+  businessTypesWithIds?: { id: number; name: string }[]
+  servicesWithIds?: { id: number; name: string }[]
 }
 
 export function ClientManagement({ 
   statusOptions = [],
   services = [],
-  businessTypes = []
+  businessTypes = [],
+  businessTypesWithIds = [],
+  servicesWithIds = []
 }: ClientManagementProps) {
   const { toast } = useToast()
   const [clients, setClients] = useState<Client[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  // Filtered list from ClientTab (used for Export when useApi is true)
+  const [filteredClientsForExport, setFilteredClientsForExport] = useState<Client[]>([])
 
   const handleClientAdded = async (clientData: Omit<Client, 'id' | 'lastContactedDate'>) => {
     // Generate a temporary ID for the new client
@@ -49,10 +55,12 @@ export function ClientManagement({
   }
 
   const handleExport = () => {
-    // Filter clients based on search query and status
-    const filteredClients = filterClients(clients, searchQuery, statusFilter)
+    // When useApi is true, ClientTab passes filtered list via onFilteredClientsChange
+    const toExport = filteredClientsForExport.length > 0
+      ? filteredClientsForExport
+      : filterClients(clients, searchQuery, statusFilter)
     
-    if (filteredClients.length === 0) {
+    if (toExport.length === 0) {
       toast({
         title: 'No Data to Export',
         description: 'Please filter clients or ensure there are clients to export.',
@@ -64,7 +72,7 @@ export function ClientManagement({
     try {
     // Convert to CSV
     const headers = ['Name', 'Email', 'Phone', 'Company Name', 'Directories', 'Follow-up Date', 'Onboard Date', 'Last Contacted']
-    const rows = filteredClients.map(client => [
+    const rows = toExport.map(client => [
       client.name,
       client.email,
       client.phone || '',
@@ -94,7 +102,7 @@ export function ClientManagement({
       
       toast({
         title: 'Export Successful',
-        description: `Exported ${filteredClients.length} client(s) to CSV file.`,
+        description: `Exported ${toExport.length} client(s) to CSV file.`,
         variant: 'success',
       })
     } catch (error) {
@@ -109,30 +117,26 @@ export function ClientManagement({
 
   const filterClients = (clientsList: Client[], query: string, status: string): Client[] => {
     let filtered = clientsList
-    
-    // Filter by status
     if (status !== 'all') {
-      filtered = filtered.filter(client => client.status === status)
-    }
-    
-    // Filter by search query
-    if (query.trim()) {
-      const lowerQuery = query.toLowerCase()
-      filtered = filtered.filter(client =>
-        client.name.toLowerCase().includes(lowerQuery) ||
-        client.email.toLowerCase().includes(lowerQuery) ||
-        client.phone?.toLowerCase().includes(lowerQuery) ||
-        client.companyName.toLowerCase().includes(lowerQuery) ||
-        (Array.isArray(client.directories) 
-          ? client.directories.some(dir => dir.toLowerCase().includes(lowerQuery))
-          : String(client.directories).toLowerCase().includes(lowerQuery))
+      filtered = filtered.filter(
+        (c) => (c.status ?? '').toLowerCase() === status.toLowerCase()
       )
     }
-    
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase()
+      filtered = filtered.filter(
+        (c) =>
+          (c.name ?? '').toLowerCase().includes(lowerQuery) ||
+          (c.email ?? '').toLowerCase().includes(lowerQuery) ||
+          (c.phone ?? '').toLowerCase().includes(lowerQuery) ||
+          (c.companyName ?? '').toLowerCase().includes(lowerQuery) ||
+          (Array.isArray(c.directories)
+            ? c.directories.some((d) => String(d).toLowerCase().includes(lowerQuery))
+            : String(c.directories ?? '').toLowerCase().includes(lowerQuery))
+      )
+    }
     return filtered
   }
-
-  const filteredClients = filterClients(clients, searchQuery, statusFilter)
 
   return (
     <div className="p-6 space-y-6">
@@ -177,7 +181,10 @@ export function ClientManagement({
             variant="outline"
             size="sm"
             onClick={handleExport}
-            disabled={filteredClients.length === 0}
+            disabled={
+              (filteredClientsForExport.length === 0) &&
+              filterClients(clients, searchQuery, statusFilter).length === 0
+            }
             className="border border-input"
           >
             <Download className="h-4 w-4 mr-2" />
@@ -198,10 +205,13 @@ export function ClientManagement({
         useApi={true}
         searchQuery={searchQuery}
         statusFilter={statusFilter}
+        onFilteredClientsChange={setFilteredClientsForExport}
         isDialogOpen={isDialogOpen}
         setIsDialogOpen={setIsDialogOpen}
         services={services}
         businessTypes={businessTypes}
+        businessTypesWithIds={businessTypesWithIds}
+        servicesWithIds={servicesWithIds}
         clientStatuses={statusOptions}
       />
     </div>

@@ -6,7 +6,6 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated, ApiError } from "@/lib/api/index"
 import {
-  getMasterEmailTemplates,
   getOrgEmailTemplates,
   customizeMasterTemplate,
   createOrgEmailTemplate,
@@ -140,12 +139,15 @@ export default function EmailTemplatesPage() {
   const fetchTemplates = async () => {
     try {
       setIsLoading(true)
-      const [masterResponse, orgResponse] = await Promise.all([
-        getMasterEmailTemplates({ limit: 1000 }),
-        getOrgEmailTemplates({ limit: 1000 }),
-      ])
-      setMasterTemplates(masterResponse.templates)
-      setOrgTemplates(orgResponse.templates)
+      // Single fetch: backend returns global + org templates for org user
+      const response = await getOrgEmailTemplates({ limit: 1000 })
+      const all = Array.isArray(response) ? response : (response?.templates ?? [])
+      // Default = master admin created (global, organizationId null)
+      const defaultTemplates = all.filter((t: EmailTemplate) => t.organizationId == null)
+      // My custom = org created (organizationId set to current org)
+      const customTemplates = all.filter((t: EmailTemplate) => t.organizationId != null)
+      setMasterTemplates(defaultTemplates)
+      setOrgTemplates(customTemplates)
     } catch (error) {
       console.error('Error fetching templates:', error)
       if (error instanceof ApiError && error.status === 401) {

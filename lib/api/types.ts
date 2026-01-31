@@ -1,424 +1,371 @@
-// API Types - Matching Backend Schemas
+// API Types - Backend enums and payload structures (from FRONTEND_INTEGRATION.md)
+// No frontend-specific handling - types only
 
-// Enums
-export enum UserRole {
-  MASTER_ADMIN = 'master_admin',
-  ADMIN = 'admin',
-  EMPLOYEE = 'employee',
-  CLIENT = 'client',
+// ============ ENUMS (from backend) ============
+
+export enum RoleName {
+  MASTER_ADMIN = 'MASTER_ADMIN',
+  ORG_ADMIN = 'ORG_ADMIN',
+  CAA = 'CAA',
+  ORG_EMPLOYEE = 'ORG_EMPLOYEE',
+  CLIENT = 'CLIENT',
 }
 
-export enum TokenType {
-  BEARER = 'bearer',
+export type ClientStatus = 'active' | 'inactive' | 'terminated';
+
+export enum TemplateCategory {
+  SERVICE = 'service',
+  LOGIN = 'login',
+  NOTIFICATION = 'notification',
+  FOLLOW_UP = 'follow_up',
+  REMINDER = 'reminder',
+}
+
+export type EmailScheduleStatus = 'pending' | 'sent' | 'failed' | 'cancelled';
+
+export type ScheduleType = 'single_date' | 'date_range' | 'multiple_dates';
+
+// ============ AUTH ============
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: User;
+}
+
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  roleName: RoleName;
+  organizationId: number;
+}
+
+export interface SignupOrganizationRequest {
+  organization: {
+    name: string;
+    city: string;
+    state: string;
+    country: string;
+    pincode: string;
+  };
+  admin: {
+    name: string;
+    email: string;
+    password: string;
+    phone: string;
+  };
+}
+
+export interface SignupOrgAdminRequest {
+  organizationId: number;
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string;
+  newPassword: string;
 }
 
 export interface User {
   id: number;
   email: string;
-  full_name: string | null;
-  phone: string | null;
-  org_id: number;
-  role: UserRole;
+  name?: string;
+  phone?: string;
+  roleName?: RoleName;
+  organizationId?: number;
 }
+
+// ============ ORGANIZATIONS ============
 
 export interface Organization {
   id: number;
   name: string;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  pincode: string | null;
-}
-
-// Signup Request
-export interface SignupRequest {
-  organization_name: string;
-  admin_email: string;
-  admin_password: string;
-  admin_full_name: string;
-  admin_phone?: string;
+  slug?: string;
   city?: string;
   state?: string;
   country?: string;
   pincode?: string;
 }
 
-// Signup Response
-export interface SignupResponse {
-  organization: Organization;
-  admin: User;
-  message: string;
-}
-
-// Login Request (form data)
-export interface LoginRequest {
-  username: string; // email
-  password: string;
-}
-
-// Login Response
-export interface LoginResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: TokenType;
-  expires_in: number; // Token expiration time in seconds
-  user: User;
-  organization: Organization;
-}
-
-// Refresh Token Request
-export interface RefreshTokenRequest {
-  refresh_token: string;
-}
-
-// Refresh Token Response
-export interface RefreshTokenResponse {
-  access_token: string;
-  token_type: TokenType;
-  expires_in: number; // Token expiration time in seconds
-}
-
-// Create Organization Request
 export interface CreateOrganizationRequest {
   name: string;
+  slug: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
 }
 
-// Create Organization Response
-export type CreateOrganizationResponse = Organization;
+export interface UpdateOrganizationRequest {
+  name?: string;
+  slug?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
+}
 
-// Create User Request
-export interface CreateUserRequest {
+// ============ USERS ============
+
+export interface CreateEmployeeRequest {
+  organizationId: number;
+  name: string;
   email: string;
   password: string;
-  full_name?: string;
+  phone: string;
+  roleName: 'ORG_ADMIN' | 'CAA' | 'ORG_EMPLOYEE';
+}
+
+// ============ CLIENTS ============
+
+export interface CreateClientRequest {
+  organizationId: number;
+  name: string;
+  email?: string;
   phone?: string;
-  org_id: number;
-  role?: UserRole; // Optional role - master admin can specify when creating users
 }
 
-// Create User Response
-export type CreateUserResponse = User;
-
-// API Error Response
-export interface ApiError {
-  detail: string;
-  status_code?: number;
-}
-
-// Health Check Response
-export interface HealthResponse {
-  status: string;
-}
-
-// Client Types
-export interface Director {
-  id?: number;
-  director_name: string;
+export interface CreateClientWithLoginRequest {
   email: string;
-  phone_number: string;
+  name: string;
+  phone: string;
+  organizationId: number;
+}
+
+/** Director item for onboard payload (backend OnboardDirectorDto) */
+export interface OnboardDirectorRequest {
+  directorName: string;
+  email?: string;
+  phone?: string;
   designation?: string;
   din?: string;
   pan?: string;
-  aadhaar?: string;
+  aadharNumber?: string;
 }
 
-export interface CreateClientRequest {
-  client_name: string;
+export interface OnboardClientRequest {
+  name: string;
   email: string;
-  phone_number?: string;
-  company_name: string;
-  business_type?: string;
-  pan_number?: string;
-  gst_number?: string;
-  status?: string;
+  companyName?: string;
+  businessTypeId?: number;
+  panNumber?: string;
+  gstNumber?: string;
+  status?: ClientStatus;
   address?: string;
   city?: string;
   state?: string;
   country?: string;
-  pin_code?: string;
-  onboard_date?: string;
-  follow_date?: string;
-  additional_notes?: string;
-  service_ids?: number[];
-  directors?: Director[];
-  login_email?: string;
-  login_password?: string;
+  pincode?: string;
+  serviceIds?: number[];
+  onboardDate?: string;
+  followupDate?: string;
+  additionalNotes?: string;
+  phone?: string;
+  organizationId?: number;
+  directors?: OnboardDirectorRequest[];
 }
 
 export interface UpdateClientRequest {
-  client_name?: string;
+  name?: string;
   email?: string;
-  phone_number?: string;
-  company_name?: string;
-  business_type?: string;
-  pan_number?: string;
-  gst_number?: string;
-  status?: string;
+  phone?: string;
+  status?: ClientStatus;
+  companyName?: string;
+  businessTypeId?: number | null;
+  panNumber?: string;
+  gstNumber?: string;
   address?: string;
   city?: string;
   state?: string;
   country?: string;
-  pin_code?: string;
-  onboard_date?: string;
-  follow_date?: string;
-  additional_notes?: string;
-  service_ids?: number[];
-  directors?: Director[];
+  pincode?: string;
+  serviceIds?: number[];
+  onboardDate?: string;
+  followupDate?: string;
+  additionalNotes?: string;
+  /** When true, removes the client's login user from DB. */
+  remove_login?: boolean;
   login_email?: string;
   login_password?: string;
+  directors?: OnboardDirectorRequest[];
 }
 
 export interface Client {
   id: number;
-  client_name: string;
+  name: string;
   email: string;
-  phone_number: string | null;
-  company_name: string;
-  business_type: string | null;
-  pan_number: string | null;
-  gst_number: string | null;
-  status: string;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  pin_code: string | null;
-  onboard_date: string | null;
-  follow_date: string | null;
-  additional_notes: string | null;
-  user_id: number | null;
-  login_email?: string | null; // Login email if client has login credentials
-  login_password?: string | null; // Login password (may not be returned by API for security)
-  created_at: string;
-  updated_at: string;
-  directors?: Director[];
-  services?: Service[];
+  phone?: string;
+  organizationId?: number;
+  companyName?: string;
+  status?: ClientStatus;
+  [key: string]: unknown;
 }
 
-export interface GetClientsParams {
-  skip?: number;
-  limit?: number;
-  search?: string;
-  status_filter?: string;
+export interface Director {
+  id?: number;
+  directorName: string;
+  email: string;
+  phone: string;
+  designation?: string;
+  din?: string;
+  pan?: string;
+  aadharNumber?: string;
 }
 
-export interface GetClientsResponse {
-  clients: Client[];
-  total: number;
-  skip: number;
-  limit: number;
+export interface AddDirectorRequest {
+  directorName: string;
+  email: string;
+  phone: string;
+  designation?: string;
+  din?: string;
+  pan?: string;
+  aadharNumber?: string;
+}
+
+export interface UpdateDirectorRequest {
+  directorName?: string;
+  email?: string;
+  phone?: string;
+  designation?: string;
+  din?: string;
+  pan?: string;
+  aadharNumber?: string;
+}
+
+// ============ BUSINESS TYPES ============
+
+export interface CreateBusinessTypeRequest {
+  name: string;
+  organizationId: number;
+}
+
+export interface BusinessType {
+  id: number;
+  name: string;
+}
+
+// ============ SERVICES ============
+
+export interface CreateServiceRequest {
+  name: string;
+  organizationId: number;
 }
 
 export interface Service {
   id: number;
   name: string;
-  is_default: boolean;
-  created_at?: string;
-  updated_at?: string;
 }
 
-export interface CreateServiceRequest {
+// ============ EMAIL TEMPLATES ============
+
+export interface CreateEmailTemplateRequest {
+  category: string;
+  type: string;
   name: string;
+  subject: string;
+  body: string;
 }
 
-export interface CreateServiceResponse extends Service {}
-
-export interface GetServicesResponse {
-  services: Service[];
+export interface UpdateEmailTemplateRequest {
+  subject?: string;
+  body?: string;
+  name?: string;
 }
 
-export interface EnumResponse {
-  values: string[];
+export interface SendEmailRequest {
+  to: string;
+  templateId: number;
+  variables?: Record<string, string>;
 }
 
-// Email Configuration Types
-export type DateType = 'all' | 'range' | 'range_multiple' | 'single';
-
-export interface EmailTemplateSelection {
-  email: string;
-  selectedTemplates: number[]; // Array of template IDs
+export interface EmailTemplate {
+  id: number;
+  category: string;
+  type: string;
+  name: string;
+  subject: string;
+  body: string;
+  /** null = global (master admin created); number = org-specific */
+  organizationId?: number | null;
+  [key: string]: unknown;
 }
 
-export interface ServiceEmailConfig {
-  enabled: boolean;
-  templateId?: number | null;
-  templateName?: string;
-  dateType?: DateType;
-  scheduledDate?: string | null; // ISO date string
-  scheduledDateFrom?: string | null; // ISO date string
-  scheduledDateTo?: string | null; // ISO date string
-  scheduledDates?: string[]; // Array of ISO date strings for multiple dates in date range
-  scheduledTimes?: string[]; // Array of times in HH:mm format
+// ============ MAIL MANAGEMENT ============
+
+export interface ScheduleSingleDate {
+  type: 'single_date';
+  date: string;
+  times: string[];
+  /** User's timezone offset so time is interpreted locally (e.g. "+05:30", "-08:00"). Mail is sent at that local time. */
+  timeZoneOffset?: string;
 }
 
-export interface EmailConfig {
-  emails: string[];
-  emailTemplates: Record<string, EmailTemplateSelection>; // Key is email address
-  services: Record<string, ServiceEmailConfig>; // Key is template ID as string
+export interface ScheduleDateRange {
+  type: 'date_range';
+  fromDate: string;
+  toDate: string;
+  times: string[];
+  timeZoneOffset?: string;
 }
 
-export interface EmailConfigRequest {
-  emails: string[];
-  emailTemplates: Record<string, EmailTemplateSelection>;
-  services: Record<string, ServiceEmailConfig>;
+export interface ScheduleMultipleDates {
+  type: 'multiple_dates';
+  dates: string[];
+  times: string[];
+  timeZoneOffset?: string;
 }
 
-export interface EmailConfigResponse extends EmailConfig {
-  client_id: number;
-  created_at: string;
-  updated_at: string;
+export type ScheduleConfig = ScheduleSingleDate | ScheduleDateRange | ScheduleMultipleDates;
+
+export interface ScheduleEmailRequest {
+  templateId: number;
+  recipientEmails: string[];
+  variables?: Record<string, string>;
+  schedule: ScheduleConfig;
+}
+
+// ============ SCHEDULED EMAIL (Mail Management) ============
+
+export interface GetScheduledEmailsParams {
+  status?: EmailScheduleStatus;
+  skip?: number;
+  limit?: number;
 }
 
 export interface ScheduledEmail {
   id: number;
-  client_id: number;
-  template_id: number;
-  template_name?: string;
-  recipient_emails: string[];
-  scheduled_date: string; // ISO date string
-  scheduled_time: string; // HH:mm format
-  scheduled_datetime: string; // ISO datetime string
-  status: 'pending' | 'sent' | 'failed' | 'cancelled';
-  is_recurring: boolean;
-  recurrence_end_date?: string | null; // ISO date string
-  error_message?: string | null;
-  sent_at?: string | null; // ISO datetime string
-  created_at: string;
-  updated_at: string;
+  templateId?: number;
+  recipientEmails?: string[];
+  status?: EmailScheduleStatus;
+  scheduledDate?: string;
+  scheduledTime?: string;
+  [key: string]: unknown;
 }
 
-export interface GetScheduledEmailsParams {
-  status?: 'pending' | 'sent' | 'failed' | 'cancelled';
-  skip?: number;
-  limit?: number;
+// ============ API ERROR ============
+
+export interface ApiErrorResponse {
+  detail?: string;
+  message?: string;
+  status?: number;
 }
 
-export interface GetScheduledEmailsResponse {
-  scheduled_emails: ScheduledEmail[];
-  total: number;
-}
-
-// Master Admin Types
-export interface MasterAdminSignupRequest {
-  email: string;
-  password: string;
-  full_name: string;
-  phone?: string;
-  org_id?: number | null;
-}
-
-export interface MasterAdminSignupResponse {
-  user: User;
-  organization: Organization;
-  message: string;
-}
-
-export interface MasterAdminLoginRequest {
-  username: string; // email
-  password: string;
-}
-
-export interface MasterAdminLoginResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: TokenType;
-  expires_in: number; // Token expiration time in seconds
-  user: User;
-  organization: Organization;
-}
-
-export interface MasterAdminRefreshTokenRequest {
-  refresh_token: string;
-}
-
-export interface MasterAdminRefreshTokenResponse {
-  access_token: string;
-  token_type: TokenType;
-  expires_in: number; // Token expiration time in seconds
-}
-
-// Master Admin Organization Types
-export interface MasterAdminCreateOrganizationRequest {
-  name: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  pincode?: string;
-}
-
-export type MasterAdminCreateOrganizationResponse = Organization;
-
-export interface MasterAdminUpdateOrganizationRequest {
-  name?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  pincode?: string;
-}
-
-export interface MasterAdminGetOrganizationsParams {
-  skip?: number;
-  limit?: number;
-  search?: string;
-}
-
-export interface MasterAdminGetOrganizationsResponse {
-  organizations: Organization[];
-  total: number;
-  skip: number;
-  limit: number;
-}
-
-// Master Admin User Types
-export interface MasterAdminCreateUserRequest {
-  email: string;
-  password: string;
-  org_id: number;
-  full_name?: string;
-  phone?: string;
-  role?: UserRole;
-}
-
-export type MasterAdminCreateUserResponse = User;
-
-export interface MasterAdminUpdateUserRequest {
-  email?: string;
-  full_name?: string;
-  phone?: string;
-  org_id?: number;
-  role?: UserRole;
-}
-
-export interface MasterAdminGetUsersParams {
-  skip?: number;
-  limit?: number;
-  org_id?: number;
-  role?: UserRole;
-  search?: string;
-}
-
-export interface MasterAdminGetUsersResponse {
-  users: User[];
-  total: number;
-  skip: number;
-  limit: number;
-}
-
-// Enum Helper Functions
-export const UserRoleValues = Object.values(UserRole) as string[];
-export const TokenTypeValues = Object.values(TokenType) as string[];
-
-/**
- * Check if a string is a valid UserRole
- */
-export function isValidUserRole(value: string): value is UserRole {
-  return UserRoleValues.includes(value);
-}
-
-/**
- * Check if a string is a valid TokenType
- */
-export function isValidTokenType(value: string): value is TokenType {
-  return TokenTypeValues.includes(value);
-}
-
+// Compatibility: UserRole = RoleName
+export const UserRole = RoleName;

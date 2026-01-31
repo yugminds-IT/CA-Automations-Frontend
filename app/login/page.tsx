@@ -24,7 +24,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { useToast } from '@/components/ui/use-toast'
-import { login, ApiError, isAuthenticated, getUserData, getRoleFromResponse } from '@/lib/api/index'
+import { login, ApiError, isAuthenticated, getUserData, getRoleFromResponse, getRoleFromUser } from '@/lib/api/index'
 import { UserRole } from '@/lib/api/types'
 import { Eye, EyeOff } from 'lucide-react'
 
@@ -59,11 +59,9 @@ export default function LoginPage() {
     const checkAuth = () => {
       const authenticated = isAuthenticated()
       if (authenticated) {
-        // User is already logged in, check role and redirect accordingly
-        const userData = getUserData()
-        const role = userData?.role ? String(userData.role).toLowerCase() : null
-        
-        if (role === 'master_admin' || role === UserRole.MASTER_ADMIN) {
+        // User is already logged in; backend returns role as user.role.name
+        const role = getRoleFromUser(getUserData())
+        if (role != null && role.toUpperCase() === 'MASTER_ADMIN') {
           router.push('/master-admin')
         } else {
           router.push('/')
@@ -108,12 +106,12 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       const response = await login({
-        username: data.email.trim(),
+        email: data.email.trim(),
         password: data.password,
       })
 
       // Verify that we have access token before allowing redirect
-      if (!response.access_token || !response.refresh_token) {
+      if (!response.accessToken || !response.refreshToken) {
         throw new Error('Login failed: No access token received')
       }
 
@@ -123,11 +121,9 @@ export default function LoginPage() {
         variant: 'success',
       })
 
-      // Get role from response (check both response.role and response.user.role)
+      // Backend returns role as response.user.role.name
       const role = getRoleFromResponse(response)
-      
-      // Route based on role
-      if (role === 'master_admin' || role === UserRole.MASTER_ADMIN) {
+      if (role != null && role.toUpperCase() === 'MASTER_ADMIN') {
         router.push('/master-admin')
       } else {
         router.push('/')

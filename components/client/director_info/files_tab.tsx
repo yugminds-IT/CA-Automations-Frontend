@@ -20,12 +20,14 @@ import { useToast } from '@/components/ui/use-toast'
 import { 
   uploadFilesToServer, 
   getUploadedFiles, 
+  listClientFiles,
   deleteUploadedFile,
   getFileDownloadUrl,
   downloadFile,
   getFilePreviewBlobUrl,
   type UploadResponse,
-  getUserData
+  getUserData,
+  getRoleFromUser,
 } from '@/lib/api/index'
 import { UserRole } from '@/lib/api/types'
 
@@ -61,17 +63,23 @@ export function FilesTab({
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const user = getUserData()
-  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.MASTER_ADMIN || user?.role === UserRole.EMPLOYEE
+  const role = getRoleFromUser(user) ?? ''
+  const isOrgUser = [UserRole.MASTER_ADMIN, UserRole.ORG_ADMIN, UserRole.CAA, UserRole.ORG_EMPLOYEE].includes(role as any)
+  const isAdmin = isOrgUser
 
-  // Fetch files from server
+  // Fetch files from server: org users get client's files via listClientFiles; clients get own files via getUploadedFiles
   const fetchServerFiles = async () => {
     setIsLoadingFiles(true)
     try {
-      const files = await getUploadedFiles()
-      // Filter files to only show files for this specific client
-      const clientIdNum = typeof clientId === 'string' ? parseInt(clientId, 10) : clientId
-      const filteredFiles = files.filter(file => file.client_id === clientIdNum)
-      setServerFiles(filteredFiles)
+      let files: unknown[]
+      if (isOrgUser) {
+        const result = await listClientFiles(clientId)
+        files = Array.isArray(result) ? result : (result as { files?: unknown[] })?.files ?? []
+      } else {
+        const result = await getUploadedFiles()
+        files = Array.isArray(result) ? result : (result as { files?: unknown[] })?.files ?? []
+      }
+      setServerFiles(files as UploadResponse[])
     } catch (error: any) {
       console.error('Failed to fetch uploaded files:', error)
       toast({
@@ -85,32 +93,38 @@ export function FilesTab({
   }
 
   useEffect(() => {
+    if (!clientId) return
     fetchServerFiles()
-  }, [clientId])
+  }, [clientId, isOrgUser])
 
-  // Convert server files to UploadItem format
+  // Convert server files to UploadItem format (backend returns fileName, date, time, format, previewUrl)
   useEffect(() => {
-    const serverItems: UploadItem[] = serverFiles.map((file) => ({
-      id: `server-${file.id}`,
-      filename: file.filename,
-      fileSize: file.file_size,
-      uploadedAt: file.uploaded_at,
-      fileType: file.file_type,
-      serverFile: file,
-      status: 'success' as const,
-      isServerFile: true,
-    }))
+    const serverItems: UploadItem[] = serverFiles.map((file: any) => {
+      const fileName = file.fileName ?? file.filename ?? ''
+      const date = file.date ?? ''
+      const time = file.time ?? ''
+      const uploadedAt = date && time ? `${date}T${time}` : (file.uploaded_at ?? Date.now())
+      return {
+        id: `server-${file.id}`,
+        filename: fileName,
+        fileSize: file.file_size ?? 0,
+        uploadedAt,
+        fileType: file.file_type ?? (file.format ? `application/${file.format}` : undefined),
+        serverFile: { ...file, fileName, previewUrl: file.previewUrl ?? file.viewUrl ?? file.downloadUrl },
+        status: 'success' as const,
+        isServerFile: true,
+      }
+    })
     
     setItems(prev => {
       const localItems = prev.filter(item => !item.isServerFile)
-      const existingServerIds = new Set(prev.filter(item => item.isServerFile).map(item => item.id))
-      const newServerItems = serverItems.filter(item => !existingServerIds.has(item.id))
       return [...localItems, ...serverItems]
     })
   }, [serverFiles])
 
   // Helper functions
-  const getFileFormat = (fileName: string): string => {
+  const getFileFormat = (fileName: string | undefined): string => {
+    if (fileName == null || fileName === '') return 'UNKNOWN'
     const extension = fileName.split('.').pop()?.toUpperCase() || 'UNKNOWN'
     return extension
   }
@@ -124,7 +138,8 @@ export function FilesTab({
       const typeParts = item.file.type.split('/')
       return typeParts[0].charAt(0).toUpperCase() + typeParts[0].slice(1) || 'Unknown'
     }
-    const extension = item.filename.split('.').pop()?.toLowerCase() || ''
+    const filename = item.filename ?? item.serverFile?.fileName ?? item.serverFile?.filename ?? ''
+    const extension = filename.split('.').pop()?.toLowerCase() || ''
     const typeMap: Record<string, string> = {
       'pdf': 'Document',
       'doc': 'Document',
@@ -317,19 +332,24 @@ export function FilesTab({
     }
   }
 
-  // Preview handler (for admins)
+  // Preview handler (for admins): use list's S3 URL when available to avoid extra fetch/CORS; else fetch via API
   const handlePreview = async (file: UploadResponse) => {
-    setIsLoadingPreview(true)
     setPreviewFile(file)
+    const directUrl = (file as any).previewUrl ?? (file as any).viewUrl ?? (file as any).downloadUrl
+    if (typeof directUrl === 'string' && directUrl) {
+      setPreviewBlobUrl(null)
+      setIsLoadingPreview(false)
+      return
+    }
+    setIsLoadingPreview(true)
     try {
-      // Fetch file as blob to avoid download trigger
       const blobUrl = await getFilePreviewBlobUrl(file.id)
       setPreviewBlobUrl(blobUrl)
     } catch (error: any) {
       console.error('Preview error:', error)
       toast({
         title: 'Preview Failed',
-        description: error?.detail || error?.message || 'Could not load file for preview.',
+        description: error?.detail ?? error?.message ?? 'Could not load file for preview.',
         variant: 'destructive',
       })
       setPreviewFile(null)
@@ -350,11 +370,12 @@ export function FilesTab({
 
   // Download handler
   const handleDownload = async (file: UploadResponse) => {
+    const name = (file as any).fileName ?? file.filename ?? 'file'
     try {
-      await downloadFile(file.id, file.filename)
+      await downloadFile(file.id, name)
       toast({
         title: 'Download Started',
-        description: `Downloading ${file.filename}...`,
+        description: `Downloading ${name}...`,
         variant: 'default',
       })
     } catch (error: any) {
@@ -367,13 +388,11 @@ export function FilesTab({
     }
   }
 
-  // Get preview URL - use blob URL if available, otherwise fallback to direct URL
+  // Preview URL: use blob URL when loaded, or list response S3 URL (previewUrl / viewUrl) for same file
   const getPreviewUrl = (file: UploadResponse): string => {
-    if (previewBlobUrl && previewFile?.id === file.id) {
-      return previewBlobUrl
-    }
-    // Fallback to direct URL with token (may trigger download, but better than nothing)
-    return getFileDownloadUrl(file.id, true)
+    if (previewBlobUrl && previewFile?.id === file.id) return previewBlobUrl
+    const url = (file as any).previewUrl ?? (file as any).viewUrl ?? (file as any).downloadUrl
+    return typeof url === 'string' ? url : ''
   }
 
   return (
@@ -480,7 +499,7 @@ export function FilesTab({
                         <TableCell className="font-medium">
                           <div className="flex items-center">
                             {getFileIcon()}
-                            <span className="truncate">{item.filename}</span>
+                            <span className="truncate">{item.filename ?? item.serverFile?.fileName ?? item.serverFile?.filename ?? '—'}</span>
                           </div>
                           {item.status === 'uploading' && item.progress !== undefined && (
                             <div className="mt-1 w-full bg-muted rounded-full h-1.5">
@@ -499,7 +518,7 @@ export function FilesTab({
                         <TableCell>{getFileType(item)}</TableCell>
                         <TableCell>
                           <span className="px-2 py-1 text-xs bg-muted rounded-md">
-                            {getFileFormat(item.filename)}
+                            {getFileFormat(item.filename ?? item.serverFile?.fileName ?? item.serverFile?.filename)}
                           </span>
                         </TableCell>
                         <TableCell>{formatDate(item.uploadedAt)}</TableCell>
@@ -573,7 +592,7 @@ export function FilesTab({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-background rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">{previewFile.filename}</h3>
+              <h3 className="font-semibold">{(previewFile as any).fileName ?? previewFile.filename ?? 'File'}</h3>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -604,10 +623,10 @@ export function FilesTab({
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">Loading preview...</p>
                 </div>
-              ) : previewFile.file_type?.startsWith('image/') ? (
+              ) : (previewFile.file_type?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes((previewFile as any).format ?? '')) ? (
                 <img 
                   src={getPreviewUrl(previewFile)}
-                  alt={previewFile.filename}
+                  alt={(previewFile as any).fileName ?? previewFile.filename ?? 'Preview'}
                   className="max-w-full h-auto mx-auto"
                   onError={(e) => {
                     console.error('Image load error:', e)
@@ -618,11 +637,11 @@ export function FilesTab({
                     })
                   }}
                 />
-              ) : previewFile.file_type === 'application/pdf' ? (
+              ) : (previewFile.file_type ?? (previewFile as any).format) === 'application/pdf' || (previewFile as any).format === 'pdf' ? (
                 <iframe
                   src={previewBlobUrl || getPreviewUrl(previewFile)}
                   className="w-full h-full min-h-[500px] border-0"
-                  title={previewFile.filename}
+                  title={(previewFile as any).fileName ?? previewFile.filename ?? 'Preview'}
                   onError={() => {
                     toast({
                       title: 'Preview Failed',

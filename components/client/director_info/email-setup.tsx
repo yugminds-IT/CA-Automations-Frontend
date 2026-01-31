@@ -113,12 +113,20 @@ export function EmailSetup({
         getOrgEmailTemplates({ limit: 1000 }),
         getMasterEmailTemplates({ limit: 1000 })
       ])
-      
+
+      // listTemplates returns array directly; some APIs return { templates: array }
+      const orgTemplates = Array.isArray(orgResponse)
+        ? orgResponse
+        : (Array.isArray(orgResponse?.templates) ? orgResponse.templates : [])
+      const masterTemplates = Array.isArray(masterResponse)
+        ? masterResponse
+        : (Array.isArray(masterResponse?.templates) ? masterResponse.templates : [])
+
       // Combine org and master templates, prioritizing org templates
       const allTemplates = [
-        ...orgResponse.templates,
-        ...masterResponse.templates.filter(
-          mt => !orgResponse.templates.some(ot => ot.type === mt.type && ot.category === mt.category)
+        ...orgTemplates,
+        ...masterTemplates.filter(
+          mt => !orgTemplates.some(ot => ot.type === mt.type && ot.category === mt.category)
         )
       ]
       

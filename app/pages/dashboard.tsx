@@ -56,13 +56,14 @@ export function Dashboard() {
       const clientsResponse = await getClients({ limit: 1 })
       const totalClients = clientsResponse.total || 0
 
-      // Fetch email templates
+      // Fetch email templates (listTemplates returns array directly)
       const [orgTemplatesResponse, masterTemplatesResponse] = await Promise.all([
-        getOrgEmailTemplates({ limit: 1000 }).catch(() => ({ templates: [] })),
-        getMasterEmailTemplates({ limit: 1000 }).catch(() => ({ templates: [] }))
+        getOrgEmailTemplates({ limit: 1000 }).catch(() => []),
+        getMasterEmailTemplates({ limit: 1000 }).catch(() => [])
       ])
-      const totalTemplates = (orgTemplatesResponse.templates?.length || 0) + 
-                            (masterTemplatesResponse.templates?.length || 0)
+      const orgTemplatesList = Array.isArray(orgTemplatesResponse) ? orgTemplatesResponse : (orgTemplatesResponse?.templates ?? [])
+      const masterTemplatesList = Array.isArray(masterTemplatesResponse) ? masterTemplatesResponse : (masterTemplatesResponse?.templates ?? [])
+      const totalTemplates = (orgTemplatesList?.length || 0) + (masterTemplatesList?.length || 0)
 
       // Fetch scheduled and sent emails for all clients
       let scheduledCount = 0

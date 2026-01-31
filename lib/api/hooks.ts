@@ -1,26 +1,17 @@
-// React Hooks for API Integration (Optional - for easier React integration)
+// React Hooks for API Integration
 
 'use client';
 
 import { useState, useCallback } from 'react';
-import { 
-  signup as signupApi, 
-  login as loginApi, 
-  refreshToken as refreshTokenApi,
-  logout as logoutApi,
+import {
+  login as loginApi,
+  signupOrganization as signupOrganizationApi,
   createOrganization,
-  createUser,
+  createEmployee,
   healthCheck,
   isAuthenticated,
 } from './index';
-import type {
-  SignupRequest,
-  SignupResponse,
-  LoginRequest,
-  LoginResponse,
-  CreateOrganizationRequest,
-  CreateUserRequest,
-} from './types';
+import type { LoginRequest, SignupOrganizationRequest } from './types';
 import { ApiError } from './client';
 
 interface UseApiState<T> {
@@ -30,16 +21,11 @@ interface UseApiState<T> {
 }
 
 interface UseApiReturn<T> extends UseApiState<T> {
-  execute: (...args: any[]) => Promise<T | void>;
+  execute: (...args: unknown[]) => Promise<T | void>;
   reset: () => void;
 }
 
-/**
- * Generic API hook
- */
-function useApi<T>(
-  apiFunction: (...args: any[]) => Promise<T>
-): UseApiReturn<T> {
+function useApi<T>(apiFunction: (...args: unknown[]) => Promise<T>): UseApiReturn<T> {
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
     loading: false,
@@ -47,7 +33,7 @@ function useApi<T>(
   });
 
   const execute = useCallback(
-    async (...args: any[]) => {
+    async (...args: unknown[]) => {
       setState({ data: null, loading: true, error: null });
       try {
         const result = await apiFunction(...args);
@@ -74,51 +60,28 @@ function useApi<T>(
   };
 }
 
-/**
- * Signup Hook
- */
-export function useSignup() {
-  return useApi<SignupResponse>(signupApi);
-}
-
-/**
- * Login Hook
- */
 export function useLogin() {
-  return useApi<LoginResponse>(loginApi);
+  return useApi<Awaited<ReturnType<typeof loginApi>>>(loginApi as (data: LoginRequest) => Promise<unknown>);
 }
 
-/**
- * Refresh Token Hook
- */
-export function useRefreshToken() {
-  return useApi<Awaited<ReturnType<typeof refreshTokenApi>>>(refreshTokenApi);
+export function useSignupOrganization() {
+  return useApi<Awaited<ReturnType<typeof signupOrganizationApi>>>(
+    signupOrganizationApi as (data: SignupOrganizationRequest) => Promise<unknown>
+  );
 }
 
-/**
- * Create Organization Hook
- */
 export function useCreateOrganization() {
   return useApi<Awaited<ReturnType<typeof createOrganization>>>(createOrganization);
 }
 
-/**
- * Create User Hook
- */
-export function useCreateUser() {
-  return useApi<Awaited<ReturnType<typeof createUser>>>(createUser);
+export function useCreateEmployee() {
+  return useApi<Awaited<ReturnType<typeof createEmployee>>>(createEmployee);
 }
 
-/**
- * Health Check Hook
- */
 export function useHealthCheck() {
   return useApi<Awaited<ReturnType<typeof healthCheck>>>(healthCheck);
 }
 
-/**
- * Auth status hook
- */
 export function useAuth() {
   const [authenticated, setAuthenticated] = useState(isAuthenticated());
 
@@ -126,8 +89,9 @@ export function useAuth() {
     setAuthenticated(isAuthenticated());
   }, []);
 
-  const handleLogout = useCallback(() => {
-    logoutApi();
+  const handleLogout = useCallback(async () => {
+    const { logout } = await import('./auth');
+    logout();
     setAuthenticated(false);
   }, []);
 
@@ -137,4 +101,3 @@ export function useAuth() {
     logout: handleLogout,
   };
 }
-

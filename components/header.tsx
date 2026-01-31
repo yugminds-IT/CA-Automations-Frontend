@@ -23,15 +23,17 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
   const [mounted, setMounted] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
 
-  // Function to load user and organization data
+  // Function to load user and organization data (org from stored org or user.organization)
   const loadUserData = () => {
     const userData = getUserData()
-    const orgData = getOrganizationData()
+    const orgData = getOrganizationData() ?? (userData as any)?.organization ?? null
     if (userData) {
       setUser(userData)
     }
     if (orgData) {
       setOrganization(orgData)
+    } else {
+      setOrganization(null)
     }
   }
 
@@ -127,11 +129,9 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
             <PanelLeft className="w-4 h-4" />
           </button>
         )}
-        {organization?.name ? (
-          <h1 className="text-sm font-bold">{organization.name}</h1>
-        ) : (
-          <h1 className="text-sm font-bold">AIFlow</h1>
-        )}
+        <h1 className="text-sm font-bold truncate max-w-[180px] sm:max-w-[240px]" title={organization?.name ?? 'CAA'}>
+          {organization?.name ?? 'CAA'}
+        </h1>
       </div>
 
       {/* Right side: User icon, name, Help, Dark Mode, and Logout */}
@@ -169,7 +169,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
               <UserIcon className="w-3.5 h-3.5 text-sidebar-accent-foreground" />
             </div>
             <span className="text-xs font-semibold text-sidebar-foreground hidden sm:inline">
-              {user.full_name || user.email || 'User'}
+              {(user as any).name ?? (user as any).full_name ?? user.email ?? 'User'}
             </span>
             {/* Logout button */}
             <button

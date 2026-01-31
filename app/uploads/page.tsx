@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Upload, FileText, Trash2, X, CheckCircle2, Loader2 } from "lucide-react"
+import { Upload, FileText, Trash2, X, CheckCircle2, Loader2, ExternalLink } from "lucide-react"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
@@ -82,18 +82,24 @@ export default function UploadsPage() {
     localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
   }, [sidebarCollapsed])
 
-  // Convert server files to UploadItem format and merge with local items
+  // Convert server files to UploadItem format and merge with local items (backend returns fileName, date, time, format, previewUrl)
   useEffect(() => {
-    const serverItems: UploadItem[] = serverFiles.map((file) => ({
-      id: `server-${file.id}`,
-      filename: file.filename,
-      fileSize: file.file_size,
-      uploadedAt: file.uploaded_at,
-      fileType: file.file_type,
-      serverFile: file,
-      status: 'success' as const,
-      isServerFile: true,
-    }))
+    const serverItems: UploadItem[] = serverFiles.map((file: any) => {
+      const fileName = file.fileName ?? file.filename ?? ''
+      const date = file.date ?? ''
+      const time = file.time ?? ''
+      const uploadedAt = date && time ? `${date}T${time}` : (file.uploaded_at ?? Date.now())
+      return {
+        id: `server-${file.id}`,
+        filename: fileName,
+        fileSize: file.file_size ?? 0,
+        uploadedAt,
+        fileType: file.file_type ?? (file.format ? `application/${file.format}` : undefined),
+        serverFile: { ...file, fileName, previewUrl: file.previewUrl ?? file.viewUrl ?? file.downloadUrl },
+        status: 'success' as const,
+        isServerFile: true,
+      }
+    })
     
     // Merge: keep local items, add/update server items
     setItems(prev => {
@@ -107,7 +113,8 @@ export default function UploadsPage() {
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed)
 
   // Helper functions for file information
-  const getFileFormat = (fileName: string): string => {
+  const getFileFormat = (fileName: string | undefined): string => {
+    if (fileName == null || fileName === '') return 'UNKNOWN'
     const extension = fileName.split('.').pop()?.toUpperCase() || 'UNKNOWN'
     return extension
   }
@@ -124,7 +131,8 @@ export default function UploadsPage() {
       return typeParts[0].charAt(0).toUpperCase() + typeParts[0].slice(1) || 'Unknown'
     }
     // Fallback: determine from extension
-    const extension = item.filename.split('.').pop()?.toLowerCase() || ''
+    const filename = item.filename ?? item.serverFile?.fileName ?? item.file?.name ?? ''
+    const extension = filename.split('.').pop()?.toLowerCase() || ''
     const typeMap: Record<string, string> = {
       'pdf': 'Document',
       'doc': 'Document',
@@ -235,7 +243,7 @@ export default function UploadsPage() {
         setItems(prev => prev.filter((x) => x.id !== id))
         toast({
           title: 'File Deleted',
-          description: `${item.filename} has been deleted from the server.`,
+          description: `${item.filename ?? item.serverFile?.fileName ?? item.file?.name ?? 'File'} has been deleted from the server.`,
           variant: 'default',
         })
       } catch (error: any) {
@@ -252,7 +260,7 @@ export default function UploadsPage() {
       if (item) {
         toast({
           title: 'File Removed',
-          description: `${item.filename} has been removed from the queue.`,
+          description: `${item.filename ?? item.serverFile?.fileName ?? item.file?.name ?? 'File'} has been removed from the queue.`,
           variant: 'default',
         })
       }
@@ -463,7 +471,7 @@ export default function UploadsPage() {
                                 <TableCell className="font-medium">
                                   <div className="flex items-center">
                                     {getFileIcon()}
-                                    <span className="truncate">{item.filename}</span>
+                                    <span className="truncate">{item.filename ?? item.serverFile?.fileName ?? item.file?.name ?? '—'}</span>
                                   </div>
                                   {item.status === 'uploading' && item.progress !== undefined && (
                                     <div className="mt-1 w-full bg-muted rounded-full h-1.5">
@@ -482,12 +490,24 @@ export default function UploadsPage() {
                                 <TableCell>{getFileType(item)}</TableCell>
                                 <TableCell>
                                   <span className="px-2 py-1 text-xs bg-muted rounded-md">
-                                    {getFileFormat(item.filename)}
+                                    {getFileFormat(item.filename ?? item.serverFile?.fileName ?? item.file?.name)}
                                   </span>
                                 </TableCell>
                                 <TableCell>{formatDate(item.uploadedAt)}</TableCell>
                                 <TableCell>{formatTime(item.uploadedAt)}</TableCell>
                                 <TableCell className="text-right">
+                                  {(item.serverFile?.previewUrl ?? item.serverFile?.viewUrl ?? item.serverFile?.downloadUrl) && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => window.open(item.serverFile?.previewUrl ?? item.serverFile?.viewUrl ?? item.serverFile?.downloadUrl, '_blank', 'noopener')}
+                                      title="Preview"
+                                      className="mr-1"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                   <Button
                                     type="button"
                                     variant="ghost"

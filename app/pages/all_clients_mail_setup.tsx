@@ -48,12 +48,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { 
   getClients,
   getScheduledEmails,
-  createEmailConfig,
-  updateEmailConfig,
+  scheduleEmail,
   sendTestEmail,
   type Client,
   type ScheduledEmail,
   type GetScheduledEmailsParams,
+  type ScheduleEmailRequest,
+  type ScheduleConfig,
 } from '@/lib/api/index'
 import {
   getOrgEmailTemplates,
@@ -63,6 +64,15 @@ import {
 } from '@/lib/api/index'
 import { format } from 'date-fns'
 import { ApiError } from '@/lib/api/index'
+
+/** User's timezone offset (e.g. "+05:30", "-08:00") so backend sends mail at the exact local time they pick (e.g. 10:00 PM). */
+function getTimezoneOffset(): string {
+  const offsetMin = -new Date().getTimezoneOffset()
+  const sign = offsetMin >= 0 ? '+' : '-'
+  const h = Math.floor(Math.abs(offsetMin) / 60)
+  const m = Math.abs(offsetMin) % 60
+  return `${sign}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
 
 type DateType = 'all' | 'range' | 'range_multiple' | 'single'
 
@@ -191,12 +201,20 @@ export function AllClientsMailSetup() {
         getOrgEmailTemplates({ limit: 1000 }),
         getMasterEmailTemplates({ limit: 1000 })
       ])
-      
+
+      // listTemplates returns array directly; some APIs return { templates: array }
+      const orgTemplates = Array.isArray(orgResponse)
+        ? orgResponse
+        : (Array.isArray(orgResponse?.templates) ? orgResponse.templates : [])
+      const masterTemplates = Array.isArray(masterResponse)
+        ? masterResponse
+        : (Array.isArray(masterResponse?.templates) ? masterResponse.templates : [])
+
       // Combine templates: prefer org templates, fallback to master templates
       const allTemplates = [
-        ...orgResponse.templates,
-        ...masterResponse.templates.filter(
-          mt => !orgResponse.templates.some(ot => ot.type === mt.type && ot.category === mt.category)
+        ...orgTemplates,
+        ...masterTemplates.filter(
+          mt => !orgTemplates.some(ot => ot.type === mt.type && ot.category === mt.category)
         )
       ]
       
@@ -218,22 +236,15 @@ export function AllClientsMailSetup() {
       setIsLoadingHistory(true)
       const twentyFourHoursAgo = new Date().getTime() - (24 * 60 * 60 * 1000) // 24 hours in milliseconds
       
-      // Single batch: fetch scheduled emails for all clients in parallel (one logical request per view)
-      const results = await Promise.all(
-        clients.map((client) =>
-          getScheduledEmails(client.id, { limit: 1000 }).catch(() => ({ scheduled_emails: [] as ScheduledEmail[] }))
-        )
-      )
-      const allScheduledEmails: ScheduledEmail[] = results.flatMap((r) => r.scheduled_emails || [])
-      
-      // Remove duplicates
-      const uniqueEmails = Array.from(
-        new Map(allScheduledEmails.map(email => [email.id, email])).values()
-      )
+      // Single request: backend returns all org schedules
+      const { scheduled_emails: allScheduledEmails } = await getScheduledEmails(undefined, { limit: 1000 })
+      const list = Array.isArray(allScheduledEmails) ? allScheduledEmails : []
       
       // Filter based on status and 24-hour rule
-      const historyEmails = uniqueEmails.filter(email => {
-        const scheduledTime = new Date(email.scheduled_datetime).getTime()
+      const historyEmails = list.filter((email: ScheduledEmail) => {
+        const dt = (email as Record<string, unknown>).scheduled_datetime ?? (email as Record<string, unknown>).scheduledAt
+        if (!dt) return false
+        const scheduledTime = new Date(dt as string).getTime()
         const isOldPending = email.status === 'pending' && scheduledTime <= twentyFourHoursAgo
         
         // If filtering by specific status, only show that status (old pending emails are included if filter is 'pending' or 'all')
@@ -251,8 +262,9 @@ export function AllClientsMailSetup() {
       })
       
       // Sort by scheduled_datetime descending (most recent first)
+      const getDt = (e: ScheduledEmail) => (e as Record<string, unknown>).scheduled_datetime ?? (e as Record<string, unknown>).scheduledAt
       historyEmails.sort((a, b) => 
-        new Date(b.scheduled_datetime).getTime() - new Date(a.scheduled_datetime).getTime()
+        new Date((getDt(b) as string) || 0).getTime() - new Date((getDt(a) as string) || 0).getTime()
       )
       
       setEmailHistory(historyEmails)
@@ -275,18 +287,15 @@ export function AllClientsMailSetup() {
       const twentyFourHoursAgo = now.getTime() - (24 * 60 * 60 * 1000) // 24 hours in milliseconds
       const params: GetScheduledEmailsParams = { limit: 1000, status: 'pending' }
       
-      // Single batch: fetch pending scheduled emails for all clients in parallel (not N sequential requests)
-      const results = await Promise.all(
-        clients.map((client) =>
-          getScheduledEmails(client.id, params).catch(() => ({ scheduled_emails: [] as ScheduledEmail[] }))
-        )
-      )
-      const allScheduledEmails: ScheduledEmail[] = results.flatMap((r) => r.scheduled_emails || [])
+      // Single request: backend returns all org schedules (no client filter)
+      const { scheduled_emails: allScheduledEmails } = await getScheduledEmails(undefined, params)
+      const list = Array.isArray(allScheduledEmails) ? allScheduledEmails : []
       
       // Filter out emails that are 24+ hours past their scheduled time
-      const activeScheduledEmails = allScheduledEmails.filter(email => {
-        const scheduledTime = new Date(email.scheduled_datetime).getTime()
-        // Keep only emails that are either in the future or less than 24 hours past their scheduled time
+      const activeScheduledEmails = list.filter((email: ScheduledEmail) => {
+        const dt = (email as Record<string, unknown>).scheduled_datetime ?? (email as Record<string, unknown>).scheduledAt
+        if (!dt) return false
+        const scheduledTime = new Date(dt as string).getTime()
         return scheduledTime > twentyFourHoursAgo
       })
       
@@ -308,13 +317,16 @@ export function AllClientsMailSetup() {
     }
   }
   
+  /** Remaining time until scheduled send, based on scheduled date + time. Updates every second via currentTime. */
   const getTimeRemaining = (scheduledDatetime: string): string => {
+    if (!scheduledDatetime || scheduledDatetime.trim() === '') return '—'
     const scheduled = new Date(scheduledDatetime)
+    if (Number.isNaN(scheduled.getTime())) return '—'
     const now = currentTime
     const diff = scheduled.getTime() - now.getTime()
     
     if (diff <= 0) {
-      return 'time out'
+      return 'Due'
     }
     
     const totalSeconds = Math.floor(diff / 1000)
@@ -322,12 +334,25 @@ export function AllClientsMailSetup() {
     const minutes = Math.floor((totalSeconds % 3600) / 60)
     const seconds = totalSeconds % 60
     
-    // Format as HH:MM:SS or MM:SS
+    // Under 1 hour: show MM:SS (e.g. "4:49" = 4 min 49 sec). 1 hour+: show HH:MM:SS (e.g. "1:04:49").
     if (hours > 0) {
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-    } else {
-      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
     }
+    return `${minutes}:${String(seconds).padStart(2, '0')}`
+  }
+
+  /** Resolve full scheduled datetime for countdown (use scheduled_datetime or build from date + time). */
+  const getScheduledDatetimeForCountdown = (email: ScheduledEmail): string => {
+    const dt = (email as Record<string, unknown>).scheduled_datetime ?? (email as Record<string, unknown>).scheduledAt
+    if (dt && typeof dt === 'string') return dt
+    const date = (email as Record<string, unknown>).scheduled_date as string | undefined
+    const time = (email as Record<string, unknown>).scheduled_time as string | undefined
+    if (date && time) {
+      const combined = time.length <= 5 ? `${date}T${time}:00` : `${date}T${time}`
+      const parsed = new Date(combined)
+      return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString()
+    }
+    return ''
   }
   
   const validateEmail = (email: string): boolean => {
@@ -503,7 +528,7 @@ export function AllClientsMailSetup() {
       
       // Update schedules based on template selection
       if (isTemplateSelected && !templateSchedules[templateId.toString()]) {
-        // Initialize schedule for this template
+        // Initialize schedule for this template (default time so Schedule Emails works without user filling time)
         setTemplateSchedules(prevSchedules => ({
           ...prevSchedules,
             [templateId.toString()]: {
@@ -512,7 +537,7 @@ export function AllClientsMailSetup() {
               scheduledDateFrom: null,
               scheduledDateTo: null,
               scheduledDates: [],
-              scheduledTimes: [''],
+              scheduledTimes: [],
             }
         }))
       } else if (!isTemplateSelected && templateSchedules[templateId.toString()]) {
@@ -551,7 +576,7 @@ export function AllClientsMailSetup() {
           scheduledDateFrom: null,
           scheduledDateTo: null,
           scheduledDates: [],
-          scheduledTimes: [''],
+          scheduledTimes: [],
         },
         dateType,
         scheduledDate: null,
@@ -571,7 +596,7 @@ export function AllClientsMailSetup() {
           scheduledDate: null,
           scheduledDateFrom: null,
           scheduledDateTo: null,
-          scheduledTimes: [''],
+          scheduledTimes: [],
         },
         scheduledDates: dates || [],
         scheduledDateFrom: null,
@@ -747,68 +772,59 @@ export function AllClientsMailSetup() {
           const emailSelectedTemplates = Array.from(emailTemplates[email] || [])
           if (emailSelectedTemplates.length === 0) continue
           
-          // Build email config for this client
-          const emailConfig: any = {
-            emails: [email],
-            emailTemplates: {
-              [email]: {
-                email,
-                selectedTemplates: emailSelectedTemplates,
+          // Call mail-management scheduleEmail for each (email, template) with mapped schedule
+          const timeZoneOffset = getTimezoneOffset()
+          const times = (schedule: typeof templateSchedules[string]) =>
+            (schedule?.scheduledTimes?.filter((t: string) => t) || []).map((t: string) => (t.includes(':') ? t : `${t}:00`))
+          const mapToScheduleConfig = (schedule: typeof templateSchedules[string]): ScheduleConfig | null => {
+            if (!schedule || !times(schedule).length) return null
+            const dateType = schedule.dateType || 'single'
+            if (dateType === 'single' && schedule.scheduledDate) {
+              return { type: 'single_date', date: format(schedule.scheduledDate, 'yyyy-MM-dd'), times: times(schedule), timeZoneOffset }
+            }
+            if (dateType === 'range' && schedule.scheduledDateFrom && schedule.scheduledDateTo) {
+              return {
+                type: 'date_range',
+                fromDate: format(schedule.scheduledDateFrom, 'yyyy-MM-dd'),
+                toDate: format(schedule.scheduledDateTo, 'yyyy-MM-dd'),
+                times: times(schedule),
+                timeZoneOffset,
               }
-            },
-            services: {}
+            }
+            if (dateType === 'range_multiple' && schedule.scheduledDates?.length) {
+              return {
+                type: 'multiple_dates',
+                dates: schedule.scheduledDates.map((d: Date) => format(d, 'yyyy-MM-dd')),
+                times: times(schedule),
+                timeZoneOffset,
+              }
+            }
+            return null
           }
-          
-          // Add services for each template selected for this email
+
           for (const templateId of emailSelectedTemplates) {
             const schedule = templateSchedules[templateId.toString()]
             const template = templates.find(t => t.id === templateId)
-            
             if (!schedule || !template) continue
-            
-            const service: any = {
-              enabled: true,
+            const scheduleConfig = mapToScheduleConfig(schedule)
+            if (!scheduleConfig) continue
+            await scheduleEmail({
               templateId,
-              templateName: template.name,
-              dateType: schedule.dateType,
-              scheduledTimes: schedule.scheduledTimes.filter(t => t),
-            }
-            
-            if (schedule.dateType === 'single' && schedule.scheduledDate) {
-              service.scheduledDate = format(schedule.scheduledDate, 'yyyy-MM-dd')
-            } else if (schedule.dateType === 'range') {
-              // Include date range (from - to) if set
-              if (schedule.scheduledDateFrom) {
-                service.scheduledDateFrom = format(schedule.scheduledDateFrom, 'yyyy-MM-dd')
-              }
-              if (schedule.scheduledDateTo) {
-                service.scheduledDateTo = format(schedule.scheduledDateTo, 'yyyy-MM-dd')
-              }
-            } else if (schedule.dateType === 'range_multiple') {
-              // Include multiple specific dates if set
-              if (schedule.scheduledDates && schedule.scheduledDates.length > 0) {
-                service.scheduledDates = schedule.scheduledDates.map(date => format(date, 'yyyy-MM-dd'))
-              }
-            }
-            
-            emailConfig.services[templateId.toString()] = service
+              recipientEmails: [email],
+              variables: {},
+              schedule: scheduleConfig,
+            } as ScheduleEmailRequest)
           }
-          
-          // Try to update first, if 404 create new
-          try {
-            await updateEmailConfig(client.id, emailConfig)
-          } catch (error: any) {
-            if (error?.status === 404 || (error instanceof ApiError && error.status === 404)) {
-              await createEmailConfig(client.id, emailConfig)
-            } else {
-              throw error
-            }
-          }
-          
           successCount++
         } catch (error) {
           console.error(`Error saving config for email ${email}:`, error)
           errorCount++
+          const message = error instanceof ApiError ? error.message : (error instanceof Error ? error.message : 'Failed to save')
+          toast({
+            title: 'Save failed',
+            description: message,
+            variant: 'destructive',
+          })
         }
       }
       
@@ -1205,7 +1221,7 @@ export function AllClientsMailSetup() {
                               scheduledDateFrom: null,
                               scheduledDateTo: null,
                               scheduledDates: [],
-                              scheduledTimes: [''],
+                              scheduledTimes: [],
                             }
                             
                             const dateType = schedule.dateType || 'single'
@@ -1495,9 +1511,8 @@ export function AllClientsMailSetup() {
                           .slice((scheduledMailsPage - 1) * scheduledMailsPageSize, scheduledMailsPage * scheduledMailsPageSize)
                           .map((email, index) => {
                             const sno = (scheduledMailsPage - 1) * scheduledMailsPageSize + index + 1
-                            const timeRemaining = getTimeRemaining(email.scheduled_datetime)
-                            const scheduledDate = new Date(email.scheduled_datetime)
-                            
+                            const scheduledDatetimeForCountdown = getScheduledDatetimeForCountdown(email)
+                            const timeRemaining = getTimeRemaining(scheduledDatetimeForCountdown)
                             return (
                               <TableRow key={email.id}>
                                 <TableCell>{sno}</TableCell>

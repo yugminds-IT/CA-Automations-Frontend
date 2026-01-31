@@ -28,17 +28,19 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { ClientOnboardForm } from './client_onboardform'
 import {
-  createClient,
+  onboardClient,
   getClients,
   getClientById,
   updateClient,
   deleteClient,
   getServices,
+  addDirector,
 } from '@/lib/api/clients'
+import { getUserData, createBusinessType } from '@/lib/api/index'
 import { ApiError } from '@/lib/api/client'
 import type {
   Client as ApiClient,
-  CreateClientRequest,
+  OnboardClientRequest,
   UpdateClientRequest,
   Service,
   Director,
@@ -87,12 +89,46 @@ interface ClientTabProps {
   setIsDialogOpen?: (open: boolean) => void
   services?: string[]
   businessTypes?: string[]
+  /** Full business types with ids for resolving/creating (e.g. for "Other") so businessTypeId is sent to API */
+  businessTypesWithIds?: { id: number; name: string }[]
+  /** Full services with ids so serviceIds are sent in onboard/update payload; if not provided, ClientTab fetches when useApi */
+  servicesWithIds?: { id: number; name: string }[]
   clientStatuses?: string[]
   // If true, component will fetch clients from API instead of using props
   useApi?: boolean
-  // Optional search and filter params for API fetching
+  // Optional search and filter params (applied client-side when useApi is true)
   searchQuery?: string
   statusFilter?: string
+  // Called when the filtered client list changes (for parent Export button)
+  onFilteredClientsChange?: (clients: Client[]) => void
+}
+
+// Filter clients by search query and status (client-side; backend only supports organizationId)
+function filterClients(
+  clientsList: Client[],
+  query: string,
+  status: string
+): Client[] {
+  let filtered = clientsList
+  if (status !== 'all') {
+    filtered = filtered.filter(
+      (c) => (c.status ?? '').toLowerCase() === status.toLowerCase()
+    )
+  }
+  if (query.trim()) {
+    const lowerQuery = query.toLowerCase()
+    filtered = filtered.filter(
+      (c) =>
+        (c.name ?? '').toLowerCase().includes(lowerQuery) ||
+        (c.email ?? '').toLowerCase().includes(lowerQuery) ||
+        (c.phone ?? '').toLowerCase().includes(lowerQuery) ||
+        (c.companyName ?? '').toLowerCase().includes(lowerQuery) ||
+        (Array.isArray(c.directories)
+          ? c.directories.some((d) => String(d).toLowerCase().includes(lowerQuery))
+          : String(c.directories ?? '').toLowerCase().includes(lowerQuery))
+    )
+  }
+  return filtered
 }
 
 // Format date helper function
@@ -125,30 +161,41 @@ function formatDirectories(directories: string[] | string | null | undefined): s
 }
 
 // Transform API Client to component Client format
-function transformApiClientToComponent(apiClient: ApiClient): Client {
+// Backend returns camelCase (name, companyName, followupDate, onboardDate, phone) and businessType relation { id, name }
+function transformApiClientToComponent(apiClient: ApiClient & Record<string, unknown>): Client {
   // Extract service names from services array
-  const serviceNames = apiClient.services?.map(s => s.name) || []
-  
+  const serviceNames = apiClient.services?.map((s: { name?: string }) => s.name) || []
+  // Extract business type name (API may return relation object { id, name } or null)
+  const bt = (apiClient as any).businessType ?? (apiClient as any).business_type
+  const businessType =
+    typeof bt === 'object' && bt !== null && 'name' in bt
+      ? (bt as { name: string }).name
+      : typeof bt === 'string'
+        ? bt
+        : undefined
+
   return {
     id: apiClient.id,
-    name: apiClient.client_name,
-    email: apiClient.email,
-    phone: apiClient.phone_number,
-    companyName: apiClient.company_name,
+    name: (apiClient as any).name ?? apiClient.client_name ?? '',
+    email: apiClient.email ?? '',
+    phone: (apiClient as any).phone ?? apiClient.phone_number ?? null,
+    companyName: (apiClient as any).companyName ?? apiClient.company_name ?? '',
     directories: serviceNames.length > 0 ? serviceNames : '—',
-    followUpDate: apiClient.follow_date,
-    onboardDate: apiClient.onboard_date,
+    followUpDate: (apiClient as any).followupDate ?? apiClient.follow_date ?? null,
+    onboardDate: (apiClient as any).onboardDate ?? apiClient.onboard_date ?? null,
     lastContactedDate: null, // API doesn't provide this field
-    status: apiClient.status,
+    status: apiClient.status ?? undefined,
+    businessType,
   }
 }
 
-// Transform component Client data to API CreateClientRequest format
-function transformComponentToCreateRequest(
+// Transform component Client data to API OnboardClientRequest format (camelCase for backend)
+function transformComponentToOnboardRequest(
   clientData: Omit<Client, 'id' | 'lastContactedDate'>,
-  services: Service[]
-): CreateClientRequest {
-  // Map service names to service IDs
+  services: Service[],
+  organizationId?: number,
+  businessTypeId?: number | null
+): OnboardClientRequest {
   const serviceIds = Array.isArray(clientData.directories)
     ? clientData.directories
         .map(dir => {
@@ -158,47 +205,57 @@ function transformComponentToCreateRequest(
         .filter((id): id is number => id !== undefined)
     : []
 
-  // Transform directors if available
-  const directors = clientData.directors?.map(dir => ({
-    director_name: dir.name,
-    email: dir.email || '',
-    phone_number: dir.phone || '',
-    designation: dir.designation || '',
-    din: dir.din,
-    pan: dir.pan,
-    aadhaar: dir.aadhar,
-  }))
+  const onboardDate =
+    typeof clientData.onboardDate === 'string'
+      ? clientData.onboardDate
+      : clientData.onboardDate
+        ? new Date(clientData.onboardDate).toISOString().split('T')[0]
+        : undefined
+  const followupDate = clientData.followUpDate
+    ? typeof clientData.followUpDate === 'string'
+      ? clientData.followUpDate
+      : new Date(clientData.followUpDate).toISOString().split('T')[0]
+    : undefined
+
+  const directors: OnboardClientRequest['directors'] =
+    (clientData.directors ?? [])
+      .filter((d) => d?.name?.trim())
+      .map((d) => ({
+        directorName: d!.name!.trim(),
+        ...(d!.email?.trim() ? { email: d!.email.trim() } : {}),
+        ...(d!.phone?.trim() ? { phone: d!.phone.trim() } : {}),
+        ...(d!.designation?.trim() ? { designation: d!.designation.trim() } : {}),
+        ...(d!.din?.trim() ? { din: d!.din.trim() } : {}),
+        ...(d!.pan?.trim() ? { pan: d!.pan.trim() } : {}),
+        ...(d!.aadhar?.trim() ? { aadharNumber: d!.aadhar.trim() } : {}),
+      }))
 
   return {
-    client_name: clientData.name,
+    name: clientData.name,
     email: clientData.email,
-    phone_number: clientData.phone || undefined,
-    company_name: clientData.companyName,
-    business_type: clientData.businessType,
-    pan_number: clientData.panNumber,
-    gst_number: clientData.gstNumber,
-    status: clientData.status,
+    phone: clientData.phone || undefined,
+    companyName: clientData.companyName,
+    businessTypeId: businessTypeId ?? undefined,
+    panNumber: clientData.panNumber,
+    gstNumber: clientData.gstNumber,
+    status: (clientData.status as OnboardClientRequest['status']) || 'active',
     address: clientData.address,
     city: clientData.city,
     state: clientData.state,
     country: clientData.country,
-    pin_code: clientData.pincode,
-    onboard_date: typeof clientData.onboardDate === 'string' 
-      ? clientData.onboardDate 
-      : clientData.onboardDate?.toISOString().split('T')[0],
-    follow_date: clientData.followUpDate 
-      ? (typeof clientData.followUpDate === 'string' 
-          ? clientData.followUpDate 
-          : clientData.followUpDate.toISOString().split('T')[0])
-      : undefined,
-    additional_notes: clientData.notes,
-    service_ids: serviceIds.length > 0 ? serviceIds : undefined,
-    directors: directors,
+    pincode: clientData.pincode,
+    serviceIds: serviceIds.length > 0 ? serviceIds : undefined,
+    onboardDate,
+    followupDate,
+    additionalNotes: clientData.notes,
+    organizationId,
+    ...(directors.length > 0 ? { directors } : {}),
   }
 }
 
 // Transform API Client to form defaultValues format
-function transformApiClientToFormValues(apiClient: ApiClient): {
+// Backend returns camelCase (companyName, followupDate, onboardDate, additionalNotes, etc.)
+function transformApiClientToFormValues(apiClient: ApiClient & Record<string, unknown>): {
   name: string
   email: string
   phone: string
@@ -227,55 +284,61 @@ function transformApiClientToFormValues(apiClient: ApiClient): {
     aadhar?: string
   }>
 } {
+  const c = apiClient as any
   // Extract service names
-  const serviceNames = apiClient.services?.map(s => s.name) || []
+  const serviceNames = apiClient.services?.map((s: { name?: string }) => s.name) || []
   
   // Parse address - API returns address as a single string, form expects addressLine1
-  const addressLine1 = apiClient.address || ''
+  const addressLine1 = c.address ?? apiClient.address ?? ''
   
-  // Handle business type - check if it's a custom type (not in standard list)
-  const businessType = apiClient.business_type || ''
+  // Handle business type - API may return relation object { id, name } or string
+  const bt = c.businessType ?? apiClient.business_type
+  const businessType = typeof bt === 'object' && bt !== null && 'name' in bt
+    ? (bt as { name: string }).name
+    : typeof bt === 'string'
+      ? bt
+      : ''
   
-  // Transform directors
-  const directors = apiClient.directors?.map(dir => ({
-    name: dir.director_name,
-    email: dir.email || '',
-    phone: dir.phone_number || '',
-    designation: dir.designation || '',
-    din: dir.din || '',
-    pan: dir.pan || '',
-    aadhar: dir.aadhaar || '',
-  })) || []
+  // Transform directors - support camelCase (name, phone) or snake_case (director_name, phone_number)
+  const directors = (apiClient.directors ?? []).map((dir: any) => ({
+    name: dir.name ?? dir.director_name ?? '',
+    email: dir.email ?? '',
+    phone: dir.phone ?? dir.phone_number ?? '',
+    designation: dir.designation ?? '',
+    din: dir.din ?? '',
+    pan: dir.pan ?? '',
+    aadhar: dir.aadhaar ?? dir.aadhar ?? '',
+  }))
 
   return {
-    name: apiClient.client_name,
-    email: apiClient.email,
-    phone: apiClient.phone_number || '',
-    companyName: apiClient.company_name,
-    panNumber: apiClient.pan_number || undefined,
-    gstNumber: apiClient.gst_number || undefined,
+    name: c.name ?? apiClient.client_name ?? '',
+    email: apiClient.email ?? '',
+    phone: c.phone ?? apiClient.phone_number ?? '',
+    companyName: c.companyName ?? apiClient.company_name ?? '',
+    panNumber: c.panNumber ?? apiClient.pan_number ?? undefined,
+    gstNumber: c.gstNumber ?? apiClient.gst_number ?? undefined,
     businessType: businessType,
     customBusinessType: undefined, // Will be set if businessType is "Other"
-    status: apiClient.status,
+    status: c.status ?? apiClient.status ?? 'active',
     addressLine1: addressLine1,
-    city: apiClient.city || '',
-    state: apiClient.state || '',
-    country: apiClient.country || '',
-    pincode: apiClient.pin_code || '',
+    city: c.city ?? apiClient.city ?? '',
+    state: c.state ?? apiClient.state ?? '',
+    country: c.country ?? apiClient.country ?? '',
+    pincode: c.pincode ?? apiClient.pin_code ?? '',
     directories: serviceNames,
-    onboardDate: apiClient.onboard_date ? new Date(apiClient.onboard_date) : new Date(),
-    followUpDate: apiClient.follow_date ? new Date(apiClient.follow_date) : null,
-    notes: apiClient.additional_notes || undefined,
+    onboardDate: (c.onboardDate ?? apiClient.onboard_date) ? new Date(c.onboardDate ?? apiClient.onboard_date) : new Date(),
+    followUpDate: (c.followupDate ?? apiClient.follow_date) ? new Date(c.followupDate ?? apiClient.follow_date) : null,
+    notes: c.additionalNotes ?? apiClient.additional_notes ?? undefined,
     directors: directors,
   }
 }
 
-// Transform component Client data to API UpdateClientRequest format
+// Transform component Client data to API UpdateClientRequest format (camelCase for backend)
 function transformComponentToUpdateRequest(
   clientData: Omit<Client, 'id' | 'lastContactedDate'>,
-  services: Service[]
+  services: Service[],
+  businessTypeId?: number | null
 ): UpdateClientRequest {
-  // Map service names to service IDs
   const serviceIds = Array.isArray(clientData.directories)
     ? clientData.directories
         .map(dir => {
@@ -285,43 +348,53 @@ function transformComponentToUpdateRequest(
         .filter((id): id is number => id !== undefined)
     : []
 
-  // Transform directors if available
-  const directors = clientData.directors?.map(dir => ({
-    director_name: dir.name,
-    email: dir.email || '',
-    phone_number: dir.phone || '',
-    designation: dir.designation || '',
-    din: dir.din,
-    pan: dir.pan,
-    aadhaar: dir.aadhar,
-  }))
+  const onboardDate =
+    typeof clientData.onboardDate === 'string'
+      ? clientData.onboardDate
+      : clientData.onboardDate
+        ? new Date(clientData.onboardDate).toISOString().split('T')[0]
+        : undefined
+  const followupDate = clientData.followUpDate
+    ? typeof clientData.followUpDate === 'string'
+      ? clientData.followUpDate
+      : new Date(clientData.followUpDate).toISOString().split('T')[0]
+    : undefined
 
-  return {
-    client_name: clientData.name,
+  const directors: UpdateClientRequest['directors'] =
+    (clientData.directors ?? [])
+      .filter((d) => d?.name?.trim())
+      .map((d) => ({
+        directorName: d!.name!.trim(),
+        ...(d!.email?.trim() ? { email: d!.email.trim() } : {}),
+        ...(d!.phone?.trim() ? { phone: d!.phone.trim() } : {}),
+        ...(d!.designation?.trim() ? { designation: d!.designation.trim() } : {}),
+        ...(d!.din?.trim() ? { din: d!.din.trim() } : {}),
+        ...(d!.pan?.trim() ? { pan: d!.pan.trim() } : {}),
+        ...(d!.aadhar?.trim() ? { aadharNumber: d!.aadhar.trim() } : {}),
+      }))
+
+  const result: UpdateClientRequest = {
+    name: clientData.name,
     email: clientData.email,
-    phone_number: clientData.phone || undefined,
-    company_name: clientData.companyName,
-    business_type: clientData.businessType,
-    pan_number: clientData.panNumber,
-    gst_number: clientData.gstNumber,
-    status: clientData.status,
+    phone: clientData.phone || undefined,
+    companyName: clientData.companyName,
+    businessTypeId: businessTypeId ?? undefined,
+    panNumber: clientData.panNumber,
+    gstNumber: clientData.gstNumber,
+    status: clientData.status as UpdateClientRequest['status'],
     address: clientData.address,
     city: clientData.city,
     state: clientData.state,
     country: clientData.country,
-    pin_code: clientData.pincode,
-    onboard_date: typeof clientData.onboardDate === 'string' 
-      ? clientData.onboardDate 
-      : clientData.onboardDate?.toISOString().split('T')[0],
-    follow_date: clientData.followUpDate 
-      ? (typeof clientData.followUpDate === 'string' 
-          ? clientData.followUpDate 
-          : clientData.followUpDate.toISOString().split('T')[0])
-      : undefined,
-    additional_notes: clientData.notes,
-    service_ids: serviceIds.length > 0 ? serviceIds : undefined,
-    directors: directors,
+    pincode: clientData.pincode,
+    // Include serviceIds even when empty so update can clear services
+    serviceIds,
+    onboardDate,
+    followupDate,
+    additionalNotes: clientData.notes,
+    directors,
   }
+  return result
 }
 
 type SortField = 'name' | 'email' | 'phone' | 'companyName' | 'followUpDate' | 'onboardDate' | 'lastContactedDate' | 'status' | null
@@ -336,10 +409,13 @@ export function ClientTab({
   setIsDialogOpen: setExternalDialogOpen,
   services: externalServices = [],
   businessTypes = [],
+  businessTypesWithIds = [],
+  servicesWithIds = [],
   clientStatuses = [],
   useApi = false,
   searchQuery = '',
   statusFilter,
+  onFilteredClientsChange,
 }: ClientTabProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -366,16 +442,8 @@ export function ClientTab({
     setIsLoadingApi(true)
     setError(null)
     try {
-      const params: { search?: string; status_filter?: string } = {}
-      if (searchQuery) {
-        params.search = searchQuery
-      }
-      if (statusFilter && statusFilter !== 'all') {
-        params.status_filter = statusFilter
-      }
-      
-      console.log('Fetching clients with params:', params)
-      const response = await getClients(params)
+      // Backend only supports organizationId; search/status are applied client-side
+      const response = await getClients()
       console.log('API response:', response)
       const transformedClients = response.clients.map(transformApiClientToComponent)
       console.log('Transformed clients:', transformedClients)
@@ -411,23 +479,22 @@ export function ClientTab({
     if (useApi) {
       console.log('useApi is true, fetching clients')
       fetchClients()
-      // Only fetch services if not provided externally (avoid duplicate API call)
-      if (externalServices.length === 0) {
-        fetchServices()
+      // Use servicesWithIds (real IDs) when provided; otherwise fetch so payload has real serviceIds
+      if (servicesWithIds.length > 0) {
+        setApiServices(servicesWithIds.map((s) => ({ id: s.id, name: s.name } as Service)))
       } else {
-        // Use external services - map to Service format
-        setApiServices(externalServices.map(name => ({ id: 0, name } as Service)))
+        fetchServices()
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useApi, fetchClients])
+  }, [useApi, fetchClients, servicesWithIds.length])
   
-  // Update services when external services change (if using API)
+  // Update apiServices when servicesWithIds changes (so payload gets real IDs)
   useEffect(() => {
-    if (useApi && externalServices.length > 0) {
-      setApiServices(externalServices.map(name => ({ id: 0, name } as Service)))
+    if (useApi && servicesWithIds.length > 0) {
+      setApiServices(servicesWithIds.map((s) => ({ id: s.id, name: s.name } as Service)))
     }
-  }, [useApi, externalServices])
+  }, [useApi, servicesWithIds])
 
   // Determine which clients and loading state to use
   const clients = useApi ? apiClients : externalClients
@@ -522,8 +589,17 @@ export function ClientTab({
     })
   }
 
-  const allClients = clients
-  const sortedClients = sortClients(allClients)
+  // Apply search and status filter client-side (backend does not support these params)
+  const filteredClients = React.useMemo(
+    () => filterClients(clients, searchQuery, statusFilter ?? 'all'),
+    [clients, searchQuery, statusFilter]
+  )
+  const sortedClients = sortClients(filteredClients)
+
+  // Notify parent of filtered list for Export button
+  React.useEffect(() => {
+    onFilteredClientsChange?.(filteredClients)
+  }, [filteredClients, onFilteredClientsChange])
   
   // Pagination
   const totalItems = sortedClients.length
@@ -584,32 +660,49 @@ export function ClientTab({
     }>
   }) => {
     try {
+      // Resolve businessTypeId from name so "Other" / custom types are stored (backend expects businessTypeId)
+      let resolvedBusinessTypeId: number | undefined | null = undefined
+      if (useApi && clientData.businessType?.trim()) {
+        const name = clientData.businessType.trim()
+        const existing = businessTypesWithIds.find(
+          (t) => t.name.trim().toLowerCase() === name.toLowerCase()
+        )
+        if (existing) {
+          resolvedBusinessTypeId = existing.id
+        } else {
+          const user = getUserData()
+          const organizationId = user?.organizationId != null ? Number(user.organizationId) : undefined
+          if (organizationId != null) {
+            try {
+              const created = await createBusinessType({ name, organizationId })
+              resolvedBusinessTypeId = created.id
+            } catch (createErr) {
+              console.warn('Failed to create custom business type, saving client without businessTypeId:', createErr)
+            }
+          }
+        }
+      }
+
       if (editingClient) {
-        // Update existing client
+        // Update existing client (PATCH /clients/:id with camelCase)
         if (useApi) {
-          // Use API to update
           const updateRequest = transformComponentToUpdateRequest(
             clientData,
-            useApi ? apiServices : []
+            useApi ? apiServices : [],
+            resolvedBusinessTypeId
           )
           const updatedApiClient = await updateClient(editingClient.id, updateRequest)
           const updatedClient = transformApiClientToComponent(updatedApiClient)
-          
-          // Update local state
-          setApiClients(prev => 
-            prev.map(c => c.id === editingClient.id ? updatedClient : c)
+          setApiClients(prev =>
+            prev.map(c => (c.id === editingClient.id ? updatedClient : c))
           )
-          
-          // Refetch to ensure we have latest data
           await fetchClients()
-          
           toast({
             title: 'Success',
             description: 'Client updated successfully',
             variant: 'success',
           })
         } else if (onClientUpdated) {
-          // Use callback
           await onClientUpdated({
             ...clientData,
             id: editingClient.id,
@@ -618,29 +711,27 @@ export function ClientTab({
         }
         setEditingClient(null)
       } else {
-        // Create new client
+        // Create new client via onboard (POST /clients/onboard) then add directors
         if (useApi) {
-          // Use API to create
-          const createRequest = transformComponentToCreateRequest(
+          const user = getUserData()
+          const organizationId = user?.organizationId != null ? Number(user.organizationId) : undefined
+          const onboardRequest = transformComponentToOnboardRequest(
             clientData,
-            useApi ? apiServices : []
+            useApi ? apiServices : [],
+            organizationId,
+            resolvedBusinessTypeId ?? undefined
           )
-          const newApiClient = await createClient(createRequest)
+          const newApiClient = await onboardClient(onboardRequest)
           const newClient = transformApiClientToComponent(newApiClient)
-          
-          // Add to local state
+          // Directors are created by backend from onboard payload (onboardRequest.directors)
           setApiClients(prev => [newClient, ...prev])
-          
-          // Refetch to ensure we have latest data
           await fetchClients()
-          
           toast({
             title: 'Success',
             description: 'Client created successfully',
             variant: 'success',
           })
         } else if (onClientAdded) {
-          // Use callback
           await onClientAdded(clientData)
         }
       }
@@ -661,26 +752,23 @@ export function ClientTab({
 
   const handleEdit = async (client: Client) => {
     setEditingClient(client)
+    setEditingApiClient(null)
     setIsDialogOpen(true)
-    
-    // If using API, fetch full client data including all fields
     if (useApi) {
       setIsLoadingEditData(true)
       try {
         const fullClientData = await getClientById(client.id)
         setEditingApiClient(fullClientData)
-        console.log('Fetched full client data for editing:', fullClientData)
       } catch (err: unknown) {
         console.error('Error fetching client data for editing:', err)
-        const errorMessage = err instanceof ApiError 
-          ? err.detail 
+        const errorMessage = err instanceof ApiError
+          ? err.detail
           : 'Failed to load client data. Please try again.'
         toast({
           title: 'Error',
           description: errorMessage,
           variant: 'destructive',
         })
-        // Still allow editing with the basic data we have
       } finally {
         setIsLoadingEditData(false)
       }
@@ -754,6 +842,7 @@ export function ClientTab({
                     >
                       Company Name
                     </SortableTableHead>
+                    <TableHead className="min-w-[120px]">Business Type</TableHead>
                     <SortableTableHead 
                       className="min-w-[180px]"
                       sortable
@@ -823,6 +912,11 @@ export function ClientTab({
                       >
                         <span className="truncate block max-w-[150px]" title={client.companyName}>
                           {client.companyName}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="truncate block max-w-[120px]" title={client.businessType ?? ''}>
+                          {client.businessType ?? '—'}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -896,12 +990,17 @@ export function ClientTab({
                       <TableCell>
                         <span className="text-xs">{formatDate(client.onboardDate)}</span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell
+                        className="text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center justify-center gap-2">
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
+                              e.preventDefault()
                               e.stopPropagation()
                               handleEdit(client)
                             }}
@@ -971,6 +1070,7 @@ export function ClientTab({
             </div>
           ) : (
             <ClientOnboardForm
+              key={editingClient ? `edit-${editingClient.id}` : 'create'}
               onSubmit={handleClientSubmit}
               onCancel={() => {
                 setIsDialogOpen(false)
@@ -995,7 +1095,7 @@ export function ClientTab({
                       onboardDate: editingClient.onboardDate ? new Date(editingClient.onboardDate) : new Date(),
                       notes: '',
                       status: editingClient.status || '',
-                      businessType: '',
+                      businessType: editingClient.businessType ?? '',
                       addressLine1: '',
                       city: '',
                       state: '',

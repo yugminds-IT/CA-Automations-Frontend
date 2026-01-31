@@ -4,14 +4,26 @@ import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { ClientDetails } from "@/components/client/client_details"
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
+import { isAuthenticated } from "@/lib/api/index"
 
 export default function ClientDetailsPage() {
   const params = useParams()
+  const router = useRouter()
   const clientId = params?.id as string
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [isDesktop, setIsDesktop] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
+
+  // Auth guard: redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.replace("/login")
+      return
+    }
+    setAuthChecked(true)
+  }, [router])
 
   // Load sidebar state from localStorage on mount
   useEffect(() => {
@@ -70,7 +82,11 @@ export default function ClientDetailsPage() {
           }}
         >
           <div className="w-full max-w-full">
-            <ClientDetails clientId={clientId} />
+            {authChecked && clientId ? (
+              <ClientDetails clientId={clientId} />
+            ) : !authChecked ? (
+              <div className="flex items-center justify-center p-8 text-muted-foreground">Checking authentication...</div>
+            ) : null}
           </div>
         </div>
       </div>

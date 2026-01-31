@@ -117,8 +117,9 @@ export default function EmailTemplatesPage() {
   const fetchTemplates = async () => {
     try {
       setIsLoading(true)
-      const response = await getEmailTemplates({ limit: 1000 })
-      setTemplates(response.templates)
+      // listTemplates returns EmailTemplate[] directly, not { templates }
+      const list = await getEmailTemplates()
+      setTemplates(Array.isArray(list) ? list : [])
     } catch (error) {
       console.error('Error fetching templates:', error)
       if (error instanceof ApiError && error.status === 401) {
@@ -301,7 +302,7 @@ export default function EmailTemplatesPage() {
   }
 
   const getCategoryTemplates = (category: EmailTemplateCategory) => {
-    return templates.filter(t => t.category === category)
+    return (templates ?? []).filter(t => t.category === category)
   }
 
   const getCategoryLabel = (category: EmailTemplateCategory) => {
@@ -659,28 +660,42 @@ export default function EmailTemplatesPage() {
 
       {/* Preview Dialog */}
       <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[700px]">
-          <DialogHeader>
-            <DialogTitle>Template Preview</DialogTitle>
+        <DialogContent className="max-w-[95vw] sm:max-w-[640px] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b bg-muted/30">
+            <DialogTitle className="text-lg font-semibold">Template Preview</DialogTitle>
             <DialogDescription>
-              Preview of the email template
+              How this email will appear to recipients
             </DialogDescription>
           </DialogHeader>
           {previewTemplate && (
-            <div className="space-y-4 py-4">
-              <div>
-                <Label className="text-sm font-medium">Subject:</Label>
-                <p className="mt-1 p-2 bg-muted rounded">{previewTemplate.subject}</p>
+            <div className="flex flex-col">
+              {/* Email-style header */}
+              <div className="px-6 py-4 space-y-3 border-b bg-background">
+                {previewTemplate.name && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Template</span>
+                    <Badge variant="secondary" className="font-normal">{previewTemplate.name}</Badge>
+                  </div>
+                )}
+                <div>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Subject</span>
+                  <p className="mt-1.5 text-sm font-medium text-foreground leading-snug">
+                    {previewTemplate.subject}
+                  </p>
+                </div>
               </div>
-              <div>
-                <Label className="text-sm font-medium">Body:</Label>
-                <div className="mt-1 p-4 bg-muted rounded whitespace-pre-wrap font-mono text-sm">
-                  {previewTemplate.body}
+              {/* Email body - scrollable */}
+              <div className="px-6 py-4 flex-1 min-h-0">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Body</span>
+                <div className="mt-1.5 rounded-lg border bg-muted/50 p-4 max-h-[min(50vh,320px)] overflow-y-auto">
+                  <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed break-words m-0">
+                    {previewTemplate.body}
+                  </pre>
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 border-t bg-muted/20">
             <Button variant="outline" onClick={() => setPreviewDialogOpen(false)} className="w-full sm:w-auto">
               Close
             </Button>

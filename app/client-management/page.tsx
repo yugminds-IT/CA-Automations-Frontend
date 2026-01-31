@@ -7,9 +7,10 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   getClientStatusEnum,
-  getBusinessTypeEnum,
   getServices,
 } from "@/lib/api/clients"
+import { listBusinessTypes } from "@/lib/api/business-types"
+import { listServices } from "@/lib/api/services"
 import { getUserData, isAuthenticated, ApiError } from "@/lib/api/index"
 
 export default function ClientManagementPage() {
@@ -18,7 +19,9 @@ export default function ClientManagementPage() {
   const [isDesktop, setIsDesktop] = useState(false)
   const [statusOptions, setStatusOptions] = useState<string[]>([])
   const [businessTypes, setBusinessTypes] = useState<string[]>([])
+  const [businessTypesWithIds, setBusinessTypesWithIds] = useState<{ id: number; name: string }[]>([])
   const [services, setServices] = useState<string[]>([])
+  const [servicesWithIds, setServicesWithIds] = useState<{ id: number; name: string }[]>([])
   const [isLoadingEnums, setIsLoadingEnums] = useState(true)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const router = useRouter()
@@ -109,21 +112,21 @@ export default function ClientManagementPage() {
           return Promise.race([promise, timeout])
         }
         
-        const [statusResponse, businessTypeResponse, servicesResponse] = await Promise.all([
+        const [statusResponse, businessTypesList, servicesList] = await Promise.all([
           fetchWithTimeout(getClientStatusEnum()),
-          fetchWithTimeout(getBusinessTypeEnum()),
-          fetchWithTimeout(getServices()),
+          fetchWithTimeout(listBusinessTypes()),
+          fetchWithTimeout(listServices()),
         ])
 
         // Only update state if component is still mounted
         if (isMounted) {
-          // Extract values from enum responses
+          const btList = Array.isArray(businessTypesList) ? businessTypesList : []
+          const svcList = Array.isArray(servicesList) ? servicesList : []
           setStatusOptions(statusResponse.values || [])
-          setBusinessTypes(businessTypeResponse.values || [])
-          
-          // Extract service names from services response
-          const serviceNames = servicesResponse.services?.map((service: { name: string }) => service.name) || []
-          setServices(serviceNames)
+          setBusinessTypes(btList.map((t: { id: number; name: string }) => t.name))
+          setBusinessTypesWithIds(btList)
+          setServices(svcList.map((s: { id: number; name: string }) => s.name))
+          setServicesWithIds(svcList)
         }
       } catch (error) {
         console.error('Error fetching enums:', error)
@@ -133,7 +136,9 @@ export default function ClientManagementPage() {
           // Set empty arrays on error to prevent UI issues
           setStatusOptions([])
           setBusinessTypes([])
+          setBusinessTypesWithIds([])
           setServices([])
+          setServicesWithIds([])
 
           // If we hit auth errors, send user to login
           if (error instanceof ApiError && error.status === 401) {
@@ -195,7 +200,9 @@ export default function ClientManagementPage() {
             <ClientManagement 
               statusOptions={statusOptions}
               businessTypes={businessTypes}
+              businessTypesWithIds={businessTypesWithIds}
               services={services}
+              servicesWithIds={servicesWithIds}
             />
           </div>
         </div>

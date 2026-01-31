@@ -47,6 +47,7 @@ export default function MasterAdminOrganizations() {
     password: "",
     full_name: "",
     phone: "",
+    role: UserRole.ORG_ADMIN,
   })
   const [orgFormData, setOrgFormData] = useState({
     name: "",
@@ -86,8 +87,9 @@ export default function MasterAdminOrganizations() {
   const fetchOrganizations = async () => {
     try {
       setIsLoadingOrgs(true)
-      const response = await masterAdminGetOrganizations({ skip: 0, limit: 100 })
-      setOrganizations(response.organizations)
+      // listOrganizations returns Organization[] directly, not { organizations }
+      const list = await masterAdminGetOrganizations()
+      setOrganizations(Array.isArray(list) ? list : [])
     } catch (error) {
       console.error('Error fetching organizations:', error)
       if (error instanceof ApiError && error.status === 401) {
@@ -125,16 +127,15 @@ export default function MasterAdminOrganizations() {
 
     try {
       setIsCreatingAdmin(true)
-      // Create admin user with admin role
+      const roleName = (adminFormData.role ?? UserRole.ORG_ADMIN) as 'ORG_ADMIN' | 'CAA' | 'ORG_EMPLOYEE'
       const userData = {
+        organizationId: selectedOrgId!,
+        name: adminFormData.full_name || adminFormData.email.split('@')[0],
         email: adminFormData.email,
         password: adminFormData.password,
-        org_id: selectedOrgId!,
-        full_name: adminFormData.full_name || undefined,
-        phone: adminFormData.phone || undefined,
-        role: UserRole.ADMIN, // Set role as admin
+        phone: adminFormData.phone || '',
+        roleName,
       }
-      
       await masterAdminCreateUser(userData)
       
       toast({
@@ -143,12 +144,13 @@ export default function MasterAdminOrganizations() {
         variant: "success",
       })
       
-      // Reset form
+      // Reset form (default role ORG_ADMIN for next Create Admin)
       setAdminFormData({
         email: "",
         password: "",
         full_name: "",
         phone: "",
+        role: UserRole.ORG_ADMIN,
       })
       setSelectedOrgId(null)
       setCreateAdminDialogOpen(false)
@@ -204,9 +206,8 @@ export default function MasterAdminOrganizations() {
   const handleDialogClose = (open: boolean) => {
     setCreateAdminDialogOpen(open)
     if (!open) {
-      // Reset form when dialog closes (unless we're in the middle of creating)
       if (!isCreatingAdmin) {
-        setAdminFormData({ email: "", password: "", full_name: "", phone: "" })
+        setAdminFormData({ email: "", password: "", full_name: "", phone: "", role: UserRole.ORG_ADMIN })
         setSelectedOrgId(null)
       }
     }
@@ -465,7 +466,7 @@ export default function MasterAdminOrganizations() {
                             <SelectValue placeholder="Select an organization" />
                           </SelectTrigger>
                           <SelectContent>
-                            {organizations.map((org) => (
+                            {(organizations ?? []).map((org) => (
                               <SelectItem key={org.id} value={org.id.toString()}>
                                 {org.name}
                               </SelectItem>
@@ -519,7 +520,7 @@ export default function MasterAdminOrganizations() {
                         variant="outline"
                         onClick={() => {
                           setCreateAdminDialogOpen(false)
-                          setAdminFormData({ email: "", password: "", full_name: "", phone: "" })
+                          setAdminFormData({ email: "", password: "", full_name: "", phone: "", role: UserRole.ORG_ADMIN })
                           setSelectedOrgId(null)
                         }}
                       >
@@ -722,7 +723,7 @@ export default function MasterAdminOrganizations() {
                   <div className="flex items-center justify-center py-12">
                     <div className="text-muted-foreground">Loading organizations...</div>
                   </div>
-                ) : organizations.length === 0 ? (
+                ) : (organizations ?? []).length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12">
                     <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">No organizations found</p>
@@ -741,7 +742,7 @@ export default function MasterAdminOrganizations() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {organizations.map((org) => (
+                        {(organizations ?? []).map((org) => (
                           <TableRow key={org.id}>
                             <TableCell className="font-medium">{org.id}</TableCell>
                             <TableCell>{org.name}</TableCell>

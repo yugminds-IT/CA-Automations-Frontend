@@ -17,8 +17,7 @@ import { Header } from "@/components/header"
 import { Dashboard } from "./pages/dashboard"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getUserData, isAuthenticated, isMasterAdminUser, restoreAutoLogoutTimer } from "@/lib/api/index"
-import { UserRole } from "@/lib/api/types"
+import { getUserData, isAuthenticated, getRoleFromUser, restoreAutoLogoutTimer } from "@/lib/api/index"
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -37,17 +36,17 @@ export default function Home() {
     // Restore auto-logout timer on page load/refresh
     restoreAutoLogoutTimer()
     
-    const user = getUserData()
-    const role = user?.role ? String(user.role).toLowerCase() : null
-    
-    // Route based on role
-    if (role === 'master_admin' || role === UserRole.MASTER_ADMIN) {
-      router.replace("/master-admin")
-      return
-    }
-    if (role === 'client' || role === UserRole.CLIENT) {
-      router.replace("/uploads")
-      return
+    const role = getRoleFromUser(getUserData())
+    if (role != null) {
+      const roleUpper = role.toUpperCase()
+      if (roleUpper === 'MASTER_ADMIN') {
+        router.replace("/master-admin")
+        return
+      }
+      if (roleUpper === 'CLIENT') {
+        router.replace("/uploads")
+        return
+      }
     }
     setIsCheckingAuth(false)
   }, [router])

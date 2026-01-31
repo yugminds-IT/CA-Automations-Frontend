@@ -1,19 +1,9 @@
-// Health Check API
+// Health Check API - Backend endpoint only
 
 import { apiRequest } from './client';
 import { API_CONFIG } from './config';
-import type { HealthResponse } from './types';
 
-/**
- * Health Check - Verify API server is running
- */
-export async function healthCheck(): Promise<HealthResponse> {
-  const response = await apiRequest<HealthResponse>(
-    API_CONFIG.endpoints.health,
-    {
-      method: 'GET',
-    }
-  );
-  return response;
+export async function healthCheck(): Promise<unknown> {
+  return apiRequest(API_CONFIG.endpoints.health, { method: 'GET' });
 }
 
