@@ -81,48 +81,56 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
   // Render menu items (used in both desktop sidebar and mobile menu)
   const renderMenuItems = (isCollapsed: boolean = false) => (
     <>
-      {/* Navigation Items */}
-      <nav className="flex-1 py-4 overflow-y-auto">
-        {menuItems.map((item) => {
-          const isActive = activePage === item.label
-          const menuItem = (
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false)
-                router.push(item.path)
-              }}
-              className={`w-full ${isCollapsed ? 'px-2 justify-center' : 'px-4'} py-3 flex items-center ${isCollapsed ? '' : 'gap-3'} text-[13px] font-medium transition-colors ${
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground border-l-4 border-sidebar-primary"
-                  : "text-sidebar-foreground hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-sidebar-foreground"
-              }`}
-            >
-              <item.icon className="w-5 h-5" />
-              {!isCollapsed && <span>{item.label}</span>}
-            </button>
-          )
-
-          if (isCollapsed) {
-            return (
-              <Tooltip key={item.label}>
-                <TooltipTrigger asChild>
-                  <div className="w-full">
-                    {menuItem}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>{item.label}</p>
-                </TooltipContent>
-              </Tooltip>
+      <nav className="flex-1 py-4 overflow-y-auto" aria-label="Main navigation">
+        <ul className={isCollapsed ? "space-y-0.5" : "space-y-1"} role="list">
+          {menuItems.map((item) => {
+            const isActive = activePage === item.label
+            const menuItem = (
+              <li key={item.label}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    router.push(item.path)
+                  }}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`
+                    relative w-full flex items-center text-[13px] font-medium
+                    rounded-none transition-all duration-200 ease-out
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar
+                    ${isCollapsed ? "px-2 justify-center py-3" : "px-3 py-2.5 gap-3"}
+                    ${isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/50 dark:hover:bg-sidebar-accent/30"
+                    }
+                  `}
+                >
+                  {/* Active indicator: left accent bar */}
+                  {isActive && (
+                    <span
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-sidebar-primary"
+                      aria-hidden
+                    />
+                  )}
+                  <item.icon className="w-5 h-5 shrink-0" />
+                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+                </button>
+              </li>
             )
-          }
 
-          return (
-            <div key={item.label}>
-              {menuItem}
-            </div>
-          )
-        })}
+            if (isCollapsed) {
+              return (
+                <Tooltip key={item.label} delayDuration={300}>
+                  <TooltipTrigger asChild>{menuItem}</TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8} className="text-xs">
+                    {item.label}
+                  </TooltipContent>
+                </Tooltip>
+              )
+            }
+            return menuItem
+          })}
+        </ul>
       </nav>
     </>
   )
@@ -131,35 +139,59 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
     <>
       {/* Mobile/Tablet Menu Sheet */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="right" className="bg-sidebar text-sidebar-foreground w-[280px] sm:w-[320px] p-0">
-          <SheetHeader className="p-6 border-b border-sidebar-border">
-            <SheetTitle className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white font-bold">AI</div>
-              <div>
-                <h1 className="text-xl font-bold">AIFlow</h1>
+        <SheetContent
+          side="right"
+          className="bg-sidebar text-sidebar-foreground w-[min(320px,100vw-2rem)] p-0 rounded-none border-sidebar-border shadow-xl"
+        >
+          <SheetHeader className="p-5 border-b border-sidebar-border/80">
+            <SheetTitle className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold text-sm shrink-0"
+                aria-hidden
+              >
+                AI
               </div>
+              <span className="text-lg font-semibold tracking-tight">
+                AIFlow
+              </span>
             </SheetTitle>
           </SheetHeader>
-          <div className="flex flex-col h-[calc(100vh-120px)] px-2">
+          <div className="h-[calc(100vh-5.5rem)] flex flex-col px-3 py-4 overflow-hidden">
             {renderMenuItems()}
           </div>
         </SheetContent>
       </Sheet>
 
-      {/* Desktop: Sidebar on the left */}
+      {/* Desktop: Sidebar — straight edges, no curves */}
       <aside
-        className="hidden lg:flex bg-sidebar text-sidebar-foreground flex-col border-r border-sidebar-border m-0 py-0 h-screen fixed top-0 bottom-0 left-0 transition-all duration-300"
-        style={{ 
+        role="navigation"
+        aria-label="Sidebar"
+        className="hidden lg:flex bg-sidebar text-sidebar-foreground flex-col h-screen fixed top-0 bottom-0 left-0 z-40 transition-[width,padding] duration-300 ease-out"
+        style={{
           width: collapsed ? "60px" : "15%",
-          paddingLeft: collapsed ? "0" : "0.5rem",
-          paddingRight: collapsed ? "0" : "0.5rem"
+          paddingLeft: collapsed ? "0" : "0.75rem",
+          paddingRight: collapsed ? "0" : "0.75rem",
+          borderRight: "1px solid var(--sidebar-border)",
         }}
       >
-        {/* Header */}
-        <div className={`${collapsed ? 'p-2' : 'p-6'} border-b border-sidebar-border`}>
-          <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}>
-            <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white font-bold">AI</div>
-            {!collapsed && <h1 className="text-xl font-bold">AIFlow</h1>}
+        {/* Brand / Header — logo always visible; when collapsed only the circle shows */}
+        <div
+          className={`shrink-0 border-b border-sidebar-border ${collapsed ? "py-4 px-2" : "py-5 px-3"}`}
+        >
+          <div
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}
+          >
+            <div
+              className="w-10 h-10 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold text-sm shrink-0"
+              aria-hidden
+            >
+              AI
+            </div>
+            {!collapsed && (
+              <span className="text-lg font-semibold tracking-tight truncate">
+                AIFlow
+              </span>
+            )}
           </div>
         </div>
 

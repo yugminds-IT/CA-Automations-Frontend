@@ -5,7 +5,7 @@ import { MasterAdminHeader } from "@/components/master-admin-header"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminGetUsers, masterAdminCreateUser, masterAdminUpdateUser, masterAdminDeleteUser, ApiError, type Organization } from "@/lib/api/index"
-import { UserRole, type User } from "@/lib/api/types"
+import { UserRole, RoleName, type User } from "@/lib/api/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -287,13 +287,13 @@ export default function MasterAdminUsers() {
 
   const handleEditUser = (user: User) => {
     setEditingUser(user)
-    const roleVal = (user as any).role?.name ?? (user as any).roleName ?? user.role
+    const roleVal = (typeof user.role === 'object' && user.role?.name) ?? (user as { roleName?: string }).roleName ?? (typeof user.role === 'string' ? user.role : undefined)
     setUserFormData({
       email: user.email,
       password: "", // Don't show password when editing
-      full_name: (user.name ?? (user as any).full_name) || "",
+      full_name: (user.name ?? user.full_name) || "",
       phone: user.phone || "",
-      role: roleVal ?? UserRole.ORG_EMPLOYEE,
+      role: (roleVal as RoleName) ?? UserRole.ORG_EMPLOYEE,
     })
     setSelectedOrgId(user.organizationId ?? (user as any).org_id ?? null)
     setEditUserDialogOpen(true)
@@ -398,7 +398,7 @@ export default function MasterAdminUsers() {
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 3vh)", marginTop: "3vh" }}>
+        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
           <div className="p-4 sm:p-6 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -466,7 +466,7 @@ export default function MasterAdminUsers() {
                       <Label htmlFor="user-role">Role *</Label>
                       <Select
                         value={userFormData.role}
-                        onValueChange={(value) => setUserFormData({ ...userFormData, role: value as UserRole })}
+                        onValueChange={(value) => setUserFormData({ ...userFormData, role: value as RoleName })}
                       >
                         <SelectTrigger id="user-role">
                           <SelectValue placeholder="Select role" />
@@ -573,7 +573,7 @@ export default function MasterAdminUsers() {
                       <Label htmlFor="edit-user-role">Role *</Label>
                       <Select
                         value={userFormData.role}
-                        onValueChange={(value) => setUserFormData({ ...userFormData, role: value as UserRole })}
+                        onValueChange={(value) => setUserFormData({ ...userFormData, role: value as RoleName })}
                       >
                         <SelectTrigger id="edit-user-role">
                           <SelectValue placeholder="Select role" />
@@ -672,19 +672,19 @@ export default function MasterAdminUsers() {
                         </TableRow>
                       ) : (
                         displayUsers.map((user) => {
-                          const org = (organizations ?? []).find((o) => o.id === (user.organizationId ?? (user as any).org_id))
-                          const roleName = (user as any).role?.name ?? (user as any).roleName ?? user.role ?? '-'
+                          const org = (organizations ?? []).find((o) => o.id === (user.organizationId ?? (user as { org_id?: number }).org_id))
+                          const roleName = (typeof user.role === 'object' && user.role?.name) ?? (user as { roleName?: string }).roleName ?? (typeof user.role === 'string' ? user.role : null) ?? '-'
                           return (
                             <TableRow key={user.id}>
                               <TableCell className="font-medium">{user.id}</TableCell>
-                              <TableCell>{(user.name ?? (user as any).full_name) || "-"}</TableCell>
+                              <TableCell>{(user.name ?? user.full_name) || "-"}</TableCell>
                               <TableCell>{user.email}</TableCell>
                               <TableCell>
                                 <span className="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
                                   {roleName}
                                 </span>
                               </TableCell>
-                              <TableCell>{(org?.name ?? (user as any).organization?.name) || "-"}</TableCell>
+                              <TableCell>{(org?.name ?? user.organization?.name) || "-"}</TableCell>
                               <TableCell>
                                 <span className="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
                                   Active

@@ -11,7 +11,7 @@ import {
   healthCheck,
   isAuthenticated,
 } from './index';
-import type { LoginRequest, SignupOrganizationRequest } from './types';
+import type { LoginRequest, SignupOrganizationRequest, Organization, User } from './types';
 import { ApiError } from './client';
 
 interface UseApiState<T> {
@@ -61,21 +61,21 @@ function useApi<T>(apiFunction: (...args: unknown[]) => Promise<T>): UseApiRetur
 }
 
 export function useLogin() {
-  return useApi<Awaited<ReturnType<typeof loginApi>>>(loginApi as (data: LoginRequest) => Promise<unknown>);
+  return useApi<Awaited<ReturnType<typeof loginApi>>>(loginApi as (...args: unknown[]) => Promise<Awaited<ReturnType<typeof loginApi>>>);
 }
 
 export function useSignupOrganization() {
   return useApi<Awaited<ReturnType<typeof signupOrganizationApi>>>(
-    signupOrganizationApi as (data: SignupOrganizationRequest) => Promise<unknown>
+    signupOrganizationApi as (...args: unknown[]) => Promise<unknown>
   );
 }
 
 export function useCreateOrganization() {
-  return useApi<Awaited<ReturnType<typeof createOrganization>>>(createOrganization);
+  return useApi<Awaited<ReturnType<typeof createOrganization>>>(createOrganization as (...args: unknown[]) => Promise<Organization>);
 }
 
 export function useCreateEmployee() {
-  return useApi<Awaited<ReturnType<typeof createEmployee>>>(createEmployee);
+  return useApi<Awaited<ReturnType<typeof createEmployee>>>(createEmployee as (...args: unknown[]) => Promise<User>);
 }
 
 export function useHealthCheck() {

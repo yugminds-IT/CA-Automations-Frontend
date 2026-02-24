@@ -257,18 +257,12 @@ export function FilesTab({
     ))
 
     try {
-      await uploadFilesToServer(
-        filesToUpload,
-        clientId, // Pass client_id to associate files with client
-        (progress) => {
-          setItems(prev => prev.map(item => 
-            item.status === 'uploading' 
-              ? { ...item, progress }
-              : item
-          ))
-        }
-      )
-      
+      await uploadFilesToServer(filesToUpload, String(clientId))
+      setItems(prev => prev.map(item =>
+        pendingItems.some(p => p.id === item.id)
+          ? { ...item, status: 'success' as const, progress: 100 }
+          : item
+      ))
       setItems(prev => prev.filter(item => !pendingItems.some(p => p.id === item.id)))
       await fetchServerFiles()
       

@@ -90,7 +90,7 @@ export default function MasterAdminNotifications() {
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 3vh)", marginTop: "3vh" }}>
+        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
           <div className="p-4 sm:p-6 space-y-6">
             <div>
               <h1 className="text-3xl font-bold text-foreground">Notifications</h1>

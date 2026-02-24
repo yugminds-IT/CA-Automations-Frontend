@@ -77,7 +77,7 @@ export default function SignupPage() {
 
       toast({
         title: 'Success',
-        description: response.message || 'Account created successfully! Please login to continue.',
+        description: (response as { message?: string }).message || 'Account created successfully! Please login to continue.',
         variant: 'success',
       })
 

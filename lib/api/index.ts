@@ -50,6 +50,8 @@ export const EmailTemplateType = {
   REMINDER_RENEWAL: 'reminder_renewal',
 } as const;
 
+export type EmailTemplateTypeValue = (typeof EmailTemplateType)[keyof typeof EmailTemplateType];
+
 // Template type strings (from backend - fetch /email-templates/types?category=X for dynamic)
 export const TEMPLATE_VARIABLES = {
   CLIENT_NAME: '{{client_name}}',

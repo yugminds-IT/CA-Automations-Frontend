@@ -31,7 +31,7 @@ interface ClientDetailsProps {
 // Transform API Client to component Client format (backend returns camelCase)
 function transformApiClientToComponent(apiClient: ApiClient & Record<string, unknown>): Client {
   const c = apiClient as any
-  const serviceNames = apiClient.services?.map((s: { name?: string }) => s.name) || []
+  const serviceNames = (Array.isArray(apiClient.services) ? (apiClient.services as { name?: string }[]).map((s) => s.name).filter((n): n is string => n != null && n !== '') : [])
   return {
     id: apiClient.id,
     name: c.name ?? apiClient.client_name ?? '',
@@ -109,8 +109,11 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
         setClientOrganizationId(raw.organizationId)
 
         // Extract directors from API response
-        if (apiClient.directors) {
-          const transformedDirectors = transformApiDirectors(apiClient.directors)
+        const directorsList = Array.isArray((apiClient as Record<string, unknown>).directors)
+          ? ((apiClient as Record<string, unknown>).directors as Array<Record<string, unknown>>)
+          : []
+        if (directorsList.length > 0) {
+          const transformedDirectors = transformApiDirectors(directorsList)
           setDirectors(transformedDirectors)
         }
         

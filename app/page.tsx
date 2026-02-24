@@ -109,7 +109,7 @@ export default function Home() {
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 3vh)", marginTop: "3vh" }}>
+        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
           <Dashboard />
         </div>
       </div>

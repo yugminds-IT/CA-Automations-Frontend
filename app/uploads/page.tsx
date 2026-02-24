@@ -54,7 +54,7 @@ export default function UploadsPage() {
     setIsLoadingFiles(true)
     try {
       const files = await getUploadedFiles()
-      setServerFiles(files)
+      setServerFiles(files as UploadResponse[])
     } catch (error: any) {
       console.error('Failed to fetch uploaded files:', error)
       // Don't show error toast on initial load, just log it
@@ -288,18 +288,11 @@ export default function UploadsPage() {
     ))
 
     try {
-      await uploadFilesToServer(
-        filesToUpload,
-        undefined, // No client_id for general uploads page
-        (progress) => {
-          // Update progress for all uploading items
-          setItems(prev => prev.map(item => 
-            item.status === 'uploading' 
-              ? { ...item, progress }
-              : item
-          ))
-        }
-      )
+      await uploadFilesToServer(filesToUpload, undefined)
+      // Update all uploading items to 100% on success
+      setItems(prev => prev.map(item =>
+        item.status === 'uploading' ? { ...item, progress: 100 } : item
+      ))
       
       // Mark all as successful and remove from local items (they'll be in server files now)
       setItems(prev => prev.filter(item => !pendingItems.some(p => p.id === item.id)))
@@ -345,7 +338,7 @@ export default function UploadsPage() {
         }}
       >
         <Header onMenuClick={() => setMobileMenuOpen(true)} onSidebarToggle={toggleSidebar} sidebarCollapsed={sidebarCollapsed} />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 3vh)", marginTop: "3vh" }}>
+        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
           <div className="p-4 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Upload className="h-5 w-5" />

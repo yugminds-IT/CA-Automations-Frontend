@@ -18,10 +18,10 @@ export function Toaster() {
     <ToastProvider swipeDirection="right" duration={5000}>
       {toasts.map(function ({ id, title, description, action, variant, ...props }) {
         return (
-          <Toast key={id} variant={variant} {...props}>
+          <Toast key={id} variant={variant ?? undefined} {...props}>
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <div className="mt-0.5">
-                <ToastIcon variant={variant} />
+                <ToastIcon variant={variant ?? undefined} />
               </div>
               <div className="grid gap-1 flex-1 min-w-0">
                 {title && <ToastTitle>{title}</ToastTitle>}

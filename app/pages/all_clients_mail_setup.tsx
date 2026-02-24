@@ -169,7 +169,7 @@ export function AllClientsMailSetup() {
   const fetchClients = async () => {
     try {
       setIsLoadingClients(true)
-      const response = await getClients({ limit: 1000 })
+      const response = await getClients()
       setClients(response.clients || [])
       
       // Automatically populate emails with all client email addresses
@@ -205,16 +205,16 @@ export function AllClientsMailSetup() {
       // listTemplates returns array directly; some APIs return { templates: array }
       const orgTemplates = Array.isArray(orgResponse)
         ? orgResponse
-        : (Array.isArray(orgResponse?.templates) ? orgResponse.templates : [])
+        : ((orgResponse as { templates?: EmailTemplate[] })?.templates ?? [])
       const masterTemplates = Array.isArray(masterResponse)
         ? masterResponse
-        : (Array.isArray(masterResponse?.templates) ? masterResponse.templates : [])
+        : ((masterResponse as { templates?: EmailTemplate[] })?.templates ?? [])
 
       // Combine templates: prefer org templates, fallback to master templates
-      const allTemplates = [
+      const allTemplates: EmailTemplate[] = [
         ...orgTemplates,
         ...masterTemplates.filter(
-          mt => !orgTemplates.some(ot => ot.type === mt.type && ot.category === mt.category)
+          (mt: EmailTemplate) => !orgTemplates.some((ot: EmailTemplate) => ot.type === mt.type && ot.category === mt.category)
         )
       ]
       
@@ -237,7 +237,8 @@ export function AllClientsMailSetup() {
       const twentyFourHoursAgo = new Date().getTime() - (24 * 60 * 60 * 1000) // 24 hours in milliseconds
       
       // Single request: backend returns all org schedules
-      const { scheduled_emails: allScheduledEmails } = await getScheduledEmails(undefined, { limit: 1000 })
+      const result = await getScheduledEmails(undefined, { limit: 1000 })
+      const allScheduledEmails = (result as unknown as { scheduled_emails?: ScheduledEmail[] }).scheduled_emails
       const list = Array.isArray(allScheduledEmails) ? allScheduledEmails : []
       
       // Filter based on status and 24-hour rule
@@ -288,7 +289,8 @@ export function AllClientsMailSetup() {
       const params: GetScheduledEmailsParams = { limit: 1000, status: 'pending' }
       
       // Single request: backend returns all org schedules (no client filter)
-      const { scheduled_emails: allScheduledEmails } = await getScheduledEmails(undefined, params)
+      const result = await getScheduledEmails(undefined, params)
+      const allScheduledEmails = (result as unknown as { scheduled_emails?: ScheduledEmail[] }).scheduled_emails
       const list = Array.isArray(allScheduledEmails) ? allScheduledEmails : []
       
       // Filter out emails that are 24+ hours past their scheduled time
@@ -301,7 +303,7 @@ export function AllClientsMailSetup() {
       
       // Sort by ID descending (most recently added first)
       activeScheduledEmails.sort((a, b) => 
-        b.id - a.id
+        Number(b.id) - Number(a.id)
       )
       
       setScheduledMails(activeScheduledEmails)
@@ -1518,22 +1520,25 @@ export function AllClientsMailSetup() {
                                 <TableCell>{sno}</TableCell>
                                 <TableCell>
                                   <div className="flex flex-col gap-1">
-                                    {email.recipient_emails.map((recipient, idx) => (
+                                    {((Array.isArray((email as Record<string, unknown>).recipient_emails)
+                                      ? (email as Record<string, unknown>).recipient_emails as string[]
+                                      : (email.recipientEmails ?? [])
+                                    ) as string[]).map((recipient: string, idx: number) => (
                                       <Badge key={idx} variant="outline" className="text-xs w-fit">
                                         {recipient}
                                       </Badge>
                                     ))}
                                   </div>
                                 </TableCell>
-                                <TableCell>{email.template_name || `Template #${email.template_id}`}</TableCell>
+                                <TableCell>{String((email as Record<string, unknown>).template_name ?? '') || `Template #${(email as Record<string, unknown>).template_id ?? email.templateId}`}</TableCell>
                                 <TableCell>
                                   <div className="text-xs">
-                                    {format(new Date(email.scheduled_date), 'MMM dd, yyyy')}
+                                    {format(new Date(String((email as Record<string, unknown>).scheduled_date ?? '')), 'MMM dd, yyyy')}
                                   </div>
                                 </TableCell>
                                 <TableCell>
                                   <div className="text-xs">
-                                    {email.scheduled_time}
+                                    {String((email as Record<string, unknown>).scheduled_time ?? '')}
                                   </div>
                                 </TableCell>
                                 <TableCell>
@@ -1698,29 +1703,32 @@ export function AllClientsMailSetup() {
                                 <TableCell>{sno}</TableCell>
                                 <TableCell>
                                   <div className="flex flex-col gap-1">
-                                    {email.recipient_emails.map((recipient, idx) => (
+                                    {((Array.isArray((email as Record<string, unknown>).recipient_emails)
+                                      ? (email as Record<string, unknown>).recipient_emails as string[]
+                                      : (email.recipientEmails ?? [])
+                                    ) as string[]).map((recipient: string, idx: number) => (
                                       <Badge key={idx} variant="outline" className="text-xs w-fit">
                                         {recipient}
                                       </Badge>
                                     ))}
                                   </div>
                                 </TableCell>
-                                <TableCell>{email.template_name || `Template #${email.template_id}`}</TableCell>
+                                <TableCell>{String((email as Record<string, unknown>).template_name ?? '') || `Template #${(email as Record<string, unknown>).template_id ?? email.templateId}`}</TableCell>
                                 <TableCell>
                                   <div className="text-xs">
-                                    {format(new Date(email.scheduled_date), 'MMM dd, yyyy')}
+                                    {format(new Date(String((email as Record<string, unknown>).scheduled_date ?? '')), 'MMM dd, yyyy')}
                                   </div>
                                 </TableCell>
                                 <TableCell>
                                   <div className="text-xs">
-                                    {email.scheduled_time}
+                                    {String((email as Record<string, unknown>).scheduled_time ?? '')}
                                   </div>
                                 </TableCell>
                                 <TableCell>{getStatusBadge(email.status)}</TableCell>
                                 <TableCell>
-                                  {email.sent_at ? (
+                                  {(email as Record<string, unknown>).sent_at ? (
                                     <div className="text-xs">
-                                      {format(new Date(email.sent_at), 'MMM dd, yyyy HH:mm')}
+                                      {format(new Date(String((email as Record<string, unknown>).sent_at)), 'MMM dd, yyyy HH:mm')}
                                     </div>
                                   ) : (
                                     <span className="text-xs text-muted-foreground">—</span>

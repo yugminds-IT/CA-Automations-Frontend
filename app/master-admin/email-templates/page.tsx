@@ -14,8 +14,10 @@ import {
   EmailTemplateType,
   TEMPLATE_VARIABLES,
   type EmailTemplate,
+  type EmailTemplateTypeValue,
   type CreateEmailTemplateRequest,
 } from "@/lib/api/index"
+import type { TemplateCategory } from "@/lib/api/index"
 import { DEFAULT_EMAIL_TEMPLATES } from "@/lib/api/default-email-templates"
 import { useToast } from "@/components/ui/use-toast"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -57,7 +59,13 @@ export default function EmailTemplatesPage() {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null)
   const [previewTemplate, setPreviewTemplate] = useState<EmailTemplate | null>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    category: TemplateCategory
+    type: string
+    subject: string
+    body: string
+  }>({
     name: "",
     category: EmailTemplateCategory.SERVICE,
     type: EmailTemplateType.GST_FILING,
@@ -140,7 +148,7 @@ export default function EmailTemplatesPage() {
     setEditingTemplate(template)
     setFormData({
       name: template.name,
-      category: template.category,
+      category: template.category as TemplateCategory,
       type: template.type,
       subject: template.subject,
       body: template.body,
@@ -284,7 +292,7 @@ export default function EmailTemplatesPage() {
     }
   }
 
-  const getDefaultTypeForCategory = (category: EmailTemplateCategory): EmailTemplateType => {
+  const getDefaultTypeForCategory = (category: EmailTemplateCategory): EmailTemplateTypeValue => {
     switch (category) {
       case EmailTemplateCategory.SERVICE:
         return EmailTemplateType.GST_FILING
@@ -322,8 +330,8 @@ export default function EmailTemplatesPage() {
     }
   }
 
-  const getTypeLabel = (type: EmailTemplateType) => {
-    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+  const getTypeLabel = (type: string) => {
+    return type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
   }
 
   if (isCheckingAuth) {
@@ -353,7 +361,7 @@ export default function EmailTemplatesPage() {
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 3vh)", marginTop: "3vh" }}>
+        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
           <div className="p-4 sm:p-6 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -558,7 +566,7 @@ export default function EmailTemplatesPage() {
                   <Label htmlFor="template-type">Type *</Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value as EmailTemplateType })}
+                    onValueChange={(value) => setFormData({ ...formData, type: value as EmailTemplateTypeValue })}
                   >
                     <SelectTrigger id="template-type">
                       <SelectValue />

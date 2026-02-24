@@ -4,7 +4,7 @@ import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminCreateOrganization, masterAdminUpdateOrganization, masterAdminDeleteOrganization, masterAdminCreateUser, ApiError, type Organization } from "@/lib/api/index"
+import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminCreateOrganization, masterAdminUpdateOrganization, masterAdminDeleteOrganization, masterAdminCreateUser, ApiError, type Organization, type CreateOrganizationRequest } from "@/lib/api/index"
 import { UserRole } from "@/lib/api/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
@@ -225,12 +225,13 @@ export default function MasterAdminOrganizations() {
 
     try {
       setIsCreatingOrg(true)
-      const createData = {
+      const createData: CreateOrganizationRequest = {
         name: orgFormData.name,
-        city: orgFormData.city || undefined,
-        state: orgFormData.state || undefined,
-        country: orgFormData.country || undefined,
-        pincode: orgFormData.pincode || undefined,
+        slug: orgFormData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'org',
+        city: orgFormData.city || '',
+        state: orgFormData.state || '',
+        country: orgFormData.country || '',
+        pincode: orgFormData.pincode || '',
       }
       
       await masterAdminCreateOrganization(createData)
@@ -430,7 +431,7 @@ export default function MasterAdminOrganizations() {
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 3vh)", marginTop: "3vh" }}>
+        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
           <div className="p-4 sm:p-6 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>

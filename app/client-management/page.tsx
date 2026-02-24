@@ -192,8 +192,8 @@ export default function ClientManagementPage() {
         <div 
           className="overflow-y-auto overflow-x-hidden w-full" 
           style={{ 
-            height: "calc(100vh - 3vh)", 
-            marginTop: "3vh",
+            height: "calc(100vh - 54px)", 
+            marginTop: "54px",
           }}
         >
           <div className="w-full max-w-full">

@@ -30,8 +30,6 @@ import {
   deleteEmailConfig,
   type EmailTemplate, 
   EmailTemplateCategory,
-  type EmailConfig as EmailConfigType,
-  type DateType,
   ApiError,
 } from '@/lib/api/index'
 import { format } from 'date-fns'
@@ -59,6 +57,9 @@ export interface EmailTemplateSelection {
   email: string
   selectedTemplates: number[] // Array of template IDs
 }
+
+/** Date selection type for schedule (local; not exported from API). */
+export type DateType = 'all' | 'range' | 'range_multiple' | 'single'
 
 export interface EmailConfig {
   emails: string[]
@@ -117,16 +118,16 @@ export function EmailSetup({
       // listTemplates returns array directly; some APIs return { templates: array }
       const orgTemplates = Array.isArray(orgResponse)
         ? orgResponse
-        : (Array.isArray(orgResponse?.templates) ? orgResponse.templates : [])
+        : ((orgResponse as { templates?: EmailTemplate[] })?.templates ?? [])
       const masterTemplates = Array.isArray(masterResponse)
         ? masterResponse
-        : (Array.isArray(masterResponse?.templates) ? masterResponse.templates : [])
+        : ((masterResponse as { templates?: EmailTemplate[] })?.templates ?? [])
 
       // Combine org and master templates, prioritizing org templates
-      const allTemplates = [
+      const allTemplates: EmailTemplate[] = [
         ...orgTemplates,
         ...masterTemplates.filter(
-          mt => !orgTemplates.some(ot => ot.type === mt.type && ot.category === mt.category)
+          (mt: EmailTemplate) => !orgTemplates.some((ot: EmailTemplate) => ot.type === mt.type && ot.category === mt.category)
         )
       ]
       
@@ -167,29 +168,29 @@ export function EmailSetup({
         
         const transformedConfig: EmailConfig = {
           emails: config.emails,
-          emailTemplates: config.emailTemplates,
+          emailTemplates: config.emailTemplates as Record<string, EmailTemplateSelection>,
           services: Object.fromEntries(
             Object.entries(config.services).map(([key, service]) => {
+              const s = service as Record<string, unknown>
               // Parse scheduledDates array if it exists
               let scheduledDates: Date[] | undefined = undefined
-              if (service.scheduledDates && Array.isArray(service.scheduledDates)) {
-                scheduledDates = service.scheduledDates
+              if (s.scheduledDates && Array.isArray(s.scheduledDates)) {
+                scheduledDates = (s.scheduledDates as (string | Date)[])
                   .map((dateStr: string | Date) => {
                     if (dateStr instanceof Date) return dateStr
-                    return parseDate(dateStr)
+                    return parseDate(dateStr as string)
                   })
                   .filter((date): date is Date => date !== null)
               }
-              
               return [
                 key,
                 {
-                  ...service,
-                  scheduledDate: parseDate(service.scheduledDate),
-                  scheduledDateFrom: parseDate(service.scheduledDateFrom),
-                  scheduledDateTo: parseDate(service.scheduledDateTo),
+                  ...s,
+                  scheduledDate: parseDate(s.scheduledDate as string | null | undefined),
+                  scheduledDateFrom: parseDate(s.scheduledDateFrom as string | null | undefined),
+                  scheduledDateTo: parseDate(s.scheduledDateTo as string | null | undefined),
                   scheduledDates,
-                },
+                } as ServiceEmailConfig,
               ]
             })
           ),
@@ -815,7 +816,7 @@ export function EmailSetup({
       // Convert Date objects to ISO date strings for API
       // Ensure we're using the current state values, not stale data
       // Only include selected emails in the configuration
-      const apiConfig: EmailConfigType = {
+      const apiConfig: EmailConfig = {
         emails: selectedEmailsArray,
         emailTemplates: filteredEmailTemplates,
         services: filteredServices,
@@ -840,7 +841,7 @@ export function EmailSetup({
       console.log('Saving email config for client:', clientId, 'Config:', JSON.stringify(apiConfig, null, 2))
 
       // Try to update first, if it fails with 404, create new
-      let savedConfig: EmailConfigType
+      let savedConfig: EmailConfig
       try {
         savedConfig = await updateEmailConfig(clientId, apiConfig)
       } catch (updateError: any) {
@@ -879,36 +880,37 @@ export function EmailSetup({
       }
 
       // Convert ISO date strings back to Date objects for component state
+      const savedServices = savedConfig.services as unknown as Record<string, Record<string, unknown>>
       const transformedConfig: EmailConfig = {
         emails: savedConfig.emails,
-        emailTemplates: savedConfig.emailTemplates,
+        emailTemplates: savedConfig.emailTemplates as Record<string, EmailTemplateSelection>,
         services: Object.fromEntries(
-          Object.entries(savedConfig.services).map(([key, service]) => {
+          Object.entries(savedServices).map(([key, service]) => {
+            const s = service as Record<string, unknown>
             // Parse scheduledDates array if it exists
             let scheduledDates: Date[] | undefined = undefined
-            if (service.scheduledDates && Array.isArray(service.scheduledDates)) {
+            if (s.scheduledDates && Array.isArray(s.scheduledDates)) {
               const parseDate = (dateString: string | null | undefined): Date | null => {
                 if (!dateString) return null
-                const [year, month, day] = dateString.split('-').map(Number)
+                const [year, month, day] = String(dateString).split('-').map(Number)
                 if (isNaN(year) || isNaN(month) || isNaN(day)) return null
                 const date = new Date(year, month - 1, day)
                 if (isNaN(date.getTime())) return null
                 return date
               }
-              scheduledDates = service.scheduledDates
+              scheduledDates = (s.scheduledDates as string[])
                 .map((dateStr: string) => parseDate(dateStr))
-                .filter((date): date is Date => date !== null)
+                .filter((date: Date | null): date is Date => date !== null)
             }
-            
             return [
               key,
               {
-                ...service,
-                scheduledDate: service.scheduledDate ? new Date(service.scheduledDate) : null,
-                scheduledDateFrom: service.scheduledDateFrom ? new Date(service.scheduledDateFrom) : null,
-                scheduledDateTo: service.scheduledDateTo ? new Date(service.scheduledDateTo) : null,
+                ...s,
+                scheduledDate: s.scheduledDate ? new Date(s.scheduledDate as string) : null,
+                scheduledDateFrom: s.scheduledDateFrom ? new Date(s.scheduledDateFrom as string) : null,
+                scheduledDateTo: s.scheduledDateTo ? new Date(s.scheduledDateTo as string) : null,
                 scheduledDates,
-              },
+              } as ServiceEmailConfig,
             ]
           })
         ),
@@ -936,7 +938,7 @@ export function EmailSetup({
       }
 
       // Save the reset config to backend
-      const resetApiConfig: EmailConfigType = {
+      const resetApiConfig: EmailConfig = {
         emails: resetConfig.emails,
         emailTemplates: resetConfig.emailTemplates,
         services: Object.fromEntries(

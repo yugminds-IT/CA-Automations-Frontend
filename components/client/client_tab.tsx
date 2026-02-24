@@ -164,7 +164,7 @@ function formatDirectories(directories: string[] | string | null | undefined): s
 // Backend returns camelCase (name, companyName, followupDate, onboardDate, phone) and businessType relation { id, name }
 function transformApiClientToComponent(apiClient: ApiClient & Record<string, unknown>): Client {
   // Extract service names from services array
-  const serviceNames = apiClient.services?.map((s: { name?: string }) => s.name) || []
+  const serviceNames = (Array.isArray(apiClient.services) ? (apiClient.services as { name?: string }[]).map((s) => s.name).filter((n): n is string => n != null && n !== '') : [])
   // Extract business type name (API may return relation object { id, name } or null)
   const bt = (apiClient as any).businessType ?? (apiClient as any).business_type
   const businessType =
@@ -286,7 +286,7 @@ function transformApiClientToFormValues(apiClient: ApiClient & Record<string, un
 } {
   const c = apiClient as any
   // Extract service names
-  const serviceNames = apiClient.services?.map((s: { name?: string }) => s.name) || []
+  const serviceNames = (Array.isArray(apiClient.services) ? (apiClient.services as { name?: string }[]).map((s) => s.name).filter((n): n is string => n != null && n !== '') : [])
   
   // Parse address - API returns address as a single string, form expects addressLine1
   const addressLine1 = c.address ?? apiClient.address ?? ''
@@ -300,14 +300,15 @@ function transformApiClientToFormValues(apiClient: ApiClient & Record<string, un
       : ''
   
   // Transform directors - support camelCase (name, phone) or snake_case (director_name, phone_number)
-  const directors = (apiClient.directors ?? []).map((dir: any) => ({
-    name: dir.name ?? dir.director_name ?? '',
-    email: dir.email ?? '',
-    phone: dir.phone ?? dir.phone_number ?? '',
-    designation: dir.designation ?? '',
-    din: dir.din ?? '',
-    pan: dir.pan ?? '',
-    aadhar: dir.aadhaar ?? dir.aadhar ?? '',
+  const directorsList = Array.isArray(apiClient.directors) ? (apiClient.directors as Record<string, unknown>[]) : []
+  const directors = directorsList.map((dir: Record<string, unknown>) => ({
+    name: (dir.name ?? dir.director_name ?? '') as string,
+    email: (dir.email ?? '') as string,
+    phone: (dir.phone ?? dir.phone_number ?? '') as string,
+    designation: (dir.designation ?? '') as string,
+    din: (dir.din ?? '') as string,
+    pan: (dir.pan ?? '') as string,
+    aadhar: (dir.aadhaar ?? dir.aadhar ?? '') as string,
   }))
 
   return {

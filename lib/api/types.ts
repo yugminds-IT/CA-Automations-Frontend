@@ -6,8 +6,10 @@
 export enum RoleName {
   MASTER_ADMIN = 'MASTER_ADMIN',
   ORG_ADMIN = 'ORG_ADMIN',
+  ADMIN = 'ORG_ADMIN', // alias
   CAA = 'CAA',
   ORG_EMPLOYEE = 'ORG_EMPLOYEE',
+  EMPLOYEE = 'ORG_EMPLOYEE', // alias
   CLIENT = 'CLIENT',
 }
 
@@ -87,9 +89,14 @@ export interface User {
   id: number;
   email: string;
   name?: string;
+  full_name?: string;
   phone?: string;
   roleName?: RoleName;
+  /** Compatibility: backend may return role object or string */
+  role?: { name?: string } | string;
   organizationId?: number;
+  org_id?: number;
+  organization?: { name?: string };
 }
 
 // ============ ORGANIZATIONS ============
@@ -106,7 +113,7 @@ export interface Organization {
 
 export interface CreateOrganizationRequest {
   name: string;
-  slug: string;
+  slug?: string;
   city: string;
   state: string;
   country: string;
@@ -281,6 +288,7 @@ export interface CreateEmailTemplateRequest {
   name: string;
   subject: string;
   body: string;
+  is_default?: boolean;
 }
 
 export interface UpdateEmailTemplateRequest {

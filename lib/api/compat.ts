@@ -14,13 +14,16 @@ export function isMasterAdminUser(): boolean {
   return role != null && role.toUpperCase() === 'MASTER_ADMIN';
 }
 
-/** Get role from login/me response (backend returns user.role.name) */
+/** Get role from login/me response (backend returns user.role.name or user.roleName) */
 export function getRoleFromResponse(
-  response: { user?: { role?: { name?: string }; roleName?: string }; roleName?: string } | null
+  response: { user?: { role?: { name?: string } | string; roleName?: string }; roleName?: string } | null
 ): string | null {
   if (!response) return null;
-  const user = (response as any).user;
-  return user?.role?.name ?? user?.roleName ?? (response as any).roleName ?? null;
+  const user = (response as { user?: { role?: { name?: string } | string; roleName?: string }; roleName?: string }).user;
+  if (!user) return null;
+  const role = user.role;
+  const roleName = typeof role === 'object' && role?.name ? role.name : typeof role === 'string' ? role : undefined;
+  return roleName ?? user.roleName ?? (response as { roleName?: string }).roleName ?? null;
 }
 
 export function restoreAutoLogoutTimer(): void {
