@@ -6,7 +6,7 @@
  * - Sidebar: 15% width on desktop, top nav on mobile/tablet
  * - Content area: Adjusts margin/padding based on screen size
  * 
- * DO NOT change the margin-left (15%) or padding-top (16) values
+ * DO NOT change the margin-left (220px) or padding-top (16) values
  * as they are synchronized with the sidebar width.
  */
 
@@ -100,8 +100,8 @@ export default function Home() {
       <div 
         className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
         style={{ 
-          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '15%') : '0',
-          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 15%)') : '100%',
+          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '240px') : '0',
+          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)') : '100%',
         }}
       >
         <Header 

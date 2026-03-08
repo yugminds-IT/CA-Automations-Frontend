@@ -1,7 +1,7 @@
 "use client"
 
-import { User as UserIcon, Menu, HelpCircle, LogOut, Sun, Moon, PanelLeft, Home } from "lucide-react"
-import { useState, useEffect } from "react"
+import { User as UserIcon, Menu, HelpCircle, LogOut, Sun, Moon, PanelLeft, Home, Send, FileText, Clock } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { getUserData, getOrganizationData, logout } from "@/lib/api/index"
@@ -23,11 +23,25 @@ interface HeaderProps {
   sidebarCollapsed?: boolean
 }
 
+// Email Management dropdown items (mirrors sidebar)
+const EMAIL_MANAGEMENT_ITEMS = [
+  { icon: Send, label: 'Send Mails', path: '/all-clients-mail-setup' },
+  { icon: FileText, label: 'Templates', path: '/email-templates' },
+  { icon: Clock, label: 'Scheduled Mails', path: '/email-management/scheduled-mails' },
+]
+
+// Flat routes that belong under Email Management (need virtual parent injected)
+const EMAIL_MANAGEMENT_FLAT: Record<string, string> = {
+  '/all-clients-mail-setup': 'Send Mails',
+  '/email-templates': 'Email Templates',
+}
+
 // Route segment to breadcrumb label
 const ROUTE_LABELS: Record<string, string> = {
   "": "Dashboard",
   "client-management": "Client Management",
-  "all-clients-mail-setup": "Mail Scheduler",
+  "email-management": "Email Management",
+  "all-clients-mail-setup": "Send Mails",
   "email-templates": "Email Templates",
   "notifications": "Notifications",
   "settings": "Settings",
@@ -54,6 +68,8 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [mounted, setMounted] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
+  const [emailDropdownOpen, setEmailDropdownOpen] = useState(false)
+  const emailDropdownRef = useRef<HTMLDivElement>(null)
 
   // Build breadcrumb items from current pathname
   const breadcrumbItems = (() => {
@@ -67,6 +83,12 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
     })
     if (items.length === 0) {
       items.push({ href: "/", label: "Dashboard", isLast: true })
+    }
+    // Inject virtual "Email Management" parent for flat email routes
+    const flatLabel = EMAIL_MANAGEMENT_FLAT[pathname]
+    if (flatLabel && items.length === 1) {
+      items[0].isLast = true
+      items.unshift({ href: '/email-management', label: 'Email Management', isLast: false })
     }
     return items
   })()
@@ -118,11 +140,19 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
     }
     window.addEventListener('focus', handleFocus)
 
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emailDropdownRef.current && !emailDropdownRef.current.contains(e.target as Node)) {
+        setEmailDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+
     return () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('userDataUpdated', handleCustomStorage)
       window.removeEventListener('resize', checkIsDesktop)
       window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
 
@@ -133,9 +163,9 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
     if (isDesktop) {
       // Desktop: header should be beside sidebar
       return {
-        left: sidebarCollapsed ? '60px' : '15%',
+        left: sidebarCollapsed ? '60px' : '240px',
         right: 0,
-        width: sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 15%)',
+        width: sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)',
       }
     }
     // Mobile: header is full width
@@ -148,7 +178,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
 
   return (
     <header 
-      className="fixed top-0 z-50 bg-background text-foreground border-b border-border flex items-center justify-between gap-3 px-3 sm:px-4 transition-all duration-300"
+      className="fixed top-0 z-50 bg-background text-foreground border-b border-border flex items-center justify-between gap-3 px-3 sm:px-4 transition-[left,width] duration-300 ease-out"
       style={{ 
         minHeight: "52px",
         marginBottom: "2px",
@@ -196,13 +226,43 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
             {breadcrumbItems.flatMap((item, i) => {
               const isOnlyDashboard = breadcrumbItems.length === 1 && item.href === "/"
               if (isOnlyDashboard) return []
+              const isEmailManagement = item.href === '/email-management'
               return [
                 ...(i > 0 ? [<BreadcrumbSeparator key={`sep-${item.href}`} />] : []),
                 <BreadcrumbItem key={item.href} className="inline-flex items-center gap-1.5">
-                  {item.isLast ? (
+                  {item.isLast && !isEmailManagement ? (
                     <BreadcrumbPage className="text-foreground font-semibold truncate max-w-[160px] sm:max-w-[220px]">
                       {item.label}
                     </BreadcrumbPage>
+                  ) : isEmailManagement ? (
+                    <div ref={emailDropdownRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setEmailDropdownOpen((v) => !v)}
+                        className="inline-flex items-center gap-1 text-primary hover:opacity-90 transition-colors text-sm font-medium"
+                      >
+                        {item.label}
+                      </button>
+                      {emailDropdownOpen && (
+                        <div className="absolute top-full left-0 mt-1.5 w-48 rounded-lg border border-border bg-popover shadow-md z-50 py-1 text-sm">
+                          {EMAIL_MANAGEMENT_ITEMS.map((em) => {
+                            const Icon = em.icon
+                            const isActive = pathname === em.path
+                            return (
+                              <Link
+                                key={em.path}
+                                href={em.path}
+                                onClick={() => setEmailDropdownOpen(false)}
+                                className={`flex items-center gap-2.5 px-3 py-2 hover:bg-muted transition-colors ${isActive ? 'text-primary font-medium bg-muted' : 'text-foreground'}`}
+                              >
+                                <Icon className="w-3.5 h-3.5 shrink-0" />
+                                {em.label}
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <BreadcrumbLink asChild>
                       <Link

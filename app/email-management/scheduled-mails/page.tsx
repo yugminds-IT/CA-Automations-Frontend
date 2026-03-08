@@ -2,12 +2,12 @@
 
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
-import { SendMails } from "@/components/email-management/send-mails"
+import { ScheduledMails } from "@/components/email-management/scheduled-mails"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated } from "@/lib/api/index"
 
-export default function AllClientsMailSetupPage() {
+export default function ScheduledMailsPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [isDesktop, setIsDesktop] = useState(false)
@@ -19,7 +19,10 @@ export default function AllClientsMailSetupPage() {
   }, [router])
 
   useEffect(() => {
-    if (!isAuthenticated()) router.replace('/login')
+    if (!isAuthenticated()) {
+      router.replace('/login')
+      return
+    }
   }, [router])
 
   useEffect(() => {
@@ -61,7 +64,7 @@ export default function AllClientsMailSetupPage() {
           className="overflow-y-auto overflow-x-hidden w-full"
           style={{ height: 'calc(100vh - 54px)', marginTop: '54px' }}
         >
-          <SendMails />
+          <ScheduledMails />
         </div>
       </div>
     </div>

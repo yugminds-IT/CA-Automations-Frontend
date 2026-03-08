@@ -1,25 +1,17 @@
 'use client'
 
-import * as React from 'react'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
 import type { Client } from './client_tab'
 import { DirectorsTab, type Director } from './director_info/directors_tab'
 import { EmailSetup } from './director_info/email-setup'
 import { ClientLoginTab } from './director_info/client-login-tab'
 import { FilesTab } from './director_info/files_tab'
+import { ClientDetailsTab } from './director_info/client-details-tab'
+import { SettingsTab } from './director_info/settings-tab'
 import { getClientById, updateClientLogin, removeClientLogin } from '@/lib/api/clients'
 import { ApiError } from '@/lib/api/client'
 import type { Client as ApiClient } from '@/lib/api/types'
@@ -32,6 +24,11 @@ interface ClientDetailsProps {
 function transformApiClientToComponent(apiClient: ApiClient & Record<string, unknown>): Client {
   const c = apiClient as any
   const serviceNames = (Array.isArray(apiClient.services) ? (apiClient.services as { name?: string }[]).map((s) => s.name).filter((n): n is string => n != null && n !== '') : [])
+  const bt = c.businessType ?? (apiClient as any).business_type
+  const businessType =
+    typeof bt === 'object' && bt !== null && 'name' in bt
+      ? (bt as { name: string }).name
+      : typeof bt === 'string' ? bt : undefined
   return {
     id: apiClient.id,
     name: c.name ?? apiClient.client_name ?? '',
@@ -43,6 +40,15 @@ function transformApiClientToComponent(apiClient: ApiClient & Record<string, unk
     onboardDate: c.onboardDate ?? apiClient.onboard_date ?? null,
     lastContactedDate: null,
     status: apiClient.status ?? undefined,
+    businessType,
+    panNumber: c.panNumber ?? apiClient.pan_number ?? undefined,
+    gstNumber: c.gstNumber ?? apiClient.gst_number ?? undefined,
+    address: c.address ?? apiClient.address ?? undefined,
+    city: c.city ?? apiClient.city ?? undefined,
+    state: c.state ?? apiClient.state ?? undefined,
+    country: c.country ?? apiClient.country ?? undefined,
+    pincode: c.pincode ?? apiClient.pin_code ?? undefined,
+    notes: c.additionalNotes ?? apiClient.additional_notes ?? undefined,
   }
 }
 
@@ -218,40 +224,14 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-4">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink
-                onClick={() => router.push('/client-management')}
-                className="cursor-pointer hover:text-foreground"
-              >
-                Client Management
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Client Details</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push('/client-management')}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Back</span>
-        </Button>
-      </div>
-
+    <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
       {/* Tabs */}
-      <Tabs defaultValue="directors" className="w-full">
-        <div className="w-full sm:w-[60%] overflow-x-auto sm:overflow-x-visible" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <TabsList className="inline-flex w-max min-w-full sm:grid sm:w-full sm:grid-cols-3 sm:min-w-0 h-auto p-0 gap-0 border-b border-border">
+      <Tabs defaultValue="details" className="w-full">
+        <div className="w-full overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <TabsList className="inline-flex w-max min-w-full sm:grid sm:w-[65%] sm:grid-cols-5 sm:min-w-0 h-auto p-0 gap-0 border-b border-border">
+            <TabsTrigger value="details" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
+              Client Details
+            </TabsTrigger>
             <TabsTrigger value="directors" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
               Directors List
             </TabsTrigger>
@@ -261,11 +241,22 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
             <TabsTrigger value="files" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
               Files
             </TabsTrigger>
+            <TabsTrigger value="settings" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
+              Settings
+            </TabsTrigger>
           </TabsList>
         </div>
 
+        {/* Client Details Tab */}
+        <TabsContent value="details" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <ClientDetailsTab
+            clientId={clientId}
+            onClientUpdated={() => setRefreshKey((k) => k + 1)}
+          />
+        </TabsContent>
+
         {/* Director List Tab */}
-        <TabsContent value="directors" className="mt-4 -mx-4 sm:mx-0 px-4 sm:px-0">
+        <TabsContent value="directors" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
           <DirectorsTab 
             directors={directors}
             onRemoveDirector={handleRemoveDirector}
@@ -274,7 +265,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
         </TabsContent>
 
         {/* Client Login Tab */}
-        <TabsContent value="login" className="mt-4 -mx-4 sm:mx-0 px-4 sm:px-0 space-y-6">
+        <TabsContent value="login" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0 space-y-4">
           <ClientLoginTab 
             clientName={client?.name || ''}
             initialLogins={initialLogins}
@@ -314,10 +305,19 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
         </TabsContent>
 
         {/* Files Tab */}
-        <TabsContent value="files" className="mt-4 -mx-4 sm:mx-0 px-4 sm:px-0">
-          <FilesTab 
+        <TabsContent value="files" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <FilesTab
             clientId={clientId}
             clientName={client?.companyName || ''}
+          />
+        </TabsContent>
+
+        {/* Settings Tab */}
+        <TabsContent value="settings" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <SettingsTab
+            clientId={clientId}
+            clientName={client?.name || client?.companyName || ''}
+            onDeleted={() => router.push('/client-management')}
           />
         </TabsContent>
       </Tabs>

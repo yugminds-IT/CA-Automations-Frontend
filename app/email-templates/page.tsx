@@ -22,12 +22,10 @@ import {
 import type { TemplateCategory } from "@/lib/api/index"
 import { DEFAULT_EMAIL_TEMPLATES } from "@/lib/api/default-email-templates"
 import { useToast } from "@/components/ui/use-toast"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -35,7 +33,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -44,8 +41,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
-import { Mail, Edit, Trash2, Plus, Eye, EyeOff, Copy, Code, FileText } from "lucide-react"
+import {
+  Mail,
+  Edit,
+  Trash2,
+  Plus,
+  Eye,
+  EyeOff,
+  Copy,
+  Code,
+  FileText,
+  Search,
+  Bell,
+  Clock,
+  RefreshCw,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { wrapEmailInHTMLTemplate, previewEmailTemplate } from "@/lib/utils/email-template"
 
@@ -58,7 +68,8 @@ export default function EmailTemplatesPage() {
   const [orgTemplates, setOrgTemplates] = useState<EmailTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeCategory, setActiveCategory] = useState<EmailTemplateCategory>(EmailTemplateCategory.SERVICE)
-  const [activeTab, setActiveTab] = useState<"master" | "custom">("master")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>("all")
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false)
@@ -89,7 +100,6 @@ export default function EmailTemplatesPage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  // Reset view mode when dialog opens/closes
   useEffect(() => {
     if (!editDialogOpen && !createDialogOpen) {
       setBodyViewMode("edit")
@@ -107,13 +117,13 @@ export default function EmailTemplatesPage() {
       router.replace("/login")
       return
     }
-    
+
     const user = getUserData()
     if (user?.role === 'client') {
       router.replace('/uploads')
       return
     }
-    
+
     setIsCheckingAuth(false)
     fetchTemplates()
   }, [router])
@@ -147,12 +157,9 @@ export default function EmailTemplatesPage() {
   const fetchTemplates = async () => {
     try {
       setIsLoading(true)
-      // Single fetch: backend returns global + org templates for org user
       const response = await getOrgEmailTemplates({ limit: 1000 })
       const all = Array.isArray(response) ? response : (response as { templates?: EmailTemplate[] })?.templates ?? []
-      // Default = master admin created (global, organizationId null)
       const defaultTemplates = all.filter((t: EmailTemplate) => t.organizationId == null)
-      // My custom = org created (organizationId set to current org)
       const customTemplates = all.filter((t: EmailTemplate) => t.organizationId != null)
       setMasterTemplates(defaultTemplates)
       setOrgTemplates(customTemplates)
@@ -194,7 +201,6 @@ export default function EmailTemplatesPage() {
   }
 
   const handleCreate = () => {
-    console.log('handleCreate called')
     setEditingTemplate(null)
     setFormData({
       name: "",
@@ -204,7 +210,6 @@ export default function EmailTemplatesPage() {
       body: "",
     })
     setCreateDialogOpen(true)
-    console.log('createDialogOpen set to true')
   }
 
   const handleSaveCustomize = async () => {
@@ -241,10 +246,8 @@ export default function EmailTemplatesPage() {
   }
 
   const handleSave = async () => {
-    console.log('handleSave called', { editingTemplate, formData })
     try {
       if (editingTemplate) {
-        console.log('Updating template:', editingTemplate.id)
         await updateOrgEmailTemplate(editingTemplate.id, {
           name: formData.name,
           subject: formData.subject,
@@ -256,14 +259,6 @@ export default function EmailTemplatesPage() {
           variant: "success",
         })
       } else {
-        console.log('Creating template with data:', {
-          name: formData.name,
-          category: formData.category,
-          type: formData.type,
-          subject: formData.subject,
-          body: formData.body,
-          is_default: false,
-        })
         await createOrgEmailTemplate({
           name: formData.name,
           category: formData.category,
@@ -371,23 +366,18 @@ export default function EmailTemplatesPage() {
     }
   }
 
-  const getCategoryTemplates = (category: EmailTemplateCategory, source: "master" | "custom") => {
-    const templates = source === "master" ? masterTemplates : orgTemplates
-    return templates.filter(t => t.category === category)
-  }
-
-  const getCategoryLabel = (category: EmailTemplateCategory) => {
+  const getCategoryLabel = (category: string) => {
     switch (category) {
       case EmailTemplateCategory.SERVICE:
-        return "Service Templates"
+        return "Service"
       case EmailTemplateCategory.LOGIN:
-        return "Login Templates"
+        return "Login Credentials"
       case EmailTemplateCategory.NOTIFICATION:
-        return "Notification Templates"
+        return "Notifications"
       case EmailTemplateCategory.FOLLOW_UP:
-        return "Follow-up Templates"
+        return "Follow-ups"
       case EmailTemplateCategory.REMINDER:
-        return "Reminder Templates"
+        return "Reminders"
       default:
         return category
     }
@@ -396,6 +386,63 @@ export default function EmailTemplatesPage() {
   const getTypeLabel = (type: string) => {
     return type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
   }
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case EmailTemplateCategory.LOGIN:
+        return Mail
+      case EmailTemplateCategory.NOTIFICATION:
+        return Bell
+      case EmailTemplateCategory.REMINDER:
+        return Clock
+      case EmailTemplateCategory.FOLLOW_UP:
+        return RefreshCw
+      default:
+        return FileText
+    }
+  }
+
+  const getCategoryBadgeClass = (category: string) => {
+    switch (category) {
+      case EmailTemplateCategory.SERVICE:
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+      case EmailTemplateCategory.LOGIN:
+        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+      case EmailTemplateCategory.NOTIFICATION:
+        return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+      case EmailTemplateCategory.FOLLOW_UP:
+        return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+      case EmailTemplateCategory.REMINDER:
+        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+      default:
+        return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+    }
+  }
+
+  const filterTemplates = (templates: EmailTemplate[]) => {
+    return templates.filter((t) => {
+      const matchesSearch =
+        !searchQuery ||
+        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.subject.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesCategory =
+        activeCategoryFilter === "all" || t.category === activeCategoryFilter
+      return matchesSearch && matchesCategory
+    })
+  }
+
+  const filteredMasterTemplates = filterTemplates(masterTemplates)
+  const filteredOrgTemplates = filterTemplates(orgTemplates)
+
+  const categoryFilters = [
+    { value: "all", label: "All" },
+    { value: EmailTemplateCategory.LOGIN, label: "Login Credentials" },
+    { value: EmailTemplateCategory.NOTIFICATION, label: "Notifications" },
+    { value: EmailTemplateCategory.FOLLOW_UP, label: "Follow-ups" },
+    { value: EmailTemplateCategory.REMINDER, label: "Reminders" },
+    { value: EmailTemplateCategory.SERVICE, label: "Service" },
+  ]
 
   if (isCheckingAuth) {
     return (
@@ -407,242 +454,227 @@ export default function EmailTemplatesPage() {
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden w-full">
-      <Sidebar 
-        mobileMenuOpen={mobileMenuOpen} 
+      <Sidebar
+        mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
         collapsed={sidebarCollapsed}
       />
-      <div 
+      <div
         className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ 
-          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '15%') : '0',
-          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 15%)') : '100%',
+        style={{
+          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '240px') : '0',
+          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)') : '100%',
         }}
       >
-        <Header 
+        <Header
           onMenuClick={() => setMobileMenuOpen(true)}
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div 
-          className="overflow-y-auto overflow-x-hidden w-full" 
-          style={{ 
-            height: "calc(100vh - 54px)", 
-            marginTop: "54px",
-          }}
+        <div
+          className="overflow-y-auto overflow-x-hidden w-full"
+          style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}
         >
-          <div className="p-4 sm:p-6 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="p-4 sm:p-6 space-y-5">
+
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Email Templates</h1>
-                <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage email templates for your organization</p>
+                <h1 className="text-xl font-semibold">Email Templates</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">Manage your email templates</p>
               </div>
-              {activeTab === "custom" && (
-                <Button 
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    console.log('Create Template button clicked')
-                    handleCreate()
-                  }} 
-                  className="w-full sm:w-auto"
+              <Button onClick={handleCreate} className="w-full sm:w-auto" size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Create New Template
+              </Button>
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search templates by name or category..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {categoryFilters.map((f) => (
+                <button
+                  key={f.value}
                   type="button"
-                  size="sm"
+                  onClick={() => setActiveCategoryFilter(f.value)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                    activeCategoryFilter === f.value
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                  }`}
                 >
-                  <Plus className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Create Template</span>
-                  <span className="sm:hidden">Create</span>
-                </Button>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Pre-built Templates */}
+            <div>
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold">Pre-built Templates</h2>
+                <p className="text-xs text-muted-foreground">Click to customize and use in your organization</p>
+              </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                  Loading templates...
+                </div>
+              ) : filteredMasterTemplates.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <FileText className="w-10 h-10 mb-3 opacity-40" />
+                  <p className="text-sm">No pre-built templates found</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredMasterTemplates.map((template) => {
+                    const Icon = getCategoryIcon(template.category)
+                    const hasCustomVersion = orgTemplates.some(
+                      (ot) => ot.type === template.type && ot.category === template.category
+                    )
+                    return (
+                      <div
+                        key={template.id}
+                        className="flex flex-col border border-border rounded-xl shadow-sm p-4 bg-card hover:shadow-md transition-all duration-150"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="p-2 rounded-md bg-muted shrink-0">
+                            <Icon className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm text-foreground truncate">{template.name}</p>
+                            <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>
+                              {getCategoryLabel(template.category)}
+                            </span>
+                          </div>
+                          {hasCustomVersion && (
+                            <span className="text-xs text-green-600 dark:text-green-400 font-medium shrink-0">Customized</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-4 flex-1">
+                          Click to customize and use
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-xs h-8"
+                            onClick={() => handleCustomize(template)}
+                          >
+                            Use Template
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handlePreview(template)}
+                            title="Preview"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
 
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "master" | "custom")}>
-              <TabsList>
-                <TabsTrigger value="master">
-                  Default Templates
-                </TabsTrigger>
-                <TabsTrigger value="custom">
-                  My Custom Templates
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="master" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Default Templates</CardTitle>
-                    <CardDescription>
-                      Default email templates. You can customize these for your organization.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {isLoading ? (
-                      <div className="flex items-center justify-center py-12">
-                        <div className="text-muted-foreground">Loading templates...</div>
-                      </div>
-                    ) : masterTemplates.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-12">
-                        <Mail className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">No templates found</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto -mx-4 sm:mx-0">
-                        <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="min-w-[120px]">Name</TableHead>
-                                <TableHead className="hidden sm:table-cell min-w-[100px]">Category</TableHead>
-                                <TableHead className="hidden sm:table-cell min-w-[100px]">Type</TableHead>
-                                <TableHead className="min-w-[150px]">Subject</TableHead>
-                                <TableHead className="text-right min-w-[100px]">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {masterTemplates.map((template) => {
-                                const hasCustomVersion = orgTemplates.some(
-                                  ot => ot.type === template.type && ot.category === template.category
-                                )
-                                return (
-                                  <TableRow key={template.id}>
-                                    <TableCell className="font-medium">
-                                      <div className="flex flex-col sm:block">
-                                        <span>{template.name}</span>
-                                        <span className="text-xs text-muted-foreground sm:hidden mt-1">
-                                          {getCategoryLabel(template.category as TemplateCategory)} • {getTypeLabel(template.type)}
-                                        </span>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="hidden sm:table-cell">
-                                      <Badge variant="outline">{getCategoryLabel(template.category as TemplateCategory)}</Badge>
-                                    </TableCell>
-                                    <TableCell className="hidden sm:table-cell">{getTypeLabel(template.type)}</TableCell>
-                                    <TableCell className="max-w-[150px] sm:max-w-md truncate">{template.subject}</TableCell>
-                                    <TableCell className="text-right">
-                                      <div className="flex items-center justify-end gap-1 sm:gap-2">
-                                        {hasCustomVersion && (
-                                          <Badge variant="secondary" className="hidden md:inline-flex mr-2">Customized</Badge>
-                                        )}
-                                        <Button
-                                          variant="ghost"
-                                          size="icon-sm"
-                                          className="h-7 w-7 sm:h-8 sm:w-8"
-                                          onClick={() => handlePreview(template)}
-                                          title="Preview"
-                                        >
-                                          <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon-sm"
-                                          className="h-7 w-7 sm:h-8 sm:w-8"
-                                          onClick={() => handleCustomize(template)}
-                                          title="Customize"
-                                        >
-                                          <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                        </Button>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                )
-                              })}
-                            </TableBody>
-                          </Table>
+            {/* Your Templates */}
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold">Your Templates</h2>
+                  <p className="text-xs text-muted-foreground">Organization-specific customized templates</p>
+                </div>
+                {orgTemplates.length > 0 && (
+                  <span className="text-sm text-muted-foreground">{filteredOrgTemplates.length} template{filteredOrgTemplates.length !== 1 ? 's' : ''}</span>
+                )}
+              </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                  Loading templates...
+                </div>
+              ) : filteredOrgTemplates.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-muted-foreground">
+                  <Mail className="w-10 h-10 mb-3 opacity-40" />
+                  <p className="text-sm">No custom templates yet</p>
+                  <Button size="sm" variant="outline" className="mt-3" onClick={handleCreate}>
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    Create your first template
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredOrgTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="flex flex-col border border-border rounded-lg shadow-sm p-3 bg-card hover:shadow-md transition-all duration-150"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <div className="min-w-0">
+                          <p className="font-medium text-xs text-foreground truncate">{template.name}</p>
+                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">{template.subject}</p>
                         </div>
+                        <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>
+                          {getCategoryLabel(template.category)}
+                        </span>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                      <p className="text-[11px] text-muted-foreground mb-2">
+                        {getTypeLabel(template.type)}
+                      </p>
+                      <div className="border-t border-border pt-2 flex items-center gap-0.5">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-[11px] flex-1 px-1"
+                          onClick={() => handleEdit(template)}
+                        >
+                          <Edit className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-[11px] flex-1 px-1"
+                          onClick={() => handleCustomize(template)}
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-[11px] flex-1 px-1"
+                          onClick={() => handlePreview(template)}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          Preview
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(template.id)}
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-              <TabsContent value="custom" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>My Custom Templates</CardTitle>
-                    <CardDescription>
-                      Your organization-specific customized templates
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {isLoading ? (
-                      <div className="flex items-center justify-center py-12">
-                        <div className="text-muted-foreground">Loading templates...</div>
-                      </div>
-                    ) : orgTemplates.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-12">
-                        <Mail className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">No custom templates found</p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto -mx-4 sm:mx-0">
-                        <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="min-w-[120px]">Name</TableHead>
-                                <TableHead className="hidden sm:table-cell min-w-[100px]">Category</TableHead>
-                                <TableHead className="hidden sm:table-cell min-w-[100px]">Type</TableHead>
-                                <TableHead className="min-w-[150px]">Subject</TableHead>
-                                <TableHead className="text-right min-w-[120px]">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {orgTemplates.map((template) => (
-                                <TableRow key={template.id}>
-                                  <TableCell className="font-medium">
-                                    <div className="flex flex-col sm:block">
-                                      <span>{template.name}</span>
-                                      <span className="text-xs text-muted-foreground sm:hidden mt-1">
-                                        {getCategoryLabel(template.category as TemplateCategory)} • {getTypeLabel(template.type)}
-                                      </span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="hidden sm:table-cell">
-                                    <Badge variant="outline">{getCategoryLabel(template.category as TemplateCategory)}</Badge>
-                                  </TableCell>
-                                  <TableCell className="hidden sm:table-cell">{getTypeLabel(template.type)}</TableCell>
-                                  <TableCell className="max-w-[150px] sm:max-w-md truncate">{template.subject}</TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex items-center justify-end gap-1 sm:gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        className="h-7 w-7 sm:h-8 sm:w-8"
-                                        onClick={() => handlePreview(template)}
-                                        title="Preview"
-                                      >
-                                        <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        className="h-7 w-7 sm:h-8 sm:w-8"
-                                        onClick={() => handleEdit(template)}
-                                        title="Edit"
-                                      >
-                                        <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        className="h-7 w-7 sm:h-8 sm:w-8"
-                                        onClick={() => handleDelete(template.id)}
-                                        title="Delete"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-destructive" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
           </div>
         </div>
       </div>
@@ -728,22 +760,20 @@ export default function EmailTemplatesPage() {
                   </div>
                 )}
                 {customizeBodyViewMode === "edit" ? (
-                  <>
-                    <Textarea
-                      id="customize-body"
-                      value={customizeData.body}
-                      onChange={(e) => setCustomizeData({ ...customizeData, body: e.target.value })}
-                      placeholder="Enter email body (HTML or plain text)"
-                      rows={25}
-                      className="font-mono text-sm min-h-[400px] resize-y"
-                      style={{ minHeight: '400px', height: '400px' }}
-                    />
-                  </>
+                  <Textarea
+                    id="customize-body"
+                    value={customizeData.body}
+                    onChange={(e) => setCustomizeData({ ...customizeData, body: e.target.value })}
+                    placeholder="Enter email body (HTML or plain text)"
+                    rows={25}
+                    className="font-mono text-sm min-h-[400px] resize-y"
+                    style={{ minHeight: '400px', height: '400px' }}
+                  />
                 ) : (
                   <div className="border rounded-md p-4 bg-white min-h-[300px] max-h-[500px] overflow-auto">
-                    <div 
-                      dangerouslySetInnerHTML={{ 
-                        __html: previewEmailTemplate(customizeData.body, customizeData.subject) 
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: previewEmailTemplate(customizeData.body, customizeData.subject)
                       }}
                       style={{ transform: 'scale(0.8)', transformOrigin: 'top left', width: '125%' }}
                     />
@@ -763,7 +793,7 @@ export default function EmailTemplatesPage() {
             <Button
               onClick={handleSaveCustomize}
               disabled={!customizeData.subject || !customizeData.body}
-              className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto"
+              className="w-full sm:w-auto"
             >
               Customize Template
             </Button>
@@ -932,22 +962,20 @@ export default function EmailTemplatesPage() {
                 </div>
               )}
               {bodyViewMode === "edit" ? (
-                <>
-                  <Textarea
-                    id="template-body"
-                    value={formData.body}
-                    onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-                    placeholder="Enter email body (HTML or plain text)"
-                    rows={25}
-                    className="font-mono text-sm min-h-[400px] resize-y"
-                    style={{ minHeight: '400px', height: '400px' }}
-                  />
-                </>
+                <Textarea
+                  id="template-body"
+                  value={formData.body}
+                  onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                  placeholder="Enter email body (HTML or plain text)"
+                  rows={25}
+                  className="font-mono text-sm min-h-[400px] resize-y"
+                  style={{ minHeight: '400px', height: '400px' }}
+                />
               ) : (
                 <div className="border rounded-md p-4 bg-white min-h-[300px] max-h-[500px] overflow-auto">
-                  <div 
-                    dangerouslySetInnerHTML={{ 
-                      __html: previewEmailTemplate(formData.body, formData.subject) 
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: previewEmailTemplate(formData.body, formData.subject)
                     }}
                     style={{ transform: 'scale(0.8)', transformOrigin: 'top left', width: '125%' }}
                   />
@@ -970,11 +998,10 @@ export default function EmailTemplatesPage() {
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                console.log('Save button clicked', { formData, editingTemplate })
                 handleSave()
               }}
               disabled={!formData.name || !formData.subject || !formData.body}
-              className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto"
+              className="w-full sm:w-auto"
               type="button"
             >
               {editingTemplate ? "Update" : "Create"}
@@ -1001,9 +1028,9 @@ export default function EmailTemplatesPage() {
               <div>
                 <Label className="text-sm font-medium mb-2 block">Email Preview:</Label>
                 <div className="border rounded-md p-4 bg-white overflow-auto" style={{ maxHeight: 'calc(90vh - 250px)' }}>
-                  <div 
-                    dangerouslySetInnerHTML={{ 
-                      __html: previewEmailTemplate(previewTemplate.body, previewTemplate.subject) 
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: previewEmailTemplate(previewTemplate.body, previewTemplate.subject)
                     }}
                     style={{ transform: 'scale(0.8)', transformOrigin: 'top left', width: '125%' }}
                   />
@@ -1021,4 +1048,3 @@ export default function EmailTemplatesPage() {
     </div>
   )
 }
-

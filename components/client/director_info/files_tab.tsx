@@ -391,8 +391,8 @@ export function FilesTab({
 
   return (
     <Card>
-      <CardHeader className="p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <CardHeader className="px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <CardTitle className="text-base sm:text-lg">Files</CardTitle>
             <CardDescription className="text-xs sm:text-sm mt-1">
@@ -437,7 +437,7 @@ export function FilesTab({
           )}
         </div>
       </CardHeader>
-      <CardContent className="p-4 sm:p-6">
+      <CardContent className="px-4 pb-4 pt-0 sm:px-6 sm:pb-5">
         {isLoadingFiles ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

@@ -361,522 +361,318 @@ export function ClientOnboardForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 overflow-x-hidden max-w-full">
-        <Tabs defaultValue="client-info" className="w-full overflow-x-hidden max-w-full">
-          <TabsList className="grid w-full grid-cols-2 h-auto p-1">
-            <TabsTrigger value="client-info" className="text-xs sm:text-sm py-2 px-2 sm:px-4">
-              <span className="truncate">Client Info</span>
-            </TabsTrigger>
-            <TabsTrigger value="directors" className="text-xs sm:text-sm py-2 px-2 sm:px-4">
-              <span className="truncate">Directors</span>
-            </TabsTrigger>
-          </TabsList>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-0 overflow-x-hidden max-w-full">
+          <div className="rounded-xl border border-border bg-card divide-y divide-border">
 
-          <TabsContent value="client-info" className="space-y-6 mt-6">
-            {/* Basic Information Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Basic Information</h3>
-              
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Client Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email *</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="Enter email address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input type="tel" placeholder="+91 9876543210" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="companyName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Company Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Acme Corporation" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="businessType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Business Type *</FormLabel>
-                      <Select 
-                        onValueChange={(value) => {
-                          field.onChange(value)
-                          // Clear custom business type if not "Other"
-                          if (value !== 'Other') {
-                            form.setValue('customBusinessType', '')
-                            setCustomBusinessTypeInput('')
-                          }
-                        }} 
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select business type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {businessTypes.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                          {customBusinessTypes.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Custom Business Type Field - Shows when "Other" is selected */}
-              {form.watch('businessType') === 'Other' && (
-                <div className="mt-4 space-y-3">
-                  <div className="flex gap-2 items-center">
-                    <Input
-                      placeholder="Enter custom business type"
-                      value={customBusinessTypeInput}
-                      onChange={(e) => setCustomBusinessTypeInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && customBusinessTypeInput.trim()) {
-                          e.preventDefault()
-                          const newBusinessType = customBusinessTypeInput.trim()
-                          // Add to custom business types list if not already present
-                          if (!customBusinessTypes.includes(newBusinessType)) {
-                            setCustomBusinessTypes([...customBusinessTypes, newBusinessType])
-                          }
-                          // Set as selected business type
-                          form.setValue('businessType', newBusinessType)
-                          form.setValue('customBusinessType', newBusinessType)
-                          setCustomBusinessTypeInput('')
-                        }
-                      }}
-                      className="w-48 h-8 text-sm"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (customBusinessTypeInput.trim()) {
-                          const newBusinessType = customBusinessTypeInput.trim()
-                          // Add to custom business types list if not already present
-                          if (!customBusinessTypes.includes(newBusinessType)) {
-                            setCustomBusinessTypes([...customBusinessTypes, newBusinessType])
-                          }
-                          // Set as selected business type
-                          form.setValue('businessType', newBusinessType)
-                          form.setValue('customBusinessType', newBusinessType)
-                          setCustomBusinessTypeInput('')
-                        }
-                      }}
-                      disabled={!customBusinessTypeInput.trim()}
-                      className="shrink-0 h-8 px-2"
-                    >
-                      <PlusIcon className="h-3.5 w-3.5 mr-1" />
-                      <span className="text-xs">Add</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        form.setValue('businessType', '')
-                        form.setValue('customBusinessType', '')
-                        setCustomBusinessTypeInput('')
-                      }}
-                      className="shrink-0 h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      title="Close Other option"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-
-                  {/* Display custom business type with remove button */}
-                  {form.watch('customBusinessType') && (
-                    <div className="flex items-center gap-2 p-2 border border-border rounded-md bg-muted/50">
-                      <span className="flex-1 text-sm">
-                        {form.watch('customBusinessType')}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          form.setValue('customBusinessType', '')
-                          form.setValue('businessType', '')
-                          setCustomBusinessTypeInput('')
-                        }}
-                        className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        title="Remove custom business type"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-
+              {/* Basic Information */}
+              <div className="p-5 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Basic Information</p>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <FormField
                     control={form.control}
-                    name="customBusinessType"
+                    name="name"
                     render={({ field }) => (
-                      <FormItem className="hidden">
+                      <FormItem>
+                        <FormLabel>Client Name <span className="text-destructive">*</span></FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input placeholder="John Doe" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                </div>
-              )}
-            </div>
-
-            {/* Tax & Business Information Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Tax & Business Information</h3>
-              
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                <FormField
-                  control={form.control}
-                  name="panNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>PAN Number</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="ABCDE1234F" 
-                          maxLength={10}
-                          className="uppercase"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Format: ABCDE1234F
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="gstNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>GST Number</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="22ABCDE1234F1Z5" 
-                          maxLength={15}
-                          className="uppercase"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Format: 22ABCDE1234F1Z5
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                        value={field.value || ''}
-                        disabled={clientStatuses.length === 0}
-                      >
+                  <FormField
+                    control={form.control}
+                    name="companyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Name <span className="text-destructive">*</span></FormLabel>
                         <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={clientStatuses.length === 0 ? "No status options available" : "Select status"} />
-                          </SelectTrigger>
+                          <Input placeholder="Acme Corporation" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {clientStatuses.length === 0 ? (
-                            <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
-                              No status options available
-                            </div>
-                          ) : (
-                            clientStatuses.map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {status}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription className="invisible">
-                        Placeholder for alignment
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Address Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Address</h3>
-              
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                <FormField
-                  control={form.control}
-                  name="addressLine1"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5">
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Street address, Building name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                <FormField
-                  control={form.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>City</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Mumbai" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="state"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>State</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Maharashtra" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="country"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Country</FormLabel>
-                      <FormControl>
-                        <Input placeholder="India" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="pincode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Pincode</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="400001" 
-                          maxLength={6}
-                          {...field}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, '')
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="john@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input type="tel" placeholder="+91 9876543210" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="businessType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Type <span className="text-destructive">*</span></FormLabel>
+                        <Select
+                          onValueChange={(value) => {
                             field.onChange(value)
+                            if (value !== 'Other') {
+                              form.setValue('customBusinessType', '')
+                              setCustomBusinessTypeInput('')
+                            }
                           }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select business type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {businessTypes.map((type) => (
+                              <SelectItem key={type} value={type}>{type}</SelectItem>
+                            ))}
+                            {customBusinessTypes.map((type) => (
+                              <SelectItem key={type} value={type}>{type}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value || ''}
+                          disabled={clientStatuses.length === 0}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder={clientStatuses.length === 0 ? "No statuses available" : "Select status"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {clientStatuses.length === 0 ? (
+                              <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">No status options available</div>
+                            ) : (
+                              clientStatuses.map((status) => (
+                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            {/* Services Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Services</h3>
-              
-              <FormField
-                control={form.control}
-                name="directories"
-                render={() => (
-                  <FormItem>
-                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                      {services.map((directory) => (
-                        <FormField
-                          key={directory}
-                          control={form.control}
-                          name="directories"
-                          render={({ field }) => {
-                            return (
-                              <FormItem
-                                key={directory}
-                                className="flex flex-row items-center space-x-3 space-y-0 border border-black dark:border-gray-600 rounded-md p-3 hover:bg-accent/50 transition-colors"
-                              >
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(directory)}
-                                    onCheckedChange={(checked) => {
-                                      return checked
-                                        ? field.onChange([...field.value, directory])
-                                        : field.onChange(
-                                            field.value?.filter(
-                                              (value) => value !== directory
-                                            )
-                                          )
-                                    }}
-                                    className="border-black dark:border-gray-400 data-[state=checked]:bg-black data-[state=checked]:border-black dark:data-[state=checked]:bg-gray-400 dark:data-[state=checked]:border-gray-400"
-                                  />
-                                </FormControl>
-                                <FormLabel className="font-normal cursor-pointer flex-1">
+                {/* Custom Business Type Field */}
+                {form.watch('businessType') === 'Other' && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        placeholder="Enter custom business type"
+                        value={customBusinessTypeInput}
+                        onChange={(e) => setCustomBusinessTypeInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && customBusinessTypeInput.trim()) {
+                            e.preventDefault()
+                            const newBusinessType = customBusinessTypeInput.trim()
+                            if (!customBusinessTypes.includes(newBusinessType)) {
+                              setCustomBusinessTypes([...customBusinessTypes, newBusinessType])
+                            }
+                            form.setValue('businessType', newBusinessType)
+                            form.setValue('customBusinessType', newBusinessType)
+                            setCustomBusinessTypeInput('')
+                          }
+                        }}
+                        className="w-48 h-8 text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (customBusinessTypeInput.trim()) {
+                            const newBusinessType = customBusinessTypeInput.trim()
+                            if (!customBusinessTypes.includes(newBusinessType)) {
+                              setCustomBusinessTypes([...customBusinessTypes, newBusinessType])
+                            }
+                            form.setValue('businessType', newBusinessType)
+                            form.setValue('customBusinessType', newBusinessType)
+                            setCustomBusinessTypeInput('')
+                          }
+                        }}
+                        disabled={!customBusinessTypeInput.trim()}
+                        className="shrink-0 h-8 px-2"
+                      >
+                        <PlusIcon className="h-3.5 w-3.5 mr-1" />
+                        <span className="text-xs">Add</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          form.setValue('businessType', '')
+                          form.setValue('customBusinessType', '')
+                          setCustomBusinessTypeInput('')
+                        }}
+                        className="shrink-0 h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    {form.watch('customBusinessType') && (
+                      <div className="flex items-center gap-2 p-2 border border-border rounded-md bg-muted/50">
+                        <span className="flex-1 text-sm">{form.watch('customBusinessType')}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            form.setValue('customBusinessType', '')
+                            form.setValue('businessType', '')
+                            setCustomBusinessTypeInput('')
+                          }}
+                          className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                    <FormField
+                      control={form.control}
+                      name="customBusinessType"
+                      render={({ field }) => (
+                        <FormItem className="hidden">
+                          <FormControl><Input {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Services */}
+              <div className="p-5 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Services</p>
+                <FormField
+                  control={form.control}
+                  name="directories"
+                  render={() => (
+                    <FormItem>
+                      <div className="flex flex-wrap gap-2">
+                        {services.map((directory) => (
+                          <FormField
+                            key={directory}
+                            control={form.control}
+                            name="directories"
+                            render={({ field }) => (
+                              <FormItem key={directory} className="space-y-0">
+                                <FormLabel
+                                  className={cn(
+                                    'flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer text-sm font-normal transition-colors select-none',
+                                    field.value?.includes(directory)
+                                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                                      : 'border-border hover:bg-muted/50'
+                                  )}
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(directory)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...field.value, directory])
+                                          : field.onChange(field.value?.filter((v) => v !== directory))
+                                      }}
+                                      className="sr-only"
+                                    />
+                                  </FormControl>
                                   {directory}
                                 </FormLabel>
                               </FormItem>
-                            )
-                          }}
-                        />
-                      ))}
-                      
-                      {/* Custom Services as regular checkboxes */}
-                      {customServices.map((customService) => (
-                        <FormField
-                          key={customService}
-                          control={form.control}
-                          name="directories"
-                          render={({ field }) => {
-                            return (
-                              <FormItem
-                                key={customService}
-                                className="flex flex-row items-center space-x-3 space-y-0 border border-black dark:border-gray-600 rounded-md p-3 hover:bg-accent/50 transition-colors"
-                              >
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(customService)}
-                                    onCheckedChange={(checked) => {
-                                      return checked
-                                        ? field.onChange([...field.value, customService])
-                                        : field.onChange(
-                                            field.value?.filter(
-                                              (value) => value !== customService
-                                            )
-                                          )
-                                    }}
-                                    className="border-black dark:border-gray-400 data-[state=checked]:bg-black data-[state=checked]:border-black dark:data-[state=checked]:bg-gray-400 dark:data-[state=checked]:border-gray-400"
-                                  />
-                                </FormControl>
-                                <FormLabel className="font-normal cursor-pointer flex-1">
+                            )}
+                          />
+                        ))}
+
+                        {customServices.map((customService) => (
+                          <FormField
+                            key={customService}
+                            control={form.control}
+                            name="directories"
+                            render={({ field }) => (
+                              <FormItem key={customService} className="space-y-0">
+                                <FormLabel
+                                  className={cn(
+                                    'flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer text-sm font-normal transition-colors select-none',
+                                    field.value?.includes(customService)
+                                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                                      : 'border-border hover:bg-muted/50'
+                                  )}
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(customService)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...field.value, customService])
+                                          : field.onChange(field.value?.filter((v) => v !== customService))
+                                      }}
+                                      className="sr-only"
+                                    />
+                                  </FormControl>
                                   {customService}
                                 </FormLabel>
                               </FormItem>
-                            )
-                          }}
-                        />
-                      ))}
-                      
-                      {/* Other checkbox */}
-                      <FormField
-                        control={form.control}
-                        name="directories"
-                        render={({ field }) => {
-                          return (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0 border border-black dark:border-gray-600 rounded-md p-3 hover:bg-accent/50 transition-colors">
-                              <FormControl>
-                                <Checkbox
-                                  checked={isOtherServiceChecked}
-                                  onCheckedChange={(checked) => {
-                                    setIsOtherServiceChecked(checked as boolean)
-                                    if (!checked) {
-                                      setCustomServiceInput('')
-                                    }
-                                  }}
-                                  className="border-black dark:border-gray-400 data-[state=checked]:bg-black data-[state=checked]:border-black dark:data-[state=checked]:bg-gray-400 dark:data-[state=checked]:border-gray-400"
-                                />
-                              </FormControl>
-                              <FormLabel 
-                                className="font-normal cursor-pointer flex-1"
-                                onClick={() => {
-                                  if (!isOtherServiceChecked) {
-                                    setIsOtherServiceChecked(true)
-                                  }
-                                }}
-                              >
-                                Other
-                              </FormLabel>
-                            </FormItem>
-                          )
-                        }}
-                      />
-                    </div>
+                            )}
+                          />
+                        ))}
 
-                    {/* Custom Services Input - Shows when "Other" is checked */}
-                    {isOtherServiceChecked && (
-                      <div className="mt-4 space-y-3">
-                        <div className="flex gap-2 items-center">
+                        {/* Other toggle */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsOtherServiceChecked(!isOtherServiceChecked)
+                            if (isOtherServiceChecked) setCustomServiceInput('')
+                          }}
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 py-2 rounded-md border text-sm transition-colors',
+                            isOtherServiceChecked
+                              ? 'border-primary bg-primary/10 text-primary font-medium'
+                              : 'border-border hover:bg-muted/50'
+                          )}
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" />
+                          Other
+                        </button>
+                      </div>
+
+                      {isOtherServiceChecked && (
+                        <div className="flex gap-2 items-center mt-3">
                           <Input
                             placeholder="Enter custom service"
                             value={customServiceInput}
@@ -886,14 +682,8 @@ export function ClientOnboardForm({
                                 e.preventDefault()
                                 const newService = customServiceInput.trim()
                                 const currentDirectories = form.getValues('directories') || []
-                                // Add to custom services list if not already present
-                                if (!customServices.includes(newService)) {
-                                  setCustomServices([...customServices, newService])
-                                }
-                                // Add as regular service (not with "Other:" prefix)
-                                if (!currentDirectories.includes(newService)) {
-                                  form.setValue('directories', [...currentDirectories, newService])
-                                }
+                                if (!customServices.includes(newService)) setCustomServices([...customServices, newService])
+                                if (!currentDirectories.includes(newService)) form.setValue('directories', [...currentDirectories, newService])
                                 setCustomServiceInput('')
                                 setIsOtherServiceChecked(false)
                               }
@@ -908,21 +698,13 @@ export function ClientOnboardForm({
                               if (customServiceInput.trim()) {
                                 const newService = customServiceInput.trim()
                                 const currentDirectories = form.getValues('directories') || []
-                                // Add to custom services list if not already present
-                                if (!customServices.includes(newService)) {
-                                  setCustomServices([...customServices, newService])
-                                }
-                                // Add as regular service (not with "Other:" prefix)
+                                if (!customServices.includes(newService)) setCustomServices([...customServices, newService])
                                 if (!currentDirectories.includes(newService)) {
                                   form.setValue('directories', [...currentDirectories, newService])
                                   setCustomServiceInput('')
                                   setIsOtherServiceChecked(false)
                                 } else {
-                                  toast({
-                                    title: 'Service already added',
-                                    description: 'This service is already in the list',
-                                    variant: 'destructive',
-                                  })
+                                  toast({ title: 'Service already added', description: 'This service is already in the list', variant: 'destructive' })
                                 }
                               }
                             }}
@@ -936,155 +718,239 @@ export function ClientOnboardForm({
                             type="button"
                             variant="ghost"
                             size="icon"
-                            onClick={() => {
-                              setIsOtherServiceChecked(false)
-                              setCustomServiceInput('')
-                            }}
+                            onClick={() => { setIsOtherServiceChecked(false); setCustomServiceInput('') }}
                             className="shrink-0 h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            title="Close Other option"
                           >
                             <X className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-
-                      </div>
-                    )}
-
-                    <FormMessage />
-                    <FormDescription>
-                      Select all services this client requires
-                    </FormDescription>
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Dates Section */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Important Dates</h3>
-              
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                <FormField
-                  control={form.control}
-                  name="onboardDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col sm:col-span-1 md:col-span-1 lg:col-span-2 xl:col-span-2">
-                      <FormLabel>Onboard Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                'w-full pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground'
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, 'PPP')
-                              ) : (
-                                <span>Pick a date (optional)</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value || undefined}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                              date > new Date() || date < new Date('1900-01-01')
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="followUpDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col sm:col-span-1 md:col-span-1 lg:col-span-2 xl:col-span-2">
-                      <FormLabel>Follow-up Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                'w-full pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground'
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, 'PPP')
-                              ) : (
-                                <span>Pick a date (optional)</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value || undefined}
-                            onSelect={field.onChange}
-                            disabled={(date) => date < new Date('1900-01-01')}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormDescription>
-                        Set a reminder date for follow-up
-                      </FormDescription>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-            </div>
 
-            {/* Notes Section */}
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Additional Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Any additional information about the client..."
-                      className="min-h-[100px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Add any relevant notes or comments about this client
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              {/* Tax Information */}
+              <div className="p-5 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tax Information <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="panNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>PAN Number</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="ABCDE1234F"
+                            maxLength={10}
+                            className="uppercase"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="gstNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>GST Number</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="22ABCDE1234F1Z5"
+                            maxLength={15}
+                            className="uppercase"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
 
-          </TabsContent>
+              {/* Address */}
+              <div className="p-5 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Address <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
+                <FormField
+                  control={form.control}
+                  name="addressLine1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Street Address</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Street address, Building name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl><Input placeholder="Mumbai" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl><Input placeholder="Maharashtra" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <FormControl><Input placeholder="India" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pincode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pincode</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="400001"
+                            maxLength={6}
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
 
-          <TabsContent value="directors" className="space-y-6 mt-6 overflow-x-hidden max-w-full">
-            <div className="space-y-4 overflow-x-hidden max-w-full">
+              {/* Dates & Notes */}
+              <div className="p-5 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dates <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="onboardDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Onboard Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                              >
+                                {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value || undefined}
+                              onSelect={field.onChange}
+                              disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="followUpDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Follow-up Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                              >
+                                {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value || undefined}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date('1900-01-01')}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="p-5 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Any additional information about this client..."
+                          className="min-h-[80px] resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Directors */}
+              <div className="p-5 space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold">Company Directors</h3>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Directors <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={addDirector}
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto shrink-0"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
                   Add Director
@@ -1379,24 +1245,25 @@ export function ClientOnboardForm({
                 </div>
               )}
             </div>
-          </TabsContent>
-        </Tabs>
+
+          </div>
 
         {/* Form Actions */}
-        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-4 border-t">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-4 border-t border-border">
           {onCancel && (
             <Button
               type="button"
               variant="outline"
               onClick={onCancel}
               disabled={isLoading}
+              className="sm:min-w-[100px]"
             >
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={isLoading}>
-            {isLoading 
-              ? (isEditing ? 'Updating...' : 'Onboarding...') 
+          <Button type="submit" disabled={isLoading} className="sm:min-w-[140px]">
+            {isLoading
+              ? (isEditing ? 'Updating...' : 'Onboarding...')
               : (isEditing ? 'Update Client' : 'Onboard Client')
             }
           </Button>

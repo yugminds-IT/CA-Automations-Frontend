@@ -144,7 +144,7 @@ export function MasterAdminSidebar({ mobileMenuOpen: externalMobileMenuOpen, set
       <aside
         className="hidden lg:flex bg-gradient-to-b from-slate-50 to-slate-100 dark:from-purple-950 dark:to-indigo-950 text-sidebar-foreground flex-col border-r border-slate-300 dark:border-purple-800 m-0 py-0 h-screen fixed top-0 bottom-0 left-0 transition-all duration-300 shadow-lg"
         style={{ 
-          width: collapsed ? "60px" : "15%",
+          width: collapsed ? "60px" : "240px",
           minWidth: collapsed ? "60px" : "200px",
           maxWidth: collapsed ? "60px" : "280px",
           paddingLeft: collapsed ? "0" : "0.5rem",

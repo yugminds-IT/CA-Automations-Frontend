@@ -71,9 +71,9 @@ export function MasterAdminHeader({ onMenuClick, onSidebarToggle, sidebarCollaps
   const getHeaderStyle = () => {
     if (isDesktop) {
       return {
-        left: sidebarCollapsed ? '60px' : '15%',
+        left: sidebarCollapsed ? '60px' : '240px',
         right: 0,
-        width: sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 15%)',
+        width: sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)',
       }
     }
     return {
@@ -85,7 +85,7 @@ export function MasterAdminHeader({ onMenuClick, onSidebarToggle, sidebarCollaps
 
   return (
     <header 
-      className="fixed top-0 z-50 bg-gradient-to-r from-slate-700 to-slate-800 dark:from-purple-800 dark:to-indigo-800 text-white border-b border-slate-500 dark:border-purple-600 flex items-center justify-between px-2 sm:px-3 md:px-4 transition-all duration-300 shadow-lg"
+      className="fixed top-0 z-50 bg-gradient-to-r from-slate-700 to-slate-800 dark:from-purple-800 dark:to-indigo-800 text-white border-b border-slate-500 dark:border-purple-600 flex items-center justify-between px-2 sm:px-3 md:px-4 transition-[left,width] duration-300 ease-out shadow-lg"
       style={{ 
         height: "3vh",
         minHeight: "48px",

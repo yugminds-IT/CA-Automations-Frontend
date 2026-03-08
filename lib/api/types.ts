@@ -299,8 +299,10 @@ export interface UpdateEmailTemplateRequest {
 
 export interface SendEmailRequest {
   to: string;
-  templateId: number;
+  templateId?: number;
   variables?: Record<string, string>;
+  subject?: string;
+  body?: string;
 }
 
 export interface EmailTemplate {

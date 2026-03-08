@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusIcon, Edit, Trash2 } from 'lucide-react'
+import { PlusIcon, Edit, Trash2, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -18,13 +18,6 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { ClientOnboardForm } from './client_onboardform'
 import {
@@ -255,7 +248,7 @@ function transformComponentToOnboardRequest(
 
 // Transform API Client to form defaultValues format
 // Backend returns camelCase (companyName, followupDate, onboardDate, additionalNotes, etc.)
-function transformApiClientToFormValues(apiClient: ApiClient & Record<string, unknown>): {
+export function transformApiClientToFormValues(apiClient: ApiClient & Record<string, unknown>): {
   name: string
   email: string
   phone: string
@@ -426,6 +419,19 @@ export function ClientTab({
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set())
+
+  const toggleExpand = (id: string | number) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
   
   // API state
   const [apiClients, setApiClients] = useState<Client[]>([])
@@ -814,257 +820,24 @@ export function ClientTab({
     }
   }
 
-  return (
-    <>
+  if (isDialogOpen) {
+    return (
       <Card>
-        <CardContent>
-          {displayClients.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No clients found
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
+            <div>
+              <h2 className="text-base font-semibold">
+                {editingClient ? 'Update Client' : 'Onboard New Client'}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {editingClient
+                  ? 'Update the client details in your system'
+                  : 'Fill in the client details to add them to your system'
+                }
+              </p>
             </div>
-          ) : (
-            <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <SortableTableHead 
-                      className="min-w-[120px]"
-                      sortable
-                      sortDirection={sortField === 'name' ? sortDirection : null}
-                      onSort={() => handleSort('name')}
-                    >
-                      Client Name
-                    </SortableTableHead>
-                    <SortableTableHead 
-                      className="min-w-[150px]"
-                      sortable
-                      sortDirection={sortField === 'companyName' ? sortDirection : null}
-                      onSort={() => handleSort('companyName')}
-                    >
-                      Company Name
-                    </SortableTableHead>
-                    <TableHead className="min-w-[120px]">Business Type</TableHead>
-                    <SortableTableHead 
-                      className="min-w-[180px]"
-                      sortable
-                      sortDirection={sortField === 'email' ? sortDirection : null}
-                      onSort={() => handleSort('email')}
-                    >
-                      Email
-                    </SortableTableHead>
-                    <SortableTableHead 
-                      className="min-w-[140px]"
-                      sortable
-                      sortDirection={sortField === 'phone' ? sortDirection : null}
-                      onSort={() => handleSort('phone')}
-                    >
-                      Phone No
-                    </SortableTableHead>
-                    <SortableTableHead 
-                      className="min-w-[120px]"
-                      sortable
-                      sortDirection={sortField === 'followUpDate' ? sortDirection : null}
-                      onSort={() => handleSort('followUpDate')}
-                    >
-                      Follow-up Date
-                    </SortableTableHead>
-                    <SortableTableHead 
-                      className="min-w-[130px]"
-                      sortable
-                      sortDirection={sortField === 'lastContactedDate' ? sortDirection : null}
-                      onSort={() => handleSort('lastContactedDate')}
-                    >
-                      Last Contacted
-                    </SortableTableHead>
-                    <TableHead className="min-w-[150px]">Services</TableHead>
-                    <SortableTableHead 
-                      className="min-w-[100px]"
-                      sortable
-                      sortDirection={sortField === 'status' ? sortDirection : null}
-                      onSort={() => handleSort('status')}
-                    >
-                      Status
-                    </SortableTableHead>
-                    <SortableTableHead 
-                      className="min-w-[120px]"
-                      sortable
-                      sortDirection={sortField === 'onboardDate' ? sortDirection : null}
-                      onSort={() => handleSort('onboardDate')}
-                    >
-                      Onboard Date
-                    </SortableTableHead>
-                    <TableHead className="min-w-[100px] text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayClients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell 
-                        className="font-medium cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleRowClick(client)}
-                      >
-                        <span className="truncate block max-w-[120px]" title={client.name}>
-                          {client.name}
-                        </span>
-                      </TableCell>
-                      <TableCell 
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleRowClick(client)}
-                      >
-                        <span className="truncate block max-w-[150px]" title={client.companyName}>
-                          {client.companyName}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="truncate block max-w-[120px]" title={client.businessType ?? ''}>
-                          {client.businessType ?? '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="truncate block max-w-[180px]" title={client.email}>
-                          {client.email}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {client.phone || '—'}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs">{formatDate(client.followUpDate)}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs">{formatDate(client.lastContactedDate)}</span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(() => {
-                            const dirs = formatDirectories(client.directories)
-                            if (dirs === '—') return <span className="text-muted-foreground">—</span>
-                            
-                            const dirArray = Array.isArray(client.directories) 
-                              ? client.directories 
-                              : [client.directories]
-                            
-                            return dirArray.slice(0, 2).map((dir, idx) => (
-                              <Badge
-                                key={idx}
-                                variant="outline"
-                                className="text-xs"
-                              >
-                                {dir}
-                              </Badge>
-                            ))
-                          })()}
-                          {Array.isArray(client.directories) && client.directories.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{client.directories.length - 2}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {client.status ? (
-                          <span
-                            className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium"
-                            style={{
-                              backgroundColor: client.status === 'Active' || client.status?.toLowerCase() === 'active' 
-                                ? '#22c55e' // green-500
-                                : client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive'
-                                ? '#000000' // black
-                                : undefined,
-                              color: (client.status === 'Active' || client.status?.toLowerCase() === 'active' || 
-                                      client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive')
-                                ? '#ffffff' // white
-                                : undefined,
-                              borderColor: client.status === 'Active' || client.status?.toLowerCase() === 'active'
-                                ? '#22c55e' // green-500
-                                : client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive'
-                                ? '#000000' // black
-                                : undefined,
-                            }}
-                          >
-                            {client.status}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs">{formatDate(client.onboardDate)}</span>
-                      </TableCell>
-                      <TableCell
-                        className="text-right"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleEdit(client)
-                            }}
-                            className="h-8 w-8 p-0"
-                            title="Edit client"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(client)
-                            }}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            title="Delete client"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        
-        {/* Pagination */}
-        {totalItems > 0 && (
-          <TablePagination
-            totalItems={totalItems}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-          />
-        )}
-      </CardContent>
-    </Card>
+          </div>
 
-    <Dialog 
-      open={isDialogOpen} 
-      onOpenChange={(open) => {
-        setIsDialogOpen(open)
-        if (!open) {
-          setEditingClient(null)
-          setEditingApiClient(null)
-        }
-      }}
-    >
-      <DialogContent className="max-w-[98vw] lg:max-w-7xl xl:max-w-[90vw] w-[98vw] max-h-[95vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editingClient ? 'Update Client' : 'Onboard New Client'}</DialogTitle>
-          <DialogDescription>
-            {editingClient 
-              ? 'Update the client details in your system'
-              : 'Fill in the client details to add them to your system'
-            }
-          </DialogDescription>
-        </DialogHeader>
-        <div className="pr-2">
           {isLoadingEditData ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-muted-foreground">Loading client data...</div>
@@ -1080,17 +853,15 @@ export function ClientTab({
               }}
               isEditing={!!editingClient}
               defaultValues={editingClient ? (
-                // If we have full API client data, use it (more complete)
-                editingApiClient 
+                editingApiClient
                   ? transformApiClientToFormValues(editingApiClient)
                   : {
-                      // Fallback to basic client data if API fetch failed
                       name: editingClient.name,
                       email: editingClient.email,
                       phone: editingClient.phone || '',
                       companyName: editingClient.companyName,
-                      directories: Array.isArray(editingClient.directories) 
-                        ? editingClient.directories 
+                      directories: Array.isArray(editingClient.directories)
+                        ? editingClient.directories
                         : editingClient.directories ? [editingClient.directories] : [],
                       followUpDate: editingClient.followUpDate ? new Date(editingClient.followUpDate) : null,
                       onboardDate: editingClient.onboardDate ? new Date(editingClient.onboardDate) : new Date(),
@@ -1109,9 +880,253 @@ export function ClientTab({
               clientStatuses={clientStatuses}
             />
           )}
-        </div>
-      </DialogContent>
-    </Dialog>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <>
+      <Card>
+        <CardContent>
+          {displayClients.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No clients found
+            </div>
+          ) : (
+            <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px]" />
+                    <SortableTableHead
+                      className="min-w-[120px]"
+                      sortable
+                      sortDirection={sortField === 'name' ? sortDirection : null}
+                      onSort={() => handleSort('name')}
+                    >
+                      Client Name
+                    </SortableTableHead>
+                    <SortableTableHead
+                      className="min-w-[150px]"
+                      sortable
+                      sortDirection={sortField === 'companyName' ? sortDirection : null}
+                      onSort={() => handleSort('companyName')}
+                    >
+                      Company
+                    </SortableTableHead>
+                    <SortableTableHead
+                      className="min-w-[180px]"
+                      sortable
+                      sortDirection={sortField === 'email' ? sortDirection : null}
+                      onSort={() => handleSort('email')}
+                    >
+                      Email
+                    </SortableTableHead>
+                    <SortableTableHead
+                      className="min-w-[140px]"
+                      sortable
+                      sortDirection={sortField === 'phone' ? sortDirection : null}
+                      onSort={() => handleSort('phone')}
+                    >
+                      Phone
+                    </SortableTableHead>
+                    <TableHead className="min-w-[120px]">Category</TableHead>
+                    <SortableTableHead
+                      className="min-w-[100px]"
+                      sortable
+                      sortDirection={sortField === 'status' ? sortDirection : null}
+                      onSort={() => handleSort('status')}
+                    >
+                      Status
+                    </SortableTableHead>
+                    <SortableTableHead
+                      className="min-w-[120px]"
+                      sortable
+                      sortDirection={sortField === 'followUpDate' ? sortDirection : null}
+                      onSort={() => handleSort('followUpDate')}
+                    >
+                      Follow Up Date
+                    </SortableTableHead>
+                    <TableHead className="min-w-[100px] text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayClients.map((client) => {
+                    const isExpanded = expandedRows.has(client.id)
+                    return (
+                      <React.Fragment key={client.id}>
+                        <TableRow>
+                          <TableCell className="w-[40px] pr-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => toggleExpand(client.id)}
+                              title={isExpanded ? 'Collapse' : 'Expand'}
+                            >
+                              {isExpanded
+                                ? <ChevronDown className="h-4 w-4" />
+                                : <ChevronRight className="h-4 w-4" />
+                              }
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            <span className="truncate block max-w-[120px]" title={client.name}>
+                              {client.name}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="truncate block max-w-[150px]" title={client.companyName}>
+                              {client.companyName}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="truncate block max-w-[180px]" title={client.email}>
+                              {client.email}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {client.phone || '—'}
+                          </TableCell>
+                          <TableCell>
+                            <span className="truncate block max-w-[120px]" title={client.businessType ?? ''}>
+                              {client.businessType ?? '—'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {client.status ? (
+                              <span
+                                className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium"
+                                style={{
+                                  backgroundColor: client.status === 'Active' || client.status?.toLowerCase() === 'active'
+                                    ? '#22c55e'
+                                    : client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive'
+                                    ? '#000000'
+                                    : undefined,
+                                  color: (client.status === 'Active' || client.status?.toLowerCase() === 'active' ||
+                                          client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive')
+                                    ? '#ffffff'
+                                    : undefined,
+                                  borderColor: client.status === 'Active' || client.status?.toLowerCase() === 'active'
+                                    ? '#22c55e'
+                                    : client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive'
+                                    ? '#000000'
+                                    : undefined,
+                                }}
+                              >
+                                {client.status}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-xs">{formatDate(client.followUpDate)}</span>
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRowClick(client)
+                                }}
+                                className="h-8 px-2 text-xs gap-1"
+                                title="View client details"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                More
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {isExpanded && (
+                          <TableRow className="bg-muted/30 hover:bg-muted/30">
+                            <TableCell colSpan={9} className="py-3 px-6">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3 text-sm">
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Email</p>
+                                  <p className="break-all">{client.email || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Phone</p>
+                                  <p>{client.phone || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Category</p>
+                                  <p>{client.businessType || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Status</p>
+                                  <p>{client.status || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Follow Up Date</p>
+                                  <p>{formatDate(client.followUpDate)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Onboard Date</p>
+                                  <p>{formatDate(client.onboardDate)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Last Contacted</p>
+                                  <p>{formatDate(client.lastContactedDate)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Services</p>
+                                  <p>{Array.isArray(client.directories) ? client.directories.join(', ') || '—' : client.directories || '—'}</p>
+                                </div>
+                                {client.panNumber && (
+                                  <div>
+                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">PAN</p>
+                                    <p>{client.panNumber}</p>
+                                  </div>
+                                )}
+                                {client.gstNumber && (
+                                  <div>
+                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">GST</p>
+                                    <p>{client.gstNumber}</p>
+                                  </div>
+                                )}
+                                {(client.city || client.state || client.country) && (
+                                  <div>
+                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Location</p>
+                                    <p>{[client.city, client.state, client.country].filter(Boolean).join(', ')}</p>
+                                  </div>
+                                )}
+                                {client.notes && (
+                                  <div className="col-span-2 sm:col-span-3 lg:col-span-4">
+                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">Notes</p>
+                                    <p className="text-muted-foreground">{client.notes}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        
+        {/* Pagination */}
+        {totalItems > 0 && (
+          <TablePagination
+            totalItems={totalItems}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
+      </CardContent>
+    </Card>
+
     </>
   )
 }

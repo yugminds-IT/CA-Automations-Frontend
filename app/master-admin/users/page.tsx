@@ -389,8 +389,8 @@ export default function MasterAdminUsers() {
       <div 
         className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
         style={{ 
-          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '15%') : '0',
-          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 15%)') : '100%',
+          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '240px') : '0',
+          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)') : '100%',
         }}
       >
         <MasterAdminHeader 

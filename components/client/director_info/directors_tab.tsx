@@ -37,10 +37,10 @@ export function DirectorsTab({
   const displayDirectors = directors
   return (
     <Card>
-      <CardHeader className="p-4 sm:p-6">
+      <CardHeader className="px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-3">
         <CardTitle className="text-base sm:text-lg">Director List</CardTitle>
       </CardHeader>
-      <CardContent className="p-4 sm:p-6">
+      <CardContent className="px-4 pb-4 pt-0 sm:px-6 sm:pb-5">
         <div className="space-y-4">
           {clientName && (
             <p className="text-muted-foreground text-sm sm:text-base">

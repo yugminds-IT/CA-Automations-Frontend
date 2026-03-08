@@ -16,12 +16,15 @@ import {
   LayoutDashboard,
   Settings,
   Bell,
-  Menu,
   Users,
   Upload,
   Mail,
+  Send,
+  FileText,
+  Clock,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
-import { Send } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
@@ -39,100 +42,215 @@ interface SidebarProps {
   collapsed?: boolean
 }
 
+type NavItem =
+  | { type: 'item'; icon: React.ElementType; label: string; path: string }
+  | { type: 'group'; icon: React.ElementType; label: string; children: { icon: React.ElementType; label: string; path: string }[] }
+
 export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuOpen: setExternalMobileMenuOpen, collapsed = false }: SidebarProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const [internalMobileMenuOpen, setInternalMobileMenuOpen] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Email Management']))
   const user = getUserData()
   const role = user?.role as string | undefined
-  
-  // Use external state if provided, otherwise use internal state
+
   const mobileMenuOpen = externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen
   const setMobileMenuOpen = setExternalMobileMenuOpen || setInternalMobileMenuOpen
 
-  // Menu items with navigation
-  const menuItems =
+  const toggleGroup = (label: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }
+
+  const menuItems: NavItem[] =
     role === 'client'
-      ? [{ icon: Upload, label: "Uploads", path: "/uploads" }]
+      ? [{ type: 'item', icon: Upload, label: 'Uploads', path: '/uploads' }]
       : [
-          { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-          { icon: Users, label: "Client Management", path: "/client-management" },
-          { icon: Send, label: "Mail Scheduler", path: "/all-clients-mail-setup" },
-          { icon: Mail, label: "Email Templates", path: "/email-templates" },
-          { icon: Bell, label: "Notifications", path: "/notifications" },
-          { icon: Settings, label: "Settings", path: "/settings" },
+          { type: 'item', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+          { type: 'item', icon: Users, label: 'Client Management', path: '/client-management' },
+          {
+            type: 'group',
+            icon: Mail,
+            label: 'Email Management',
+            children: [
+              { icon: Send, label: 'Send Mails', path: '/all-clients-mail-setup' },
+              { icon: FileText, label: 'Templates', path: '/email-templates' },
+              { icon: Clock, label: 'Scheduled Mails', path: '/email-management/scheduled-mails' },
+            ],
+          },
+          { type: 'item', icon: Bell, label: 'Notifications', path: '/notifications' },
+          { type: 'item', icon: Settings, label: 'Settings', path: '/settings' },
         ]
 
-  // Determine active page based on current pathname
   const getActivePage = () => {
-    // Check for exact match first
-    const exactMatch = menuItems.find(item => item.path === pathname)
-    if (exactMatch) return exactMatch.label
-    
-    // Check for pathname that starts with menu item path (for nested routes)
-    const pathMatch = menuItems.find(item => pathname.startsWith(item.path) && item.path !== '/')
-    if (pathMatch) return pathMatch.label
-    
-    return "Dashboard"
+    for (const item of menuItems) {
+      if (item.type === 'item') {
+        if (pathname === item.path) return item.label
+        if (item.path !== '/' && pathname.startsWith(item.path)) return item.label
+      } else {
+        for (const child of item.children) {
+          if (pathname === child.path || pathname.startsWith(child.path)) return child.label
+        }
+      }
+    }
+    return 'Dashboard'
   }
-  
+
   const activePage = getActivePage()
 
-  // Render menu items (used in both desktop sidebar and mobile menu)
+  const isGroupActive = (item: NavItem) =>
+    item.type === 'group' && item.children.some((c) => pathname === c.path || pathname.startsWith(c.path))
+
   const renderMenuItems = (isCollapsed: boolean = false) => (
-    <>
-      <nav className="flex-1 py-4 overflow-y-auto" aria-label="Main navigation">
-        <ul className={isCollapsed ? "space-y-0.5" : "space-y-1"} role="list">
-          {menuItems.map((item) => {
+    <nav className="flex-1 py-4 overflow-y-auto" aria-label="Main navigation">
+      <ul className={isCollapsed ? 'space-y-0.5' : 'space-y-1'} role="list">
+        {menuItems.map((item) => {
+          if (item.type === 'item') {
             const isActive = activePage === item.label
-            const menuItem = (
+            const btn = (
               <li key={item.label}>
                 <button
                   type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false)
-                    router.push(item.path)
-                  }}
-                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => { setMobileMenuOpen(false); router.push(item.path) }}
+                  aria-current={isActive ? 'page' : undefined}
                   className={`
                     relative w-full flex items-center text-[13px] font-medium
                     rounded-none transition-all duration-200 ease-out
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar
-                    ${isCollapsed ? "px-2 justify-center py-3" : "px-3 py-2.5 gap-3"}
+                    ${isCollapsed ? 'px-2 justify-center py-3' : 'px-3 py-2.5 gap-3'}
                     ${isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent/50 dark:hover:bg-sidebar-accent/30"
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent/50 dark:hover:bg-sidebar-accent/30'
                     }
                   `}
                 >
-                  {/* Active indicator: left accent bar */}
-                  {isActive && (
-                    <span
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-sidebar-primary"
-                      aria-hidden
-                    />
-                  )}
+                  {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-sidebar-primary" aria-hidden />}
                   <item.icon className="w-5 h-5 shrink-0" />
                   {!isCollapsed && <span className="truncate">{item.label}</span>}
                 </button>
               </li>
             )
-
             if (isCollapsed) {
               return (
                 <Tooltip key={item.label} delayDuration={300}>
-                  <TooltipTrigger asChild>{menuItem}</TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8} className="text-xs">
-                    {item.label}
-                  </TooltipContent>
+                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8} className="text-xs">{item.label}</TooltipContent>
                 </Tooltip>
               )
             }
-            return menuItem
-          })}
-        </ul>
-      </nav>
-    </>
+            return btn
+          }
+
+          // Group item
+          const groupActive = isGroupActive(item)
+          const isExpanded = expandedGroups.has(item.label)
+
+          if (isCollapsed) {
+            return (
+              <li key={item.label}>
+                <Tooltip delayDuration={300}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(item.label)}
+                      className={`
+                        relative w-full flex items-center justify-center py-3 px-2
+                        rounded-none transition-all duration-200 ease-out
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring
+                        ${groupActive ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm' : 'text-sidebar-foreground hover:bg-sidebar-accent/50'}
+                      `}
+                    >
+                      {groupActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-sidebar-primary" aria-hidden />}
+                      <item.icon className="w-5 h-5 shrink-0" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8} className="text-xs">{item.label}</TooltipContent>
+                </Tooltip>
+                {isExpanded && (
+                  <ul className="space-y-0.5">
+                    {item.children.map((child) => {
+                      const childActive = activePage === child.label
+                      return (
+                        <Tooltip key={child.label} delayDuration={300}>
+                          <TooltipTrigger asChild>
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => { setMobileMenuOpen(false); router.push(child.path) }}
+                                className={`
+                                  relative w-full flex items-center justify-center py-2.5 px-2
+                                  rounded-none transition-all duration-200 ease-out
+                                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring
+                                  ${childActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground'}
+                                `}
+                              >
+                                <child.icon className="w-4 h-4 shrink-0" />
+                              </button>
+                            </li>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" sideOffset={8} className="text-xs">{child.label}</TooltipContent>
+                        </Tooltip>
+                      )
+                    })}
+                  </ul>
+                )}
+              </li>
+            )
+          }
+
+          return (
+            <li key={item.label}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(item.label)}
+                className={`
+                  relative w-full flex items-center text-[13px] font-medium
+                  rounded-none transition-all duration-200 ease-out px-3 py-2.5 gap-3
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring
+                  ${groupActive ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm' : 'text-sidebar-foreground hover:bg-sidebar-accent/50 dark:hover:bg-sidebar-accent/30'}
+                `}
+              >
+                {groupActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-sidebar-primary" aria-hidden />}
+                <item.icon className="w-5 h-5 shrink-0" />
+                <span className="truncate flex-1 text-left">{item.label}</span>
+                {isExpanded ? <ChevronDown className="w-4 h-4 shrink-0 opacity-60" /> : <ChevronRight className="w-4 h-4 shrink-0 opacity-60" />}
+              </button>
+              {isExpanded && (
+                <ul className="space-y-0.5 mt-0.5">
+                  {item.children.map((child) => {
+                    const childActive = activePage === child.label
+                    return (
+                      <li key={child.label}>
+                        <button
+                          type="button"
+                          onClick={() => { setMobileMenuOpen(false); router.push(child.path) }}
+                          aria-current={childActive ? 'page' : undefined}
+                          className={`
+                            relative w-full flex items-center text-[12px] font-medium
+                            rounded-none transition-all duration-200 ease-out
+                            pl-9 pr-3 py-2 gap-2.5
+                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring
+                            ${childActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground'}
+                          `}
+                        >
+                          {childActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-sidebar-primary" aria-hidden />}
+                          <child.icon className="w-4 h-4 shrink-0" />
+                          <span className="truncate">{child.label}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
   )
 
   return (
@@ -166,11 +284,9 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
       <aside
         role="navigation"
         aria-label="Sidebar"
-        className="hidden lg:flex bg-sidebar text-sidebar-foreground flex-col h-screen fixed top-0 bottom-0 left-0 z-40 transition-[width,padding] duration-300 ease-out"
+        className="hidden lg:flex bg-sidebar text-sidebar-foreground flex-col h-screen fixed top-0 bottom-0 left-0 z-[51] transition-[width] duration-300 ease-out"
         style={{
-          width: collapsed ? "60px" : "15%",
-          paddingLeft: collapsed ? "0" : "0.75rem",
-          paddingRight: collapsed ? "0" : "0.75rem",
+          width: collapsed ? "60px" : "240px",
           borderRight: "1px solid var(--sidebar-border)",
         }}
       >
