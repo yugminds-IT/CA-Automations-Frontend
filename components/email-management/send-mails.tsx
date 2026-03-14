@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   Search, Mail, CheckSquare, Square, Send, FileText,
-  ChevronDown, ChevronUp, Loader2, Eye, X, Users, Building2,
-  MapPin, Tag, CircleUser, Calendar, Clock, Plus, Trash2,
+  ChevronDown, ChevronUp, Loader2, Eye, X, Users,
+  Calendar, Clock, Plus, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -90,7 +90,7 @@ export function SendMails() {
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
-  const [focusedClient, setFocusedClient] = useState<ClientItem | null>(null)
+  const [expandedClientId, setExpandedClientId] = useState<string | number | null>(null)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -105,13 +105,8 @@ export function SendMails() {
   const [isSending, setIsSending] = useState(false)
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false)
 
-  // Client Details panel
-  const [clientDetailsOpen, setClientDetailsOpen] = useState(true)
-
-  // Auto-open client details panel whenever a client is selected/focused
-  useEffect(() => {
-    if (focusedClient) setClientDetailsOpen(true)
-  }, [focusedClient?.id])
+  // Schedule drawer
+  const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false)
 
   // Schedule Emails
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('single_date')
@@ -299,7 +294,7 @@ export function SendMails() {
     [clients, selectedIds]
   )
 
-  const previewClient = focusedClient ?? selectedClients[0] ?? clients.find((c) => selectedIds.has(c.id)) ?? null
+  const previewClient = selectedClients[0] ?? clients.find((c) => selectedIds.has(c.id)) ?? null
 
   const handleSend = async () => {
     if (selectedIds.size === 0) {
@@ -430,41 +425,80 @@ export function SendMails() {
             ) : (
               filteredClients.map((client) => {
                 const isSelected = selectedIds.has(client.id)
-                const isFocused = focusedClient?.id === client.id
+                const isExpanded = expandedClientId === client.id
                 return (
-                  <div
-                    key={client.id}
-                    onClick={() => { toggleClient(client.id); setFocusedClient(client) }}
-                    className={`flex items-start gap-2.5 px-4 py-3 cursor-pointer border-b border-border/40 transition-colors
-                      ${isFocused ? 'bg-accent/10' : isSelected ? 'bg-primary/5' : 'hover:bg-muted/40'}
-                    `}
-                  >
-                    {/* Checkbox */}
-                    <div className="mt-0.5 shrink-0">
-                      {isSelected
-                        ? <CheckSquare className="h-4 w-4 text-primary" />
-                        : <Square className="h-4 w-4 text-muted-foreground/50" />
-                      }
+                  <div key={client.id} className={`border-b border-border/40 ${isSelected ? 'bg-primary/5' : ''}`}>
+                    <div
+                      onClick={() => toggleClient(client.id)}
+                      className={`flex items-start gap-2.5 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40`}
+                    >
+                      {/* Checkbox */}
+                      <div className="mt-0.5 shrink-0">
+                        {isSelected
+                          ? <CheckSquare className="h-4 w-4 text-primary" />
+                          : <Square className="h-4 w-4 text-muted-foreground/50" />
+                        }
+                      </div>
+
+                      {/* Avatar */}
+                      <Avatar name={client.name} size="sm" />
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-medium truncate">{client.name}</span>
+                          {client.businessType && (
+                            <span className="text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5 shrink-0 max-w-[70px] truncate">
+                              {client.businessType}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="text-[11px] text-muted-foreground truncate">{client.email}</span>
+                        </div>
+                      </div>
+
+                      {/* Expand chevron */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setExpandedClientId(isExpanded ? null : client.id) }}
+                        className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {isExpanded
+                          ? <ChevronUp className="h-3.5 w-3.5" />
+                          : <ChevronDown className="h-3.5 w-3.5" />
+                        }
+                      </button>
                     </div>
 
-                    {/* Avatar */}
-                    <Avatar name={client.name} size="sm" />
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-medium truncate">{client.name}</span>
-                        {client.businessType && (
-                          <span className="text-[10px] bg-muted text-muted-foreground rounded px-1.5 py-0.5 shrink-0 max-w-[70px] truncate">
-                            {client.businessType}
-                          </span>
-                        )}
+                    {/* Inline expanded details */}
+                    {isExpanded && (
+                      <div className="px-4 pb-3 pt-1 bg-muted/30 border-t border-border/40 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Company</p>
+                          <p className="text-xs mt-0.5 truncate">{client.companyName || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Phone</p>
+                          <p className="text-xs mt-0.5">{client.phone || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">City</p>
+                          <p className="text-xs mt-0.5">{client.city || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</p>
+                          {client.status ? (
+                            <span className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 ${
+                              client.status.toLowerCase() === 'active'
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-muted text-muted-foreground'
+                            }`}>{client.status}</span>
+                          ) : <p className="text-xs mt-0.5 text-muted-foreground">—</p>}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-                        <span className="text-[11px] text-muted-foreground truncate">{client.email}</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 )
               })
@@ -475,263 +509,12 @@ export function SendMails() {
         {/* ── RIGHT PANEL ── */}
         <div className="flex flex-col gap-4">
 
-          {/* Client Details Card — collapsible, default closed */}
-          <div className="rounded-xl shadow-sm border border-border overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setClientDetailsOpen((v) => !v)}
-              className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors ${
-                previewClient
-                  ? 'bg-primary/5 hover:bg-primary/8'
-                  : 'bg-card hover:bg-muted/40'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <CircleUser className={`h-4 w-4 ${previewClient ? 'text-primary' : 'text-muted-foreground'}`} />
-                <h2 className="text-sm font-semibold">Client Details</h2>
-                {previewClient ? (
-                  <span className="text-xs text-primary/70 font-medium">— {previewClient.name}</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground font-normal">No client selected</span>
-                )}
-              </div>
-              {clientDetailsOpen
-                ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              }
-            </button>
-
-            {clientDetailsOpen && (
-              <div className="px-5 pb-5 pt-1 border-t border-border bg-card">
-                {previewClient ? (
-                  <div className="flex flex-col sm:flex-row gap-4 mt-3">
-                    <Avatar name={previewClient.name} size="lg" />
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 flex-1">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Name</p>
-                        <p className="text-sm font-medium mt-0.5">{previewClient.name || '—'}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Company</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <p className="text-sm truncate">{previewClient.companyName || '—'}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Email</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <p className="text-sm truncate">{previewClient.email || '—'}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">City</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <p className="text-sm">{previewClient.city || '—'}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Category</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <p className="text-sm">{previewClient.businessType || '—'}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Status</p>
-                        <div className="mt-0.5">
-                          {previewClient.status ? (
-                            <span
-                              className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${
-                                previewClient.status.toLowerCase() === 'active'
-                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                  : 'bg-muted text-muted-foreground'
-                              }`}
-                            >
-                              {previewClient.status}
-                            </span>
-                          ) : <span className="text-sm text-muted-foreground">—</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 py-4 text-muted-foreground">
-                    <CircleUser className="h-5 w-5" />
-                    <span className="text-sm">Select a client from the left to see their details</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Schedule Emails Card */}
-          <div className="bg-card rounded-xl shadow-sm border border-border p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Schedule Emails</h2>
-            </div>
-
-            {/* Schedule type selector */}
-            <div className="mb-4">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Schedule Type</p>
-              <div className="flex flex-wrap gap-2">
-                {([
-                  { value: 'single_date', label: 'Single Date' },
-                  { value: 'date_range', label: 'Date Range' },
-                  { value: 'multiple_dates', label: 'Multiple Dates' },
-                  { value: 'all_dates', label: 'All Dates' },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setScheduleMode(opt.value)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                      scheduleMode === opt.value
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Date inputs */}
-            <div className="mb-4">
-              {scheduleMode === 'single_date' && (
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date</label>
-                  <input
-                    type="date"
-                    value={singleDate}
-                    onChange={(e) => setSingleDate(e.target.value)}
-                    className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                </div>
-              )}
-
-              {scheduleMode === 'date_range' && (
-                <div className="flex items-center gap-2">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</label>
-                    <input
-                      type="date"
-                      value={rangeFrom}
-                      onChange={(e) => setRangeFrom(e.target.value)}
-                      className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                  <div className="mt-5">
-                    <span className="text-xs text-muted-foreground">to</span>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</label>
-                    <input
-                      type="date"
-                      value={rangeTo}
-                      onChange={(e) => setRangeTo(e.target.value)}
-                      className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {scheduleMode === 'multiple_dates' && (
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Dates</label>
-                  <div className="flex flex-wrap gap-2">
-                    {multipleDates.map((d, i) => (
-                      <div key={i} className="flex items-center gap-1">
-                        <input
-                          type="date"
-                          value={d}
-                          onChange={(e) => updateMultipleDate(i, e.target.value)}
-                          className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                        {multipleDates.length > 1 && (
-                          <button type="button" onClick={() => removeMultipleDate(i)}
-                            className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button type="button" onClick={addMultipleDate}
-                      className="h-8 flex items-center gap-1 px-2 text-xs text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded-md transition-colors">
-                      <Plus className="h-3.5 w-3.5" /> Add
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {scheduleMode === 'all_dates' && (
-                <div className="flex items-center gap-2 p-2.5 bg-primary/5 rounded-md border border-primary/20 w-fit">
-                  <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <p className="text-xs text-primary/80">Every day · next 12 months</p>
-                </div>
-              )}
-            </div>
-
-            {/* Times section */}
-            <div className="mb-5">
-              <div className="flex items-center gap-3 mb-1.5">
-                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5" /> Send Times
-                </label>
-                <button type="button" onClick={addTime}
-                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
-                  <Plus className="h-3 w-3" /> Add
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {times.map((t, i) => (
-                  <div key={i} className="flex items-center gap-1">
-                    <input
-                      type="time"
-                      value={t}
-                      onChange={(e) => updateTime(i, e.target.value)}
-                      className="h-8 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                    {times.length > 1 && (
-                      <button type="button" onClick={() => removeTime(i)}
-                        className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Schedule button */}
-            <Button
-              type="button"
-              size="sm"
-              className="w-full gap-1.5 text-xs"
-              onClick={handleSchedule}
-              disabled={isScheduling || selectedIds.size === 0 || !selectedTemplate}
-            >
-              {isScheduling ? (
-                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Scheduling...</>
-              ) : (
-                <><Calendar className="h-3.5 w-3.5" /> Schedule Emails</>
-              )}
-            </Button>
-            {selectedIds.size === 0 && (
-              <p className="text-[11px] text-muted-foreground text-center mt-2">Select clients and a template to schedule</p>
-            )}
-          </div>
+          {/* Compose + Schedule side by side */}
+          <div className={`flex gap-4 items-start`}>
 
           {/* Compose Message Card */}
           <div className="bg-card rounded-xl shadow-sm border border-border p-5 flex-1">
             <h2 className="text-sm font-semibold mb-4">Compose Message</h2>
-
-            {/* Channel tab */}
-           
 
             {/* Mode toggle */}
             <div className="flex gap-2 mb-4">
@@ -892,6 +675,16 @@ export function SendMails() {
               </Button>
               <Button
                 type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => setScheduleDrawerOpen((v) => !v)}
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                Schedule
+              </Button>
+              <Button
+                type="button"
                 size="sm"
                 className="gap-1.5 text-xs"
                 onClick={() => setSendConfirmOpen(true)}
@@ -904,6 +697,171 @@ export function SendMails() {
                 )}
               </Button>
             </div>
+          </div>
+
+          {/* Schedule Emails Card — shown to the right of Compose when open */}
+          {scheduleDrawerOpen && (
+          <div className="bg-card rounded-xl shadow-sm border border-border p-5 w-72 shrink-0">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold">Schedule Emails</h2>
+              </div>
+              <button type="button" onClick={() => setScheduleDrawerOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Schedule type selector */}
+            <div className="mb-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Schedule Type</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { value: 'single_date', label: 'Single Date' },
+                  { value: 'date_range', label: 'Date Range' },
+                  { value: 'multiple_dates', label: 'Multiple Dates' },
+                  { value: 'all_dates', label: 'All Dates' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setScheduleMode(opt.value)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                      scheduleMode === opt.value
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Date inputs */}
+            <div className="mb-4">
+              {scheduleMode === 'single_date' && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date</label>
+                  <input
+                    type="date"
+                    value={singleDate}
+                    onChange={(e) => setSingleDate(e.target.value)}
+                    className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              )}
+
+              {scheduleMode === 'date_range' && (
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</label>
+                    <input
+                      type="date"
+                      value={rangeFrom}
+                      onChange={(e) => setRangeFrom(e.target.value)}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</label>
+                    <input
+                      type="date"
+                      value={rangeTo}
+                      onChange={(e) => setRangeTo(e.target.value)}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {scheduleMode === 'multiple_dates' && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Dates</label>
+                  <div className="flex flex-wrap gap-2">
+                    {multipleDates.map((d, i) => (
+                      <div key={i} className="flex items-center gap-1">
+                        <input
+                          type="date"
+                          value={d}
+                          onChange={(e) => updateMultipleDate(i, e.target.value)}
+                          className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                        {multipleDates.length > 1 && (
+                          <button type="button" onClick={() => removeMultipleDate(i)}
+                            className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" onClick={addMultipleDate}
+                      className="h-8 flex items-center gap-1 px-2 text-xs text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded-md transition-colors">
+                      <Plus className="h-3.5 w-3.5" /> Add
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {scheduleMode === 'all_dates' && (
+                <div className="flex items-center gap-2 p-2.5 bg-primary/5 rounded-md border border-primary/20 w-fit">
+                  <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <p className="text-xs text-primary/80">Every day · next 12 months</p>
+                </div>
+              )}
+            </div>
+
+            {/* Times section */}
+            <div className="mb-5">
+              <div className="flex items-center gap-3 mb-1.5">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Send Times
+                </label>
+                <button type="button" onClick={addTime}
+                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
+                  <Plus className="h-3 w-3" /> Add
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {times.map((t, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    <input
+                      type="time"
+                      value={t}
+                      onChange={(e) => updateTime(i, e.target.value)}
+                      className="h-8 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    {times.length > 1 && (
+                      <button type="button" onClick={() => removeTime(i)}
+                        className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Schedule button */}
+            <Button
+              type="button"
+              size="sm"
+              className="w-full gap-1.5 text-xs"
+              onClick={handleSchedule}
+              disabled={isScheduling || selectedIds.size === 0 || !selectedTemplate}
+            >
+              {isScheduling ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Scheduling...</>
+              ) : (
+                <><Calendar className="h-3.5 w-3.5" /> Schedule Emails</>
+              )}
+            </Button>
+            {selectedIds.size === 0 && (
+              <p className="text-[11px] text-muted-foreground text-center mt-2">Select clients and a template to schedule</p>
+            )}
+          </div>
+          )}
+
           </div>
         </div>
       </div>
