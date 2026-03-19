@@ -186,7 +186,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
       }}
     >
       {/* Left: menu, sidebar toggle, breadcrumb (example style – Home icon, teal links, gray chevrons) */}
-      <div className="flex flex-1 min-w-0 items-center gap-2">
+      <div className="flex flex-1 min-w-0 overflow-hidden items-center gap-2">
         {onMenuClick && (
           <button
             onClick={onMenuClick}
@@ -321,7 +321,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
             <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
               <UserIcon className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <span className="text-xs font-semibold text-foreground hidden sm:inline">
+            <span className="text-xs font-semibold text-foreground hidden sm:inline truncate max-w-[120px] lg:max-w-[180px]">
               {(user as any).name ?? (user as any).full_name ?? user.email ?? 'User'}
             </span>
             {/* Logout button */}

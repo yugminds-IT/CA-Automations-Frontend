@@ -194,6 +194,16 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
     // TODO: Call API to remove director
   }
 
+  const handleAddDirector = (director: Director) => {
+    setDirectors([...directors, director])
+    // TODO: Call API to add director
+  }
+
+  const handleEditDirector = (index: number, director: Director) => {
+    setDirectors(directors.map((d, i) => (i === index ? director : d)))
+    // TODO: Call API to update director
+  }
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -227,23 +237,23 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
     <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
       {/* Tabs */}
       <Tabs defaultValue="details" className="w-full">
-        <div className="w-full overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <TabsList className="inline-flex w-max min-w-full sm:grid sm:w-[65%] sm:grid-cols-5 sm:min-w-0 h-auto p-0 gap-0 border-b border-border">
-            <TabsTrigger value="details" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
-              Client Details
-            </TabsTrigger>
-            <TabsTrigger value="directors" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
-              Directors List
-            </TabsTrigger>
-            <TabsTrigger value="login" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
-              Client Login
-            </TabsTrigger>
-            <TabsTrigger value="files" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
-              Files
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="text-[10px] sm:text-sm py-2 px-2 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
-              Settings
-            </TabsTrigger>
+        <div className="w-full overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <TabsList className="flex w-max min-w-full h-auto p-0 gap-0 bg-transparent border-b border-border rounded-none">
+            {[
+              { value: 'details',   label: 'Client Details' },
+              { value: 'directors', label: 'Directors List' },
+              { value: 'login',     label: 'Client Login' },
+              { value: 'files',     label: 'Files' },
+              { value: 'settings',  label: 'Settings' },
+            ].map((tab) => (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="relative flex-1 min-w-fit whitespace-nowrap rounded-none border-b-2 border-transparent bg-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:bg-transparent"
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </div>
 
@@ -257,9 +267,11 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
 
         {/* Director List Tab */}
         <TabsContent value="directors" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
-          <DirectorsTab 
+          <DirectorsTab
             directors={directors}
             onRemoveDirector={handleRemoveDirector}
+            onAddDirector={handleAddDirector}
+            onEditDirector={handleEditDirector}
             clientName={client?.companyName}
           />
         </TabsContent>

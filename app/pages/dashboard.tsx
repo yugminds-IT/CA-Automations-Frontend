@@ -20,7 +20,6 @@ import {
   getClients,
   getScheduledEmails,
   getOrgEmailTemplates,
-  getMasterEmailTemplates,
 } from "@/lib/api/index"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
@@ -60,17 +59,11 @@ export function Dashboard() {
       const clientsResponse = await getClients()
       const totalClients = clientsResponse.total || 0
 
-      const [orgTemplatesResponse, masterTemplatesResponse] = await Promise.all([
-        getOrgEmailTemplates({ limit: 1000 }).catch(() => []),
-        getMasterEmailTemplates({ limit: 1000 }).catch(() => []),
-      ])
+      const orgTemplatesResponse = await getOrgEmailTemplates({ limit: 1000 }).catch(() => [])
       const orgTemplatesList = Array.isArray(orgTemplatesResponse)
         ? orgTemplatesResponse
         : (orgTemplatesResponse as { templates?: unknown[] })?.templates ?? []
-      const masterTemplatesList = Array.isArray(masterTemplatesResponse)
-        ? masterTemplatesResponse
-        : (masterTemplatesResponse as { templates?: unknown[] })?.templates ?? []
-      const totalTemplates = (orgTemplatesList?.length || 0) + (masterTemplatesList?.length || 0)
+      const totalTemplates = orgTemplatesList?.length || 0
 
       let scheduledCount = 0
       let sentCount = 0

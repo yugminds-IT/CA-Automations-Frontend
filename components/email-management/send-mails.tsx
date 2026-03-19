@@ -1,14 +1,18 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Loader2 } from 'lucide-react'
 import {
-  Search, Mail, CheckSquare, Square, Send, FileText,
-  ChevronDown, ChevronUp, Loader2, Eye, X, Users,
-  Calendar, Clock, Plus, Trash2,
-} from 'lucide-react'
+  SearchMd, Mail01, CheckSquare as UUICheckSquare,
+  Send01, ChevronDown, ChevronUp, Eye, XClose, Users01,
+  Calendar, Clock, Plus, Trash01,
+  Bold01, Italic01, Underline01, Strikethrough01,
+  AlignLeft, AlignCenter, AlignRight, List, Palette,
+  ArrowLeft, ArrowRight, User01,
+} from '@untitled-ui/icons-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -76,8 +80,44 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg'
 }
 
 function substituteVars(text: string, vars: Record<string, string>): string {
-  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`)
+  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? '')
 }
+
+/** Strip variable-chip spans and substitute values, then resolve remaining {{}} tokens */
+function cleanAndSubstituteVars(html: string, vars: Record<string, string>): string {
+  const tmp = document.createElement('div')
+  tmp.innerHTML = html
+  tmp.querySelectorAll('span[contenteditable="false"]').forEach((span) => {
+    span.replaceWith(document.createTextNode(substituteVars(span.textContent ?? '', vars)))
+  })
+  return substituteVars(tmp.innerHTML, vars)
+}
+
+const COMPOSE_VAR_GROUPS = [
+  {
+    label: 'Client Details',
+    vars: [
+      { label: 'Name',    value: '{{clientName}}' },
+      { label: 'Email',   value: '{{clientEmail}}' },
+      { label: 'Phone',   value: '{{clientPhone}}' },
+      { label: 'Company', value: '{{clientCompany}}' },
+      { label: 'City',    value: '{{clientCity}}' },
+      { label: 'Status',  value: '{{clientStatus}}' },
+    ],
+  },
+  {
+    label: 'Sender Details',
+    vars: [
+      { label: 'Name',    value: '{{senderName}}' },
+      { label: 'Email',   value: '{{senderEmail}}' },
+      { label: 'Phone',   value: '{{senderPhone}}' },
+      { label: 'Company', value: '{{senderCompany}}' },
+    ],
+  },
+]
+
+const FONT_SIZES_SM = ['12', '14', '16', '18', '20', '24', '28', '32']
+const FONT_FAMILIES_SM = ['Default', 'Arial', 'Georgia', 'Times New Roman', 'Courier New', 'Verdana']
 
 export function SendMails() {
   const { toast } = useToast()
@@ -100,8 +140,12 @@ export function SendMails() {
   const [composeMode, setComposeMode] = useState<'template' | 'custom'>('template')
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null)
   const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('Dear {{name}},\n\n')
+  const [body, setBody] = useState('Dear {{clientName}},<br><br>')
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewClientIndex, setPreviewClientIndex] = useState(0)
+  const editorRef = useRef<HTMLDivElement>(null)
+  const [varDropdownOpen, setVarDropdownOpen] = useState(false)
+  const varDropdownRef = useRef<HTMLDivElement>(null)
   const [isSending, setIsSending] = useState(false)
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false)
 
@@ -116,6 +160,17 @@ export function SendMails() {
   const [multipleDates, setMultipleDates] = useState<string[]>([''])
   const [times, setTimes] = useState<string[]>([''])
   const [isScheduling, setIsScheduling] = useState(false)
+
+  // Close variable dropdown on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (varDropdownRef.current && !varDropdownRef.current.contains(e.target as Node)) {
+        setVarDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const addTime = () => setTimes((t) => [...t, ''])
   const removeTime = (i: number) => setTimes((t) => t.filter((_, idx) => idx !== i))
@@ -276,25 +331,83 @@ export function SendMails() {
     setComposeMode('custom')
     setSelectedTemplate(null)
     setSubject('')
-    setBody('Dear {{name}},\n\n')
+    setBody('')
+    setTimeout(() => {
+      if (editorRef.current) editorRef.current.innerHTML = 'Dear {{clientName}},<br><br>'
+    }, 0)
   }
 
-  // Build variables for a client
-  const buildVars = (client: ClientItem): Record<string, string> => ({
-    name: client.name,
-    company: client.companyName,
-    email: client.email,
-    city: client.city ?? '',
-    phone: client.phone ?? '',
-    category: client.businessType ?? '',
-  })
+  // Build variables for a client (includes sender info)
+  const buildVars = (client: ClientItem): Record<string, string> => {
+    const user = getUserData() as any
+    const orgName = user?.organization?.name ?? user?.org_name ?? ''
+    const orgEmail = user?.organization?.email ?? user?.org_email ?? user?.email ?? ''
+    const orgPhone = user?.organization?.phone ?? user?.org_phone ?? user?.phone ?? ''
+    return {
+      // legacy short keys
+      name: client.name,
+      company: client.companyName,
+      email: client.email,
+      city: client.city ?? '',
+      phone: client.phone ?? '',
+      category: client.businessType ?? '',
+      // client vars — camelCase (compose editor)
+      clientName: client.name,
+      clientEmail: client.email,
+      clientPhone: client.phone ?? '',
+      clientCompany: client.companyName,
+      clientCity: client.city ?? '',
+      clientStatus: client.status ?? '',
+      // client vars — snake_case (template variables)
+      client_name: client.name,
+      client_email: client.email,
+      client_phone: client.phone ?? '',
+      company_name: client.companyName,
+      // org vars — snake_case (template variables)
+      org_name: orgName,
+      org_email: orgEmail,
+      org_phone: orgPhone,
+      // sender vars — camelCase
+      senderName: user?.name ?? user?.full_name ?? '',
+      senderEmail: user?.email ?? '',
+      senderPhone: user?.phone ?? '',
+      senderCompany: orgName,
+    }
+  }
+
+  // Insert variable chip into the rich editor
+  const insertVarChip = (varStr: string) => {
+    editorRef.current?.focus()
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    const range = sel.getRangeAt(0)
+    range.deleteContents()
+    const span = document.createElement('span')
+    span.className = 'inline-flex items-center px-1 py-0.5 rounded text-[11px] font-mono bg-primary/10 text-primary mx-0.5'
+    span.contentEditable = 'false'
+    span.textContent = varStr
+    range.insertNode(span)
+    range.setStartAfter(span)
+    range.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(range)
+    setVarDropdownOpen(false)
+  }
+
+  // Exec formatting command on the editor
+  const execCmd = (cmd: string, value?: string) => {
+    editorRef.current?.focus()
+    document.execCommand(cmd, false, value)
+  }
 
   const selectedClients = useMemo(
     () => clients.filter((c) => selectedIds.has(c.id)),
     [clients, selectedIds]
   )
 
-  const previewClient = selectedClients[0] ?? clients.find((c) => selectedIds.has(c.id)) ?? null
+  const previewClient = selectedClients[previewClientIndex] ?? selectedClients[0] ?? null
+
+  const openPreview = () => { setPreviewClientIndex(0); setPreviewOpen(true) }
 
   const handleSend = async () => {
     if (selectedIds.size === 0) {
@@ -317,7 +430,7 @@ export function SendMails() {
     for (const client of selectedClients) {
       try {
         const payload = composeMode === 'custom'
-          ? { to: client.email, subject: subject.trim(), body: substituteVars(body, buildVars(client)) }
+          ? { to: client.email, subject: subject.trim(), body: cleanAndSubstituteVars(editorRef.current?.innerHTML ?? '', buildVars(client)) }
           : { to: client.email, templateId: selectedTemplate!.id, variables: buildVars(client) }
         const result = await sendEmail(payload) as { sent: boolean }
         if (result?.sent === false) {
@@ -385,7 +498,7 @@ export function SendMails() {
 
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <SearchMd className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -401,8 +514,8 @@ export function SendMails() {
               className="flex items-center gap-2 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {allSelected
-                ? <CheckSquare className="h-3.5 w-3.5 text-primary" />
-                : <Square className="h-3.5 w-3.5" />
+                ? <UUICheckSquare className="h-3.5 w-3.5 text-primary" />
+                : <div className="h-3.5 w-3.5 rounded border border-muted-foreground/40" />
               }
               Select All
               {selectedIds.size > 0 && (
@@ -435,8 +548,8 @@ export function SendMails() {
                       {/* Checkbox */}
                       <div className="mt-0.5 shrink-0">
                         {isSelected
-                          ? <CheckSquare className="h-4 w-4 text-primary" />
-                          : <Square className="h-4 w-4 text-muted-foreground/50" />
+                          ? <UUICheckSquare className="h-4 w-4 text-primary" />
+                          : <div className="h-4 w-4 rounded border border-muted-foreground/40" />
                         }
                       </div>
 
@@ -454,7 +567,7 @@ export function SendMails() {
                           )}
                         </div>
                         <div className="flex items-center gap-1 mt-0.5">
-                          <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <Mail01 className="h-3 w-3 text-muted-foreground shrink-0" />
                           <span className="text-[11px] text-muted-foreground truncate">{client.email}</span>
                         </div>
                       </div>
@@ -528,7 +641,7 @@ export function SendMails() {
                   if (!selectedTemplate) { setSubject(''); setBody('Dear {{name}},\n\n') }
                 }}
               >
-                <FileText className="h-3.5 w-3.5" />
+                <Mail01 className="h-3.5 w-3.5" />
                 Use Template
               </Button>
               <Button
@@ -538,7 +651,7 @@ export function SendMails() {
                 className="text-xs h-8 gap-1.5"
                 onClick={handleCustomMode}
               >
-                <Send className="h-3.5 w-3.5" />
+                <Send01 className="h-3.5 w-3.5" />
                 Custom Email
               </Button>
             </div>
@@ -590,85 +703,158 @@ export function SendMails() {
 
             {/* Body */}
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Message</label>
-                {composeMode === 'custom' && (
-                  <span className="text-[10px] text-muted-foreground/60">Click a variable below to insert</span>
-                )}
-              </div>
-              {composeMode === 'custom' && (
-                <div className="mb-2 p-2 bg-muted/40 rounded-md border border-border/50">
-                  <div className="flex flex-wrap gap-1">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Message</label>
+
+              {composeMode === 'custom' ? (
+                <div className="rounded-md border border-input overflow-hidden">
+                  {/* Formatting toolbar */}
+                  <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-input bg-muted/30">
                     {[
-                      '{{client_name}}', '{{client_email}}', '{{client_phone}}',
-                      '{{company_name}}', '{{org_name}}', '{{org_email}}', '{{org_phone}}',
-                      '{{service_name}}', '{{service_description}}',
-                      '{{current_date}}', '{{date}}', '{{today}}',
-                      '{{deadline_date}}', '{{follow_up_date}}',
-                      '{{login_email}}', '{{login_password}}', '{{login_url}}',
-                      '{{additional_notes}}', '{{amount}}', '{{document_name}}',
-                    ].map((variable) => (
-                      <button
-                        key={variable}
-                        type="button"
-                        onClick={() => {
-                          const textarea = document.getElementById('compose-body') as HTMLTextAreaElement
-                          if (textarea) {
-                            const start = textarea.selectionStart
-                            const end = textarea.selectionEnd
-                            const newText = body.substring(0, start) + variable + body.substring(end)
-                            setBody(newText)
-                            setTimeout(() => {
-                              textarea.focus()
-                              textarea.setSelectionRange(start + variable.length, start + variable.length)
-                            }, 0)
-                          } else {
-                            setBody((prev) => prev + variable)
-                          }
-                        }}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-border bg-card hover:bg-accent hover:text-accent-foreground hover:border-accent transition-colors font-mono"
-                      >
-                        {variable}
-                      </button>
+                      { cmd: 'bold',          icon: <Bold01 className="h-3.5 w-3.5" />,         title: 'Bold' },
+                      { cmd: 'italic',        icon: <Italic01 className="h-3.5 w-3.5" />,       title: 'Italic' },
+                      { cmd: 'underline',     icon: <Underline01 className="h-3.5 w-3.5" />,    title: 'Underline' },
+                      { cmd: 'strikeThrough', icon: <Strikethrough01 className="h-3.5 w-3.5" />,title: 'Strikethrough' },
+                    ].map(({ cmd, icon, title }) => (
+                      <button key={cmd} type="button" title={title}
+                        onMouseDown={(e) => { e.preventDefault(); execCmd(cmd) }}
+                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      >{icon}</button>
                     ))}
+
+                    <span className="w-px h-4 bg-border mx-1" />
+
+                    <select title="Font Size" defaultValue=""
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onChange={(e) => { editorRef.current?.focus(); execCmd('fontSize', e.target.value) }}
+                      className="h-7 rounded border border-input bg-background text-xs px-1 focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="" disabled>Size</option>
+                      {FONT_SIZES_SM.map((s) => <option key={s} value={s}>{s}px</option>)}
+                    </select>
+
+                    <select title="Font Family" defaultValue=""
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onChange={(e) => { editorRef.current?.focus(); execCmd('fontName', e.target.value) }}
+                      className="h-7 rounded border border-input bg-background text-xs px-1 focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="" disabled>Font</option>
+                      {FONT_FAMILIES_SM.map((f) => <option key={f} value={f === 'Default' ? 'inherit' : f}>{f}</option>)}
+                    </select>
+
+                    <span className="w-px h-4 bg-border mx-1" />
+
+                    {[
+                      { cmd: 'justifyLeft',   icon: <AlignLeft className="h-3.5 w-3.5" />,   title: 'Align Left' },
+                      { cmd: 'justifyCenter', icon: <AlignCenter className="h-3.5 w-3.5" />, title: 'Align Center' },
+                      { cmd: 'justifyRight',  icon: <AlignRight className="h-3.5 w-3.5" />,  title: 'Align Right' },
+                    ].map(({ cmd, icon, title }) => (
+                      <button key={cmd} type="button" title={title}
+                        onMouseDown={(e) => { e.preventDefault(); execCmd(cmd) }}
+                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      >{icon}</button>
+                    ))}
+
+                    <span className="w-px h-4 bg-border mx-1" />
+
+                    {/* Text colour */}
+                    <label title="Text Color" className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted cursor-pointer text-muted-foreground hover:text-foreground">
+                      <span className="text-xs font-bold underline">A</span>
+                      <input type="color" className="sr-only"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onChange={(e) => { editorRef.current?.focus(); execCmd('foreColor', e.target.value) }} />
+                    </label>
+
+                    <span className="w-px h-4 bg-border mx-1" />
+
+                    {/* Variables dropdown */}
+                    <div className="relative" ref={varDropdownRef}>
+                      <button type="button"
+                        onMouseDown={(e) => { e.preventDefault(); setVarDropdownOpen((v) => !v) }}
+                        className="h-7 inline-flex items-center gap-1 px-2 rounded text-xs font-medium border border-input bg-background hover:bg-muted transition-colors"
+                      >
+                        <span className="text-primary font-mono text-[10px]">{'{{}}'}</span>
+                        Variables
+                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                      {varDropdownOpen && (
+                        <div className="absolute top-full left-0 mt-1 w-52 max-h-[240px] overflow-y-auto rounded-lg border border-border bg-popover shadow-lg z-50 py-1 text-sm">
+                          {COMPOSE_VAR_GROUPS.map((group) => (
+                            <div key={group.label}>
+                              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
+                              {group.vars.map((v) => (
+                                <button key={v.value} type="button"
+                                  onMouseDown={(e) => { e.preventDefault(); insertVarChip(v.value) }}
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center justify-between gap-2"
+                                >
+                                  <span>{v.label}</span>
+                                  <span className="text-[10px] font-mono text-primary/70">{v.value}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* contentEditable editor */}
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="min-h-[320px] w-full bg-background px-3 py-3 text-sm focus:outline-none [&_b]:font-bold [&_i]:italic [&_u]:underline [&_s]:line-through"
+                    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                    dangerouslySetInnerHTML={{ __html: 'Dear {{clientName}},<br><br>' }}
+                  />
+                </div>
+              ) : (
+                /* Template mode: show read-only preview of template body */
+                <div className="min-h-[320px] rounded-md border border-input bg-muted/30 px-3 py-3 text-xs text-muted-foreground overflow-y-auto">
+                  {selectedTemplate
+                    ? <div dangerouslySetInnerHTML={{ __html: selectedTemplate.body }} />
+                    : <span>Select a template above to preview its content.</span>}
                 </div>
               )}
-              <Textarea
-                id="compose-body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Dear {{client_name}}, ..."
-                className="text-xs min-h-[160px] resize-y"
-              />
+
+              {/* Variable reference chips (custom mode only) */}
+              {composeMode === 'custom' && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {COMPOSE_VAR_GROUPS.flatMap((g) => g.vars).map((v) => (
+                    <button key={v.value} type="button"
+                      onMouseDown={(e) => { e.preventDefault(); insertVarChip(v.value) }}
+                      className={cn('inline-flex items-center px-2 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-[10px] font-mono text-primary/80 hover:bg-primary/15 transition-colors')}
+                    >{v.value}</button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Recipient count badge */}
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 mb-4 p-2 bg-primary/5 rounded-md">
-                <Users className="h-3.5 w-3.5 text-primary" />
+              <div className="flex items-center gap-2 mb-4 p-2.5 bg-primary/5 rounded-lg border border-primary/10">
+                <Users01 className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="text-xs text-primary font-medium">
                   {selectedIds.size} recipient{selectedIds.size > 1 ? 's' : ''} selected
                 </span>
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="ml-auto text-muted-foreground hover:text-foreground"
+                  className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <XClose className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}
 
             {/* Action buttons */}
-            <div className="flex items-center gap-2 justify-end">
+            <div className="flex items-center gap-2 justify-end pt-1">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="gap-1.5 text-xs"
-                onClick={() => setPreviewOpen(true)}
-                disabled={!previewClient || (!subject && !body)}
+                className="gap-1.5 text-xs h-8 rounded-lg"
+                onClick={openPreview}
+                disabled={selectedIds.size === 0 || (!subject && !body)}
               >
                 <Eye className="h-3.5 w-3.5" />
                 Preview
@@ -677,7 +863,7 @@ export function SendMails() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="gap-1.5 text-xs"
+                className="gap-1.5 text-xs h-8 rounded-lg"
                 onClick={() => setScheduleDrawerOpen((v) => !v)}
               >
                 <Calendar className="h-3.5 w-3.5" />
@@ -686,14 +872,14 @@ export function SendMails() {
               <Button
                 type="button"
                 size="sm"
-                className="gap-1.5 text-xs"
+                className="gap-1.5 text-xs h-8 rounded-lg bg-primary hover:bg-primary/90"
                 onClick={() => setSendConfirmOpen(true)}
                 disabled={isSending || selectedIds.size === 0 || (composeMode === 'template' && !selectedTemplate)}
               >
                 {isSending ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending...</>
                 ) : (
-                  <><Send className="h-3.5 w-3.5" /> Run Now</>
+                  <><Send01 className="h-3.5 w-3.5" /> Send Now</>
                 )}
               </Button>
             </div>
@@ -704,11 +890,13 @@ export function SendMails() {
           <div className="bg-card rounded-xl shadow-sm border border-border p-5 w-72 shrink-0">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div className="p-1.5 rounded-md bg-primary/10">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                </div>
                 <h2 className="text-sm font-semibold">Schedule Emails</h2>
               </div>
-              <button type="button" onClick={() => setScheduleDrawerOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-4 w-4" />
+              <button type="button" onClick={() => setScheduleDrawerOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted">
+                <XClose className="h-4 w-4" />
               </button>
             </div>
 
@@ -790,7 +978,7 @@ export function SendMails() {
                         {multipleDates.length > 1 && (
                           <button type="button" onClick={() => removeMultipleDate(i)}
                             className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
-                            <Trash2 className="h-3 w-3" />
+                            <Trash01 className="h-3 w-3" />
                           </button>
                         )}
                       </div>
@@ -834,7 +1022,7 @@ export function SendMails() {
                     {times.length > 1 && (
                       <button type="button" onClick={() => removeTime(i)}
                         className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
-                        <Trash2 className="h-3 w-3" />
+                        <Trash01 className="h-3 w-3" />
                       </button>
                     )}
                   </div>
@@ -866,75 +1054,147 @@ export function SendMails() {
         </div>
       </div>
 
-      {/* Preview Dialog */}
+      {/* ── Preview Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Email Preview</DialogTitle>
-            <DialogDescription>
-              Preview how the email will appear for <strong>{previewClient?.name ?? 'selected client'}</strong>
-            </DialogDescription>
-          </DialogHeader>
-          {previewClient && (
-            <div className="space-y-3">
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted px-4 py-2.5 border-b border-border">
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="text-muted-foreground font-medium w-12">To:</span>
-                    <span>{previewClient.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs mt-1">
-                    <span className="text-muted-foreground font-medium w-12">Subject:</span>
-                    <span className="font-medium">{substituteVars(subject, buildVars(previewClient)) || '(no subject)'}</span>
-                  </div>
-                </div>
-                <div className="p-4 text-sm whitespace-pre-wrap min-h-[100px] text-muted-foreground">
-                  {substituteVars(body, buildVars(previewClient)) || '(no message)'}
-                </div>
+        <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/30">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Mail01 className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold">Email Preview</h2>
+                {selectedClients.length > 1 && (
+                  <p className="text-xs text-muted-foreground">
+                    {previewClientIndex + 1} of {selectedClients.length} recipients
+                  </p>
+                )}
               </div>
             </div>
+            <div className="flex items-center gap-1.5">
+              {selectedClients.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    disabled={previewClientIndex === 0}
+                    onClick={() => setPreviewClientIndex((i) => i - 1)}
+                    className="h-7 w-7 flex items-center justify-center rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={previewClientIndex === selectedClients.length - 1}
+                    onClick={() => setPreviewClientIndex((i) => i + 1)}
+                    className="h-7 w-7 flex items-center justify-center rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(false)}
+                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+              >
+                <XClose className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {previewClient && (
+            <>
+              {/* Email metadata */}
+              <div className="px-5 py-3 border-b border-border bg-background space-y-2">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <User01 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium truncate">{previewClient.name}</span>
+                      {previewClient.businessType && (
+                        <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 shrink-0">{previewClient.businessType}</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground">{previewClient.email}</span>
+                  </div>
+                </div>
+                <div className="pl-11">
+                  <p className="text-xs text-muted-foreground mb-0.5">Subject</p>
+                  <p className="text-sm font-medium">{substituteVars(subject, buildVars(previewClient)) || '(no subject)'}</p>
+                </div>
+              </div>
+
+              {/* Email body */}
+              <div
+                className="px-6 py-5 text-sm min-h-[200px] max-h-[420px] overflow-y-auto bg-background leading-relaxed"
+                dangerouslySetInnerHTML={{
+                  __html: composeMode === 'custom'
+                    ? (editorRef.current ? cleanAndSubstituteVars(editorRef.current.innerHTML, buildVars(previewClient)) : substituteVars(body, buildVars(previewClient)))
+                    : substituteVars(selectedTemplate?.body ?? '', buildVars(previewClient)) || '<span class="text-muted-foreground">(no message)</span>'
+                }}
+              />
+
+              {/* Footer actions */}
+              <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  {selectedClients.length} recipient{selectedClients.length !== 1 ? 's' : ''} selected
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="text-xs h-8 rounded-lg" onClick={() => setPreviewOpen(false)}>
+                    Close
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="text-xs h-8 rounded-lg gap-1.5"
+                    disabled={isSending || selectedIds.size === 0 || (composeMode === 'template' && !selectedTemplate)}
+                    onClick={() => { setPreviewOpen(false); setSendConfirmOpen(true) }}
+                  >
+                    <Send01 className="h-3.5 w-3.5" />
+                    Send Now
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Run Now Confirmation Dialog */}
+      {/* ── Send Confirmation Dialog ───────────────────────────────────────── */}
       <Dialog open={sendConfirmOpen} onOpenChange={setSendConfirmOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Send Mail Now?</DialogTitle>
-            <DialogDescription className="pt-1">
-              You are about to send this email immediately to{' '}
-              <strong>{selectedIds.size} recipient{selectedIds.size > 1 ? 's' : ''}</strong>.
-            </DialogDescription>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="p-2.5 rounded-xl bg-primary/10">
+                <Send01 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle>Send Emails?</DialogTitle>
+                <DialogDescription className="mt-0.5">
+                  To <strong>{selectedIds.size} recipient{selectedIds.size > 1 ? 's' : ''}</strong>
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="my-2 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-md border border-amber-200 dark:border-amber-800/40 text-xs text-amber-700 dark:text-amber-400">
-            If you want to schedule this email for a later time, please use the <strong>Schedule Emails</strong> section above before sending.
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800/40 text-xs text-amber-700 dark:text-amber-400">
+            Use <strong>Schedule</strong> to send at a specific time instead.
           </div>
           <div className="flex gap-2 justify-end mt-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => setSendConfirmOpen(false)}
-            >
+            <Button variant="outline" size="sm" className="text-xs rounded-lg" onClick={() => setSendConfirmOpen(false)}>
               Cancel
             </Button>
             <Button
-              type="button"
               size="sm"
-              className="text-xs gap-1.5"
+              className="text-xs gap-1.5 rounded-lg"
               disabled={isSending}
-              onClick={() => {
-                setSendConfirmOpen(false)
-                handleSend()
-              }}
+              onClick={() => { setSendConfirmOpen(false); handleSend() }}
             >
-              {isSending ? (
-                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending...</>
-              ) : (
-                <><Send className="h-3.5 w-3.5" /> Confirm & Send</>
-              )}
+              {isSending
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending...</>
+                : <><Send01 className="h-3.5 w-3.5" /> Confirm & Send</>
+              }
             </Button>
           </div>
         </DialogContent>

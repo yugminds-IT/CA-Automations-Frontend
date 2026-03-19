@@ -164,7 +164,7 @@ export function ClientOnboardForm({
       country: defaultValues?.country || '',
       pincode: defaultValues?.pincode || '',
       directories: defaultValues?.directories || [],
-      onboardDate: defaultValues?.onboardDate || null,
+      onboardDate: defaultValues?.onboardDate || new Date(),
       followUpDate: defaultValues?.followUpDate || null,
       notes: defaultValues?.notes || '',
       directors: defaultValues?.directors || [],

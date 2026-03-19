@@ -313,18 +313,18 @@ export function ScheduledMails() {
                         <TableCell>
                           <div className="flex flex-col gap-0.5">
                             <span className="text-sm">
-                              {s.template?.name ?? s.templateName ?? (s.templateId ? `Template #${s.templateId}` : '—')}
+                              {s.template?.name ?? s.templateName ?? s.subject ?? (s.templateId ? `Template #${s.templateId}` : 'Custom Email')}
                               {s.template?.category && (
                                 <span className="text-muted-foreground font-normal"> · {s.template.category}</span>
                               )}
                             </span>
-                            {(s.template?.name || s.templateName || s.templateId) && (
+                            {(s.template?.name || s.templateName || s.templateId || s.subject) && (
                               <span className={`text-[10px] font-medium w-fit px-1.5 py-0.5 rounded-full ${
                                 (s.template?.organizationId ?? s.templateOrganizationId)
                                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                   : 'bg-muted text-muted-foreground'
                               }`}>
-                                {(s.template?.organizationId ?? s.templateOrganizationId) ? 'Custom' : 'Pre-built'}
+                                {!s.templateId ? 'Custom' : (s.template?.organizationId ?? s.templateOrganizationId) ? 'Custom' : 'Pre-built'}
                               </span>
                             )}
                           </div>
