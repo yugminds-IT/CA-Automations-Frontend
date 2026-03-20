@@ -1,6 +1,6 @@
 "use client"
 
-import { User as UserIcon, Menu, HelpCircle, LogOut, Sun, Moon, PanelLeft, Home, Send, FileText, Clock } from "lucide-react"
+import { User as UserIcon, Menu,  LogOut, Sun, Moon, PanelLeft, Home, Send, FileText, Clock } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
@@ -290,14 +290,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
       {/* Right: Help, theme, user */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Help button */}
-        <button
-          className="p-1 rounded-md hover:bg-muted transition-colors"
-          aria-label="Help"
-          title="Help"
-        >
-          <HelpCircle className="w-4 h-4 text-foreground" />
-        </button>
-
+        
         {/* Dark Mode toggle */}
         <button
           onClick={toggleTheme}

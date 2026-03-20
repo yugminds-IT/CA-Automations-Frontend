@@ -1095,19 +1095,7 @@ export function EmailSetup({
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {clientName && (
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <h3 className="text-base md:text-lg font-semibold text-foreground">Email Configuration</h3>
-            <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-              Setup automated emails for {clientName}
-            </p>
-          </div>
-          <Badge variant="outline" className="text-xs w-fit">
-            {emailConfig.emails.length} email{emailConfig.emails.length !== 1 ? 's' : ''} • {selectedTemplateIds.length} template{selectedTemplateIds.length !== 1 ? 's' : ''}
-          </Badge>
-        </div>
-      )}
+     
 
   
      

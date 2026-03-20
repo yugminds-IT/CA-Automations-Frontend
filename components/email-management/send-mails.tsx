@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useToast } from '@/components/ui/use-toast'
 import { getClients } from '@/lib/api/clients'
 import { listTemplates, sendEmail } from '@/lib/api/email-templates'
@@ -144,6 +145,7 @@ export function SendMails() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewClientIndex, setPreviewClientIndex] = useState(0)
   const editorRef = useRef<HTMLDivElement>(null)
+  const savedRangeRef = useRef<Range | null>(null)
   const [varDropdownOpen, setVarDropdownOpen] = useState(false)
   const varDropdownRef = useRef<HTMLDivElement>(null)
   const [isSending, setIsSending] = useState(false)
@@ -160,6 +162,14 @@ export function SendMails() {
   const [multipleDates, setMultipleDates] = useState<string[]>([''])
   const [times, setTimes] = useState<string[]>([''])
   const [isScheduling, setIsScheduling] = useState(false)
+
+  // Set initial editor content once on mount — do NOT use dangerouslySetInnerHTML on the
+  // contentEditable div, because React re-applies it on every re-render and wipes typed content.
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.innerHTML = 'Dear {{clientName}},<br><br>'
+    }
+  }, [])
 
   // Close variable dropdown on outside click
   useEffect(() => {
@@ -375,12 +385,41 @@ export function SendMails() {
     }
   }
 
+  // Save caret position before a variable button steals focus
+  const saveSelection = () => {
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0) {
+      const editor = editorRef.current
+      const r = sel.getRangeAt(0)
+      if (editor && editor.contains(r.commonAncestorContainer)) {
+        savedRangeRef.current = r.cloneRange()
+      }
+    }
+  }
+
   // Insert variable chip into the rich editor
   const insertVarChip = (varStr: string) => {
-    editorRef.current?.focus()
+    const editor = editorRef.current
+    if (!editor) return
     const sel = window.getSelection()
-    if (!sel || sel.rangeCount === 0) return
-    const range = sel.getRangeAt(0)
+    let range: Range
+
+    // Restore the saved caret; fall back to end of editor
+    if (savedRangeRef.current && editor.contains(savedRangeRef.current.commonAncestorContainer)) {
+      range = savedRangeRef.current
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    } else if (!sel || sel.rangeCount === 0 || !editor.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      range = document.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    } else {
+      range = sel.getRangeAt(0)
+    }
+
+    savedRangeRef.current = null
     range.deleteContents()
     const span = document.createElement('span')
     span.className = 'inline-flex items-center px-1 py-0.5 rounded text-[11px] font-mono bg-primary/10 text-primary mx-0.5'
@@ -389,9 +428,43 @@ export function SendMails() {
     range.insertNode(span)
     range.setStartAfter(span)
     range.collapse(true)
-    sel.removeAllRanges()
-    sel.addRange(range)
+    sel?.removeAllRanges()
+    sel?.addRange(range)
+    editor.focus()
     setVarDropdownOpen(false)
+  }
+
+  // Handle backspace/delete for contentEditable=false chip spans
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Backspace' && e.key !== 'Delete') return
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0 || !sel.getRangeAt(0).collapsed) return
+    const range = sel.getRangeAt(0)
+
+    if (e.key === 'Backspace') {
+      let prev: Node | null = null
+      if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
+        prev = (range.startContainer as Element).childNodes[range.startOffset - 1] ?? null
+      } else {
+        if (range.startOffset === 0) prev = range.startContainer.previousSibling
+      }
+      if (prev instanceof HTMLElement && prev.contentEditable === 'false') {
+        e.preventDefault()
+        prev.parentNode?.removeChild(prev)
+      }
+    } else {
+      let next: Node | null = null
+      if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
+        next = (range.startContainer as Element).childNodes[range.startOffset] ?? null
+      } else {
+        const txt = range.startContainer.textContent ?? ''
+        if (range.startOffset === txt.length) next = range.startContainer.nextSibling
+      }
+      if (next instanceof HTMLElement && next.contentEditable === 'false') {
+        e.preventDefault()
+        next.parentNode?.removeChild(next)
+      }
+    }
   }
 
   // Exec formatting command on the editor
@@ -622,9 +695,6 @@ export function SendMails() {
         {/* ── RIGHT PANEL ── */}
         <div className="flex flex-col gap-4">
 
-          {/* Compose + Schedule side by side */}
-          <div className={`flex gap-4 items-start`}>
-
           {/* Compose Message Card */}
           <div className="bg-card rounded-xl shadow-sm border border-border p-5 flex-1">
             <h2 className="text-sm font-semibold mb-4">Compose Message</h2>
@@ -769,7 +839,7 @@ export function SendMails() {
                     {/* Variables dropdown */}
                     <div className="relative" ref={varDropdownRef}>
                       <button type="button"
-                        onMouseDown={(e) => { e.preventDefault(); setVarDropdownOpen((v) => !v) }}
+                        onMouseDown={(e) => { saveSelection(); e.preventDefault(); setVarDropdownOpen((v) => !v) }}
                         className="h-7 inline-flex items-center gap-1 px-2 rounded text-xs font-medium border border-input bg-background hover:bg-muted transition-colors"
                       >
                         <span className="text-primary font-mono text-[10px]">{'{{}}'}</span>
@@ -802,9 +872,9 @@ export function SendMails() {
                     ref={editorRef}
                     contentEditable
                     suppressContentEditableWarning
+                    onKeyDown={handleEditorKeyDown}
                     className="min-h-[320px] w-full bg-background px-3 py-3 text-sm focus:outline-none [&_b]:font-bold [&_i]:italic [&_u]:underline [&_s]:line-through"
                     style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                    dangerouslySetInnerHTML={{ __html: 'Dear {{clientName}},<br><br>' }}
                   />
                 </div>
               ) : (
@@ -821,7 +891,7 @@ export function SendMails() {
                 <div className="flex flex-wrap gap-1 mt-2">
                   {COMPOSE_VAR_GROUPS.flatMap((g) => g.vars).map((v) => (
                     <button key={v.value} type="button"
-                      onMouseDown={(e) => { e.preventDefault(); insertVarChip(v.value) }}
+                      onMouseDown={(e) => { saveSelection(); e.preventDefault(); insertVarChip(v.value) }}
                       className={cn('inline-flex items-center px-2 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-[10px] font-mono text-primary/80 hover:bg-primary/15 transition-colors')}
                     >{v.value}</button>
                   ))}
@@ -848,17 +918,40 @@ export function SendMails() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-2 justify-end pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs h-8 rounded-lg"
-                onClick={openPreview}
-                disabled={selectedIds.size === 0 || (!subject && !body)}
-              >
-                <Eye className="h-3.5 w-3.5" />
-                Preview
-              </Button>
+              {/* Preview */}
+              {(() => {
+                const noClients = selectedIds.size === 0
+                const noContent = !subject && !body
+                const previewDisabled = noClients || noContent
+                const previewTip = noClients && noContent
+                  ? 'Select a client and add a subject'
+                  : noClients
+                  ? 'Select at least one client'
+                  : 'Add a subject to preview'
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={previewDisabled ? 0 : undefined}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs h-8 rounded-lg"
+                          onClick={openPreview}
+                          disabled={previewDisabled}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Preview
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {previewDisabled && (
+                      <TooltipContent side="top" className="text-xs">{previewTip}</TooltipContent>
+                    )}
+                  </Tooltip>
+                )
+              })()}
+
               <Button
                 type="button"
                 variant="outline"
@@ -869,194 +962,238 @@ export function SendMails() {
                 <Calendar className="h-3.5 w-3.5" />
                 Schedule
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="gap-1.5 text-xs h-8 rounded-lg bg-primary hover:bg-primary/90"
-                onClick={() => setSendConfirmOpen(true)}
-                disabled={isSending || selectedIds.size === 0 || (composeMode === 'template' && !selectedTemplate)}
-              >
-                {isSending ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending...</>
-                ) : (
-                  <><Send01 className="h-3.5 w-3.5" /> Send Now</>
-                )}
-              </Button>
+
+              {/* Send Now */}
+              {(() => {
+                const noClients = selectedIds.size === 0
+                const noTemplate = composeMode === 'template' && !selectedTemplate
+                const noSubject = composeMode === 'custom' && !subject.trim()
+                const sendDisabled = isSending || noClients || noTemplate || noSubject
+                const sendTip = noClients && (noTemplate || noSubject)
+                  ? 'Select a client and add a subject'
+                  : noClients
+                  ? 'Select at least one client'
+                  : noTemplate
+                  ? 'Select a template to send'
+                  : noSubject
+                  ? 'Add a subject before sending'
+                  : ''
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={sendDisabled ? 0 : undefined}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="gap-1.5 text-xs h-8 rounded-lg bg-primary hover:bg-primary/90"
+                          onClick={() => setSendConfirmOpen(true)}
+                          disabled={sendDisabled}
+                        >
+                          {isSending ? (
+                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending...</>
+                          ) : (
+                            <><Send01 className="h-3.5 w-3.5" /> Send Now</>
+                          )}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {sendDisabled && !isSending && sendTip && (
+                      <TooltipContent side="top" className="text-xs">{sendTip}</TooltipContent>
+                    )}
+                  </Tooltip>
+                )
+              })()}
             </div>
           </div>
 
-          {/* Schedule Emails Card — shown to the right of Compose when open */}
-          {scheduleDrawerOpen && (
-          <div className="bg-card rounded-xl shadow-sm border border-border p-5 w-72 shrink-0">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-primary/10">
-                  <Calendar className="h-3.5 w-3.5 text-primary" />
-                </div>
-                <h2 className="text-sm font-semibold">Schedule Emails</h2>
-              </div>
-              <button type="button" onClick={() => setScheduleDrawerOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted">
-                <XClose className="h-4 w-4" />
-              </button>
-            </div>
+        </div>
+      </div>
 
-            {/* Schedule type selector */}
-            <div className="mb-4">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Schedule Type</p>
-              <div className="flex flex-wrap gap-2">
-                {([
-                  { value: 'single_date', label: 'Single Date' },
-                  { value: 'date_range', label: 'Date Range' },
-                  { value: 'multiple_dates', label: 'Multiple Dates' },
-                  { value: 'all_dates', label: 'All Dates' },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setScheduleMode(opt.value)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                      scheduleMode === opt.value
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+      {/* ── Schedule Sidebar Drawer ── */}
+      {scheduleDrawerOpen && (
+        <div className="fixed inset-0 bg-black/20 z-30 lg:hidden" onClick={() => setScheduleDrawerOpen(false)} />
+      )}
+      <div
+        className={cn(
+          'fixed top-0 right-0 h-screen w-80 bg-card border-l border-border shadow-2xl z-40',
+          'flex flex-col transition-transform duration-300 ease-in-out',
+          scheduleDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+        )}
+        style={{ paddingTop: '54px' }}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-md bg-primary/10">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
             </div>
+            <h2 className="text-sm font-semibold">Schedule Emails</h2>
+          </div>
+          <button type="button" onClick={() => setScheduleDrawerOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted">
+            <XClose className="h-4 w-4" />
+          </button>
+        </div>
 
-            {/* Date inputs */}
-            <div className="mb-4">
-              {scheduleMode === 'single_date' && (
+        {/* Drawer scrollable content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+
+          {/* Schedule type selector */}
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Schedule Type</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { value: 'single_date', label: 'Single Date' },
+                { value: 'date_range', label: 'Date Range' },
+                { value: 'multiple_dates', label: 'Multiple Dates' },
+                { value: 'all_dates', label: 'All Dates' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setScheduleMode(opt.value)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                    scheduleMode === opt.value
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Date inputs */}
+          <div>
+            {scheduleMode === 'single_date' && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date</label>
+                <input
+                  type="date"
+                  value={singleDate}
+                  onChange={(e) => setSingleDate(e.target.value)}
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            )}
+
+            {scheduleMode === 'date_range' && (
+              <div className="flex flex-col gap-2">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Date</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</label>
                   <input
                     type="date"
-                    value={singleDate}
-                    onChange={(e) => setSingleDate(e.target.value)}
-                    className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={rangeFrom}
+                    onChange={(e) => setRangeFrom(e.target.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </div>
-              )}
-
-              {scheduleMode === 'date_range' && (
-                <div className="flex flex-col gap-2">
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</label>
-                    <input
-                      type="date"
-                      value={rangeFrom}
-                      onChange={(e) => setRangeFrom(e.target.value)}
-                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</label>
-                    <input
-                      type="date"
-                      value={rangeTo}
-                      onChange={(e) => setRangeTo(e.target.value)}
-                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {scheduleMode === 'multiple_dates' && (
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Dates</label>
-                  <div className="flex flex-wrap gap-2">
-                    {multipleDates.map((d, i) => (
-                      <div key={i} className="flex items-center gap-1">
-                        <input
-                          type="date"
-                          value={d}
-                          onChange={(e) => updateMultipleDate(i, e.target.value)}
-                          className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                        {multipleDates.length > 1 && (
-                          <button type="button" onClick={() => removeMultipleDate(i)}
-                            className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
-                            <Trash01 className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button type="button" onClick={addMultipleDate}
-                      className="h-8 flex items-center gap-1 px-2 text-xs text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded-md transition-colors">
-                      <Plus className="h-3.5 w-3.5" /> Add
-                    </button>
-                  </div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</label>
+                  <input
+                    type="date"
+                    value={rangeTo}
+                    onChange={(e) => setRangeTo(e.target.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
                 </div>
-              )}
+              </div>
+            )}
 
-              {scheduleMode === 'all_dates' && (
-                <div className="flex items-center gap-2 p-2.5 bg-primary/5 rounded-md border border-primary/20 w-fit">
-                  <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <p className="text-xs text-primary/80">Every day · next 12 months</p>
+            {scheduleMode === 'multiple_dates' && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Dates</label>
+                <div className="flex flex-wrap gap-2">
+                  {multipleDates.map((d, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <input
+                        type="date"
+                        value={d}
+                        onChange={(e) => updateMultipleDate(i, e.target.value)}
+                        className="h-8 w-40 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                      {multipleDates.length > 1 && (
+                        <button type="button" onClick={() => removeMultipleDate(i)}
+                          className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
+                          <Trash01 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button" onClick={addMultipleDate}
+                    className="h-8 flex items-center gap-1 px-2 text-xs text-primary hover:text-primary/80 border border-dashed border-primary/40 rounded-md transition-colors">
+                    <Plus className="h-3.5 w-3.5" /> Add
+                  </button>
                 </div>
-              )}
-            </div>
-
-            {/* Times section */}
-            <div className="mb-5">
-              <div className="flex items-center gap-3 mb-1.5">
-                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5" /> Send Times
-                </label>
-                <button type="button" onClick={addTime}
-                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
-                  <Plus className="h-3 w-3" /> Add
-                </button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {times.map((t, i) => (
-                  <div key={i} className="flex items-center gap-1">
-                    <input
-                      type="time"
-                      value={t}
-                      onChange={(e) => updateTime(i, e.target.value)}
-                      className="h-8 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                    {times.length > 1 && (
-                      <button type="button" onClick={() => removeTime(i)}
-                        className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
-                        <Trash01 className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
 
-            {/* Schedule button */}
-            <Button
-              type="button"
-              size="sm"
-              className="w-full gap-1.5 text-xs"
-              onClick={handleSchedule}
-              disabled={isScheduling || selectedIds.size === 0 || !selectedTemplate}
-            >
-              {isScheduling ? (
-                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Scheduling...</>
-              ) : (
-                <><Calendar className="h-3.5 w-3.5" /> Schedule Emails</>
-              )}
-            </Button>
-            {selectedIds.size === 0 && (
-              <p className="text-[11px] text-muted-foreground text-center mt-2">Select clients and a template to schedule</p>
+            {scheduleMode === 'all_dates' && (
+              <div className="flex items-center gap-2 p-2.5 bg-primary/5 rounded-md border border-primary/20">
+                <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                <p className="text-xs text-primary/80">Every day · next 12 months</p>
+              </div>
             )}
           </div>
-          )}
 
+          {/* Times section */}
+          <div>
+            <div className="flex items-center gap-3 mb-1.5">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" /> Send Times
+              </label>
+              <button type="button" onClick={addTime}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
+                <Plus className="h-3 w-3" /> Add
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {times.map((t, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <input
+                    type="time"
+                    value={t}
+                    onChange={(e) => updateTime(i, e.target.value)}
+                    className="h-8 w-32 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  {times.length > 1 && (
+                    <button type="button" onClick={() => removeTime(i)}
+                      className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors shrink-0">
+                      <Trash01 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
+
+        </div>
+
+        {/* Drawer footer */}
+        <div className="px-5 py-4 border-t border-border shrink-0">
+          <Button
+            type="button"
+            size="sm"
+            className="w-full gap-1.5 text-xs"
+            onClick={handleSchedule}
+            disabled={isScheduling || selectedIds.size === 0 || !selectedTemplate}
+          >
+            {isScheduling ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Scheduling...</>
+            ) : (
+              <><Calendar className="h-3.5 w-3.5" /> Schedule Emails</>
+            )}
+          </Button>
+          {selectedIds.size === 0 && (
+            <p className="text-[11px] text-muted-foreground text-center mt-2">Select clients and a template to schedule</p>
+          )}
         </div>
       </div>
 
       {/* ── Preview Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl">
+          <DialogTitle className="sr-only">Email Preview</DialogTitle>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/30">
             <div className="flex items-center gap-3">
@@ -1093,13 +1230,7 @@ export function SendMails() {
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                onClick={() => setPreviewOpen(false)}
-                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground"
-              >
-                <XClose className="h-3.5 w-3.5" />
-              </button>
+              
             </div>
           </div>
 

@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Eye, EyeOff, PlusIcon, Trash2Icon, CheckCircle2, Lock, Mail, Loader2,
   Send, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter,
-  AlignRight, ChevronDown, X, LayoutTemplate, Pencil,
+  AlignRight, ChevronDown, LayoutTemplate, Pencil,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -818,9 +818,7 @@ export function ClientLoginTab({
           <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
               <h3 className="text-sm font-semibold">Email Preview</h3>
-              <button type="button" onClick={() => setPreviewOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
+             
             </div>
             {subject && (
               <div className="px-5 py-2 border-b border-border bg-muted/30 shrink-0">

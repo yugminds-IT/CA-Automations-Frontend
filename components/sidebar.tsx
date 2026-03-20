@@ -34,7 +34,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { getUserData } from "@/lib/api/index"
+import { getUserData, getRoleFromUser } from "@/lib/api/index"
 
 interface SidebarProps {
   mobileMenuOpen?: boolean
@@ -52,7 +52,7 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
   const [internalMobileMenuOpen, setInternalMobileMenuOpen] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Email Management']))
   const user = getUserData()
-  const role = user?.role as string | undefined
+  const role = getRoleFromUser(user)?.toLowerCase()
 
   const mobileMenuOpen = externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen
   const setMobileMenuOpen = setExternalMobileMenuOpen || setInternalMobileMenuOpen
