@@ -148,6 +148,9 @@ export function SendMails() {
   const savedRangeRef = useRef<Range | null>(null)
   const [varDropdownOpen, setVarDropdownOpen] = useState(false)
   const varDropdownRef = useRef<HTMLDivElement>(null)
+  const subjectRef = useRef<HTMLInputElement>(null)
+  const [subjectVarDropdownOpen, setSubjectVarDropdownOpen] = useState(false)
+  const subjectVarDropdownRef = useRef<HTMLDivElement>(null)
   const [isSending, setIsSending] = useState(false)
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false)
 
@@ -171,12 +174,11 @@ export function SendMails() {
     }
   }, [])
 
-  // Close variable dropdown on outside click
+  // Close variable dropdowns on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (varDropdownRef.current && !varDropdownRef.current.contains(e.target as Node)) {
-        setVarDropdownOpen(false)
-      }
+      if (varDropdownRef.current && !varDropdownRef.current.contains(e.target as Node)) setVarDropdownOpen(false)
+      if (subjectVarDropdownRef.current && !subjectVarDropdownRef.current.contains(e.target as Node)) setSubjectVarDropdownOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -432,6 +434,21 @@ export function SendMails() {
     sel?.addRange(range)
     editor.focus()
     setVarDropdownOpen(false)
+  }
+
+  // Insert variable into subject input at cursor
+  const insertVarToSubject = (varStr: string) => {
+    const input = subjectRef.current
+    if (!input) return
+    const start = input.selectionStart ?? subject.length
+    const end = input.selectionEnd ?? start
+    const newSubject = subject.substring(0, start) + varStr + subject.substring(end)
+    setSubject(newSubject)
+    setSubjectVarDropdownOpen(false)
+    setTimeout(() => {
+      input.selectionStart = input.selectionEnd = start + varStr.length
+      input.focus()
+    }, 0)
   }
 
   // Handle backspace/delete for contentEditable=false chip spans
@@ -762,8 +779,40 @@ export function SendMails() {
 
             {/* Subject */}
             <div className="mb-3">
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Subject</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Subject</label>
+                {/* Subject variable dropdown */}
+                <div className="relative" ref={subjectVarDropdownRef}>
+                  <button type="button"
+                    onClick={() => setSubjectVarDropdownOpen((v) => !v)}
+                    className="h-6 inline-flex items-center gap-1 px-2 rounded text-[10px] font-medium border border-input bg-background hover:bg-muted transition-colors"
+                  >
+                    <span className="text-primary font-mono">{'{{}}'}</span>
+                    Variable
+                    <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
+                  </button>
+                  {subjectVarDropdownOpen && (
+                    <div className="absolute top-full right-0 mt-1 w-52 rounded-lg border border-border bg-popover shadow-lg z-50 py-1 text-sm" style={{ maxHeight: 220, overflowY: 'auto' }}>
+                      {COMPOSE_VAR_GROUPS.map((group) => (
+                        <div key={group.label}>
+                          <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
+                          {group.vars.map((v) => (
+                            <button key={v.value} type="button"
+                              onClick={() => insertVarToSubject(v.value)}
+                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center justify-between gap-2"
+                            >
+                              <span>{v.label}</span>
+                              <span className="text-[10px] font-mono text-primary/70">{v.value}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
               <Input
+                ref={subjectRef}
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Email subject..."
@@ -847,13 +896,13 @@ export function SendMails() {
                         <ChevronDown className="h-3 w-3 text-muted-foreground" />
                       </button>
                       {varDropdownOpen && (
-                        <div className="absolute top-full left-0 mt-1 w-52 max-h-[240px] overflow-y-auto rounded-lg border border-border bg-popover shadow-lg z-50 py-1 text-sm">
+                        <div className="absolute top-full left-0 mt-1 w-52 rounded-lg border border-border bg-popover shadow-lg z-50 py-1 text-sm" style={{ maxHeight: 240, overflowY: 'auto' }}>
                           {COMPOSE_VAR_GROUPS.map((group) => (
                             <div key={group.label}>
                               <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
                               {group.vars.map((v) => (
                                 <button key={v.value} type="button"
-                                  onMouseDown={(e) => { e.preventDefault(); insertVarChip(v.value) }}
+                                  onClick={() => insertVarChip(v.value)}
                                   className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center justify-between gap-2"
                                 >
                                   <span>{v.label}</span>
@@ -891,7 +940,8 @@ export function SendMails() {
                 <div className="flex flex-wrap gap-1 mt-2">
                   {COMPOSE_VAR_GROUPS.flatMap((g) => g.vars).map((v) => (
                     <button key={v.value} type="button"
-                      onMouseDown={(e) => { saveSelection(); e.preventDefault(); insertVarChip(v.value) }}
+                      onMouseDown={(e) => { saveSelection(); e.preventDefault() }}
+                      onClick={() => insertVarChip(v.value)}
                       className={cn('inline-flex items-center px-2 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-[10px] font-mono text-primary/80 hover:bg-primary/15 transition-colors')}
                     >{v.value}</button>
                   ))}

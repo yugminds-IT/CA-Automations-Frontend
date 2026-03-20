@@ -1,144 +1,123 @@
 /**
  * Email Template Utilities
- * Functions to format email templates with professional HTML styling
+ * Mirror the backend's toProfessionalHtml / sanitizeBody logic exactly
+ * so the preview matches what recipients actually receive.
  */
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 /**
- * Wraps email body content in professional HTML email template
- * @param bodyContent - The email body content (can contain HTML or plain text)
- * @returns Complete HTML email with professional styling
+ * Mirrors backend sanitizeBody:
+ * - Plain text: double \n = paragraph, single \n = <br>
+ * - HTML: strip class/data-* attrs, div → p
  */
-export function wrapEmailInHTMLTemplate(bodyContent: string): string {
-  // If content already has HTML structure, use it; otherwise treat as plain text
-  const hasHTMLTags = /<[a-z][\s\S]*>/i.test(bodyContent);
-  const formattedContent = hasHTMLTags 
-    ? bodyContent 
-    : bodyContent
-        .split('\n')
-        .map(line => line.trim() ? `<p style="margin: 0 0 16px 0; line-height: 1.6; color: #333333;">${escapeHtml(line)}</p>` : '<br>')
-        .join('');
+function sanitizeBody(body: string): string {
+  const hasHtml = /<[a-z][\s\S]*?>/i.test(body);
+  if (!hasHtml) {
+    const paragraphs = body.split(/\n\n+/);
+    return paragraphs
+      .filter((p) => p.trim())
+      .map((p) => {
+        const lines = p.split('\n').map((l) => escapeHtml(l)).join('<br>');
+        return `<p style="margin:0 0 1em;">${lines}</p>`;
+      })
+      .join('');
+  }
+  return body
+    .replace(/\s+class="[^"]*"/g, '')
+    .replace(/\s+class='[^']*'/g, '')
+    .replace(/\s+data-[a-z-]+=(?:"[^"]*"|'[^']*'|\S+)/g, '')
+    .replace(/<div><br\s*\/?><\/div>/gi, '<br>')
+    .replace(/<div>([\s\S]*?)<\/div>/gi, '<p>$1</p>');
+}
 
+/**
+ * Mirrors backend toProfessionalHtml — no blue bar, no subject heading, no card.
+ */
+export function wrapEmailInHTMLTemplate(body: string, subject = 'Email'): string {
+  const sanitized = sanitizeBody(body);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>Email</title>
+  <title>${escapeHtml(subject)}</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.65; color: #1a1a1a; background-color: #ffffff; }
+    p { margin: 0 0 1em; }
+    p:last-child { margin-bottom: 0; }
+    a { color: #1a1a1a; text-decoration: underline; }
+    ol, ul { margin: 0 0 1em; padding-left: 1.5em; }
+    li { margin-bottom: 0.25em; }
+  </style>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5; line-height: 1.6;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f5f5f5; padding: 40px 0;">
-    <tr>
-      <td align="center" style="padding: 0;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <!-- Header -->
-          <tr>
-            <td style="padding: 40px 40px 30px 40px; background-color: #ffffff; border-radius: 8px 8px 0 0;">
-              <div style="text-align: center;">
-                <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.5px;">Navedhana Private Limited</h1>
-              </div>
-            </td>
-          </tr>
-          
-          <!-- Content -->
-          <tr>
-            <td style="padding: 0 40px 40px 40px; background-color: #ffffff;">
-              <div style="color: #333333; font-size: 16px; line-height: 1.6;">
-                ${formattedContent}
-              </div>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 30px 40px; background-color: #f9f9f9; border-radius: 0 0 8px 8px; border-top: 1px solid #e5e5e5;">
-              <div style="text-align: center; color: #666666; font-size: 14px; line-height: 1.5;">
-                <p style="margin: 0 0 8px 0;">Best regards,</p>
-                <p style="margin: 0; font-weight: 500; color: #333333;">Navedhana Private Limited</p>
-                <p style="margin: 12px 0 0 0; font-size: 12px; color: #999999;">
-                  This is an automated email. Please do not reply directly to this message.
-                </p>
-              </div>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
+<body>
+  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.65;color:#1a1a1a;">
+    ${sanitized}
+  </div>
 </body>
 </html>`;
 }
 
 /**
- * Escapes HTML special characters
+ * Preview with sample variable substitution — matches backend variable names.
  */
-function escapeHtml(text: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return text.replace(/[&<>"']/g, (m) => map[m]);
-}
-
-/**
- * Converts plain text to HTML with proper formatting
- * Preserves line breaks and paragraphs
- */
-export function formatPlainTextToHTML(text: string): string {
-  return text
-    .split('\n\n') // Split by double newlines for paragraphs
-    .map(paragraph => {
-      const trimmed = paragraph.trim();
-      if (!trimmed) return '';
-      
-      // Convert single newlines within paragraph to <br>
-      const withBreaks = trimmed
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line)
-        .join('<br>');
-      
-      return `<p style="margin: 0 0 16px 0; line-height: 1.6; color: #333333;">${escapeHtml(withBreaks)}</p>`;
-    })
-    .filter(p => p)
-    .join('');
-}
-
-/**
- * Preview email template with sample data
- */
-export function previewEmailTemplate(body: string, subject: string = "Sample Email"): string {
-  // Replace variables with sample data
-  const currentDate = new Date().toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+export function previewEmailTemplate(body: string, subject = 'Sample Email'): string {
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
   });
-  
+
   const sampleData: Record<string, string> = {
     '{{client_name}}': 'John Doe',
-    '{{company_name}}': 'ABC Corporation',
-    '{{email}}': 'john.doe@example.com',
-    '{{phone}}': '+1 (555) 123-4567',
-    '{{password}}': 'TempPass123!',
-    '{{login_url}}': 'https://app.example.com/login',
+    '{{clientName}}': 'John Doe',
+    '{{client_email}}': 'john.doe@example.com',
+    '{{clientEmail}}': 'john.doe@example.com',
+    '{{client_phone}}': '+91 98765 43210',
+    '{{clientPhone}}': '+91 98765 43210',
+    '{{company_name}}': 'ABC Pvt. Ltd.',
+    '{{clientCompany}}': 'ABC Pvt. Ltd.',
+    '{{login_email}}': 'john.doe@example.com',
+    '{{login_password}}': 'TempPass@123',
+    '{{login_url}}': 'https://app.navedhana.com/login',
+    '{{org_name}}': 'Navedhana Pvt. Ltd.',
+    '{{org_email}}': 'contact@navedhana.com',
+    '{{org_phone}}': '+91 90000 00000',
     '{{service_name}}': 'GST Filing',
-    '{{due_date}}': 'March 15, 2024',
-    '{{amount}}': '$500.00',
-    '{{director_name}}': 'Jane Smith',
-    '{{organization_name}}': 'Navedhana Private Limited',
-    '{{current_date}}': currentDate,
+    '{{service_description}}': 'Monthly GST return filing service',
+    '{{amount}}': '₹5,000',
+    '{{document_name}}': 'Form 16',
     '{{date}}': currentDate,
     '{{today}}': currentDate,
+    '{{current_date}}': currentDate,
+    '{{deadline_date}}': currentDate,
+    '{{follow_up_date}}': currentDate,
+    '{{additional_notes}}': 'Please submit all documents by the due date.',
+    '{{senderName}}': 'Navedhana Team',
+    '{{senderEmail}}': 'contact@navedhana.com',
+    '{{senderPhone}}': '+91 90000 00000',
+    '{{senderCompany}}': 'Navedhana Pvt. Ltd.',
   };
 
   let previewBody = body;
   Object.entries(sampleData).forEach(([variable, value]) => {
-    previewBody = previewBody.replace(new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'), value);
+    previewBody = previewBody.replace(
+      new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'),
+      value,
+    );
   });
 
-  return wrapEmailInHTMLTemplate(previewBody);
+  return wrapEmailInHTMLTemplate(previewBody, subject);
+}
+
+/** @deprecated use wrapEmailInHTMLTemplate */
+export function formatPlainTextToHTML(text: string): string {
+  return sanitizeBody(text);
 }

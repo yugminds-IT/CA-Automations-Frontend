@@ -44,24 +44,14 @@ import {
   Plus,
   Eye,
   Copy,
-  Code,
   FileText,
   Search,
   Bell,
   Clock,
   RefreshCw,
-  Bold,
-  Italic,
-  Underline,
-  Strikethrough,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  List,
-  ListOrdered,
   ChevronDown,
-  Palette,
 } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
 import { previewEmailTemplate } from "@/lib/utils/email-template"
 
 // ─── Grouped template variables ─────────────────────────────────────────────
@@ -103,9 +93,6 @@ const TEMPLATE_VAR_GROUPS = [
   },
 ]
 
-const FONT_SIZES = ['12', '14', '16', '18', '20', '24', '28', '32']
-const FONT_FAMILIES = ['Default', 'Arial', 'Georgia', 'Times New Roman', 'Courier New', 'Verdana']
-
 export default function EmailTemplatesPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
@@ -137,58 +124,50 @@ export default function EmailTemplatesPage() {
     body: "",
   })
   const [customizeData, setCustomizeData] = useState({ subject: "", body: "" })
-  const [bodyViewMode, setBodyViewMode] = useState<"edit" | "preview">("edit")
-  const [customizeBodyViewMode, setCustomizeBodyViewMode] = useState<"edit" | "preview">("edit")
+  const [bodyTab, setBodyTab] = useState<'edit' | 'preview'>('edit')
+  const [customizeBodyTab, setCustomizeBodyTab] = useState<'edit' | 'preview'>('edit')
 
-  // Rich editor refs
-  const editorRef = useRef<HTMLDivElement | null>(null)
-  const customizeEditorRef = useRef<HTMLDivElement | null>(null)
+  // Textarea refs for variable insertion
+  const editorRef = useRef<HTMLTextAreaElement | null>(null)
+  const customizeEditorRef = useRef<HTMLTextAreaElement | null>(null)
+  const subjectRef = useRef<HTMLInputElement | null>(null)
+  const customizeSubjectRef = useRef<HTMLInputElement | null>(null)
   const varDropdownRef = useRef<HTMLDivElement | null>(null)
   const customizeVarDropdownRef = useRef<HTMLDivElement | null>(null)
+  const subjectVarDropdownRef = useRef<HTMLDivElement | null>(null)
+  const customizeSubjectVarDropdownRef = useRef<HTMLDivElement | null>(null)
   const [varDropdownOpen, setVarDropdownOpen] = useState(false)
   const [customizeVarDropdownOpen, setCustomizeVarDropdownOpen] = useState(false)
+  const [subjectVarDropdownOpen, setSubjectVarDropdownOpen] = useState(false)
+  const [customizeSubjectVarDropdownOpen, setCustomizeSubjectVarDropdownOpen] = useState(false)
 
   const router = useRouter()
   const { toast } = useToast()
 
+  // Strip HTML tags from old template bodies for plain-text editing
+  const stripHtmlToPlainText = (html: string): string => {
+    if (!html || !/<[a-z]/i.test(html)) return html
+    return html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'")
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  }
+
   // ─── Close dropdowns on outside click ────────────────────────────────────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (varDropdownRef.current && !varDropdownRef.current.contains(e.target as Node)) {
-        setVarDropdownOpen(false)
-      }
-      if (customizeVarDropdownRef.current && !customizeVarDropdownRef.current.contains(e.target as Node)) {
-        setCustomizeVarDropdownOpen(false)
-      }
+      if (varDropdownRef.current && !varDropdownRef.current.contains(e.target as Node)) setVarDropdownOpen(false)
+      if (customizeVarDropdownRef.current && !customizeVarDropdownRef.current.contains(e.target as Node)) setCustomizeVarDropdownOpen(false)
+      if (subjectVarDropdownRef.current && !subjectVarDropdownRef.current.contains(e.target as Node)) setSubjectVarDropdownOpen(false)
+      if (customizeSubjectVarDropdownRef.current && !customizeSubjectVarDropdownRef.current.contains(e.target as Node)) setCustomizeSubjectVarDropdownOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-
-  // ─── Sync editor content when dialogs open ────────────────────────────────
-  useEffect(() => {
-    if ((editDialogOpen || createDialogOpen) && bodyViewMode === 'edit') {
-      setTimeout(() => {
-        if (editorRef.current) editorRef.current.innerHTML = formData.body
-      }, 0)
-    }
-  }, [editDialogOpen, createDialogOpen])
-
-  useEffect(() => {
-    if (!editDialogOpen && !createDialogOpen) setBodyViewMode("edit")
-  }, [editDialogOpen, createDialogOpen])
-
-  useEffect(() => {
-    if (customizeDialogOpen && customizeBodyViewMode === 'edit') {
-      setTimeout(() => {
-        if (customizeEditorRef.current) customizeEditorRef.current.innerHTML = customizeData.body
-      }, 0)
-    }
-  }, [customizeDialogOpen])
-
-  useEffect(() => {
-    if (!customizeDialogOpen) setCustomizeBodyViewMode("edit")
-  }, [customizeDialogOpen])
 
   // ─── Sidebar / auth ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -217,29 +196,36 @@ export default function EmailTemplatesPage() {
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed)
 
-  // ─── Rich editor helpers ──────────────────────────────────────────────────
-  const execCmd = (cmd: string, value?: string) => {
-    editorRef.current?.focus()
-    document.execCommand(cmd, false, value)
-  }
-
-  const customizeExecCmd = (cmd: string, value?: string) => {
-    customizeEditorRef.current?.focus()
-    document.execCommand(cmd, false, value)
+  // ─── Variable insertion helpers ───────────────────────────────────────────
+  const insertAtCursor = (
+    el: HTMLTextAreaElement | HTMLInputElement,
+    varStr: string,
+    currentValue: string,
+    setValue: (v: string) => void,
+    closeDropdown: () => void,
+  ) => {
+    const start = el.selectionStart ?? currentValue.length
+    const end = el.selectionEnd ?? start
+    const newVal = currentValue.substring(0, start) + varStr + currentValue.substring(end)
+    setValue(newVal)
+    closeDropdown()
+    setTimeout(() => {
+      el.selectionStart = el.selectionEnd = start + varStr.length
+      el.focus()
+    }, 0)
   }
 
   const insertVar = (varStr: string) => {
-    editorRef.current?.focus()
-    document.execCommand('insertText', false, varStr)
-    setFormData((prev) => ({ ...prev, body: editorRef.current?.innerHTML ?? prev.body }))
-    setVarDropdownOpen(false)
+    if (editorRef.current) insertAtCursor(editorRef.current, varStr, formData.body, (v) => setFormData((p) => ({ ...p, body: v })), () => setVarDropdownOpen(false))
   }
-
   const customizeInsertVar = (varStr: string) => {
-    customizeEditorRef.current?.focus()
-    document.execCommand('insertText', false, varStr)
-    setCustomizeData((prev) => ({ ...prev, body: customizeEditorRef.current?.innerHTML ?? prev.body }))
-    setCustomizeVarDropdownOpen(false)
+    if (customizeEditorRef.current) insertAtCursor(customizeEditorRef.current, varStr, customizeData.body, (v) => setCustomizeData((p) => ({ ...p, body: v })), () => setCustomizeVarDropdownOpen(false))
+  }
+  const insertVarToSubject = (varStr: string) => {
+    if (subjectRef.current) insertAtCursor(subjectRef.current, varStr, formData.subject, (v) => setFormData((p) => ({ ...p, subject: v })), () => setSubjectVarDropdownOpen(false))
+  }
+  const customizeInsertVarToSubject = (varStr: string) => {
+    if (customizeSubjectRef.current) insertAtCursor(customizeSubjectRef.current, varStr, customizeData.subject, (v) => setCustomizeData((p) => ({ ...p, subject: v })), () => setCustomizeSubjectVarDropdownOpen(false))
   }
 
   // ─── API calls ────────────────────────────────────────────────────────────
@@ -263,13 +249,13 @@ export default function EmailTemplatesPage() {
 
   const handleCustomize = (template: EmailTemplate) => {
     setCustomizingTemplate(template)
-    setCustomizeData({ subject: template.subject, body: template.body })
+    setCustomizeData({ subject: template.subject, body: stripHtmlToPlainText(template.body) })
     setCustomizeDialogOpen(true)
   }
 
   const handleEdit = (template: EmailTemplate) => {
     setEditingTemplate(template)
-    setFormData({ name: template.name, category: template.category as TemplateCategory, type: template.type, subject: template.subject, body: template.body })
+    setFormData({ name: template.name, category: template.category as TemplateCategory, type: template.type, subject: template.subject, body: stripHtmlToPlainText(template.body) })
     setEditDialogOpen(true)
   }
 
@@ -390,111 +376,65 @@ export default function EmailTemplatesPage() {
     { value: EmailTemplateCategory.SERVICE,      label: "Service" },
   ]
 
-  // ─── Shared rich-editor toolbar renderer ─────────────────────────────────
-  const renderToolbar = (isCustomize: boolean) => {
-    const cmd      = isCustomize ? customizeExecCmd       : execCmd
-    const dropRef  = isCustomize ? customizeVarDropdownRef : varDropdownRef
-    const dropOpen = isCustomize ? customizeVarDropdownOpen : varDropdownOpen
-    const setOpen  = isCustomize ? setCustomizeVarDropdownOpen : setVarDropdownOpen
-    const onVar    = isCustomize ? customizeInsertVar      : insertVar
-
-    const toolBtn = (title: string, icon: React.ReactNode, action: () => void) => (
+  // ─── Reusable variable dropdown ──────────────────────────────────────────
+  const VarDropdown = ({
+    dropRef, dropOpen, setOpen, onVar, label = 'Insert Variable',
+  }: {
+    dropRef: React.RefObject<HTMLDivElement | null>
+    dropOpen: boolean
+    setOpen: React.Dispatch<React.SetStateAction<boolean>>
+    onVar: (v: string) => void
+    label?: string
+  }) => (
+    <div ref={dropRef} className="relative">
       <button
-        key={title}
         type="button"
-        title={title}
-        onMouseDown={(e) => { e.preventDefault(); action() }}
-        className="p-1.5 rounded hover:bg-muted transition-colors text-foreground/70 hover:text-foreground"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 h-8 px-3 rounded border border-input bg-background text-xs hover:bg-muted transition-colors font-medium"
       >
-        {icon}
+        {label}
+        <ChevronDown className="h-3 w-3 text-muted-foreground" />
       </button>
-    )
-
-    return (
-      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-border bg-muted/30 rounded-t-md">
-        {toolBtn('Bold',          <Bold className="h-3.5 w-3.5" />,          () => cmd('bold'))}
-        {toolBtn('Italic',        <Italic className="h-3.5 w-3.5" />,        () => cmd('italic'))}
-        {toolBtn('Underline',     <Underline className="h-3.5 w-3.5" />,     () => cmd('underline'))}
-        {toolBtn('Strikethrough', <Strikethrough className="h-3.5 w-3.5" />, () => cmd('strikeThrough'))}
-
-        <span className="w-px h-4 bg-border mx-1" />
-
-        {toolBtn('Align Left',   <AlignLeft className="h-3.5 w-3.5" />,   () => cmd('justifyLeft'))}
-        {toolBtn('Align Center', <AlignCenter className="h-3.5 w-3.5" />, () => cmd('justifyCenter'))}
-        {toolBtn('Align Right',  <AlignRight className="h-3.5 w-3.5" />,  () => cmd('justifyRight'))}
-
-        <span className="w-px h-4 bg-border mx-1" />
-
-        {toolBtn('Bullet List',   <List className="h-3.5 w-3.5" />,        () => cmd('insertUnorderedList'))}
-        {toolBtn('Numbered List', <ListOrdered className="h-3.5 w-3.5" />, () => cmd('insertOrderedList'))}
-
-        <span className="w-px h-4 bg-border mx-1" />
-
-        <select
-          title="Font Size"
-          defaultValue=""
-          onMouseDown={(e) => e.stopPropagation()}
-          onChange={(e) => { isCustomize ? customizeEditorRef.current?.focus() : editorRef.current?.focus(); cmd('fontSize', e.target.value) }}
-          className="h-7 rounded border border-input bg-background text-xs px-1 focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          <option value="" disabled>Size</option>
-          {FONT_SIZES.map((s) => <option key={s} value={s}>{s}px</option>)}
-        </select>
-
-        <select
-          title="Font Family"
-          defaultValue=""
-          onMouseDown={(e) => e.stopPropagation()}
-          onChange={(e) => { isCustomize ? customizeEditorRef.current?.focus() : editorRef.current?.focus(); cmd('fontName', e.target.value) }}
-          className="h-7 rounded border border-input bg-background text-xs px-1 focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          <option value="" disabled>Font</option>
-          {FONT_FAMILIES.map((f) => <option key={f} value={f === 'Default' ? 'inherit' : f}>{f}</option>)}
-        </select>
-
-        <span className="w-px h-4 bg-border mx-1" />
-
-        <label title="Text Color" className="p-1.5 rounded hover:bg-muted transition-colors cursor-pointer text-foreground/70 hover:text-foreground flex items-center">
-          <Palette className="h-3.5 w-3.5" />
-          <input type="color" className="sr-only" onMouseDown={(e) => e.stopPropagation()} onChange={(e) => { isCustomize ? customizeEditorRef.current?.focus() : editorRef.current?.focus(); cmd('foreColor', e.target.value) }} />
-        </label>
-
-        <span className="w-px h-4 bg-border mx-1" />
-
-        {/* Variables dropdown */}
-        <div ref={dropRef} className="relative">
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); setOpen((v) => !v) }}
-            className="flex items-center gap-1 h-7 px-2 rounded border border-input bg-background text-xs hover:bg-muted transition-colors font-medium"
-          >
-            Variables
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          </button>
-          {dropOpen && (
-            <div className="absolute top-full left-0 mt-1 w-52 max-h-[240px] overflow-y-auto rounded-lg border border-border bg-popover shadow-lg z-50 py-1 text-sm">
-              {TEMPLATE_VAR_GROUPS.map((group) => (
-                <div key={group.label}>
-                  <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-                  {group.vars.map((v) => (
-                    <button
-                      key={v.value}
-                      type="button"
-                      onMouseDown={(e) => { e.preventDefault(); onVar(v.value) }}
-                      className="w-full text-left px-3 py-1.5 hover:bg-muted transition-colors flex items-center justify-between gap-2"
-                    >
-                      <span className="text-foreground">{v.label}</span>
-                      <span className="text-[10px] font-mono text-primary/70 truncate">{v.value}</span>
-                    </button>
-                  ))}
-                </div>
+      {dropOpen && (
+        <div className="absolute top-full right-0 mt-1 w-56 rounded-lg border border-border bg-popover shadow-lg z-[200] py-1 text-sm" style={{ maxHeight: 260, overflowY: 'auto' }}>
+          {TEMPLATE_VAR_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
+              {group.vars.map((v) => (
+                <button
+                  key={v.value}
+                  type="button"
+                  onClick={() => onVar(v.value)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-muted transition-colors flex items-center justify-between gap-2"
+                >
+                  <span className="text-foreground">{v.label}</span>
+                  <span className="text-[10px] font-mono text-primary/70 truncate">{v.value}</span>
+                </button>
               ))}
             </div>
-          )}
+          ))}
         </div>
-      </div>
-    )
-  }
+      )}
+    </div>
+  )
+
+  const renderVarDropdown = (isCustomize: boolean) => (
+    <VarDropdown
+      dropRef={isCustomize ? customizeVarDropdownRef : varDropdownRef}
+      dropOpen={isCustomize ? customizeVarDropdownOpen : varDropdownOpen}
+      setOpen={isCustomize ? setCustomizeVarDropdownOpen : setVarDropdownOpen}
+      onVar={isCustomize ? customizeInsertVar : insertVar}
+    />
+  )
+  const renderSubjectVarDropdown = (isCustomize: boolean) => (
+    <VarDropdown
+      dropRef={isCustomize ? customizeSubjectVarDropdownRef : subjectVarDropdownRef}
+      dropOpen={isCustomize ? customizeSubjectVarDropdownOpen : subjectVarDropdownOpen}
+      setOpen={isCustomize ? setCustomizeSubjectVarDropdownOpen : setSubjectVarDropdownOpen}
+      onVar={isCustomize ? customizeInsertVarToSubject : insertVarToSubject}
+      label="{{x}}"
+    />
+  )
 
   if (isCheckingAuth) {
     return (
@@ -642,7 +582,7 @@ export default function EmailTemplatesPage() {
       </div>
 
       {/* ─── Customize Dialog ──────────────────────────────────────────────── */}
-      <Dialog open={customizeDialogOpen} onOpenChange={setCustomizeDialogOpen}>
+      <Dialog open={customizeDialogOpen} onOpenChange={(open) => { setCustomizeDialogOpen(open); if (!open) setCustomizeBodyTab('edit') }}>
         <DialogContent className="max-w-[95vw] sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Customize Template for Your Organization</DialogTitle>
@@ -655,8 +595,12 @@ export default function EmailTemplatesPage() {
                 <p className="text-xs text-muted-foreground">Type: {getTypeLabel(customizingTemplate.type)}</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="customize-subject">Subject *</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="customize-subject">Subject *</Label>
+                  {renderSubjectVarDropdown(true)}
+                </div>
                 <Input
+                  ref={customizeSubjectRef}
                   id="customize-subject"
                   value={customizeData.subject}
                   onChange={(e) => setCustomizeData({ ...customizeData, subject: e.target.value })}
@@ -665,32 +609,39 @@ export default function EmailTemplatesPage() {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Email Body *</Label>
-                  <div className="flex border rounded-md">
-                    <Button type="button" variant={customizeBodyViewMode === "edit" ? "default" : "ghost"} size="sm" onClick={() => setCustomizeBodyViewMode("edit")} className="rounded-r-none border-r">
-                      <Code className="w-4 h-4 mr-2" />Edit
-                    </Button>
-                    <Button type="button" variant={customizeBodyViewMode === "preview" ? "default" : "ghost"} size="sm" onClick={() => setCustomizeBodyViewMode("preview")} className="rounded-l-none">
-                      <Eye className="w-4 h-4 mr-2" />Preview
-                    </Button>
+                  <div className="flex rounded-md border border-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setCustomizeBodyTab('edit')}
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${customizeBodyTab === 'edit' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                    >Edit</button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomizeBodyTab('preview')}
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-border flex items-center gap-1.5 ${customizeBodyTab === 'preview' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                    ><Eye className="h-3 w-3" />Preview</button>
                   </div>
+                  {customizeBodyTab === 'edit' && renderVarDropdown(true)}
                 </div>
-                {customizeBodyViewMode === "edit" ? (
-                  <div className="rounded-md border border-input overflow-hidden">
-                    {renderToolbar(true)}
-                    <div
-                      ref={customizeEditorRef}
-                      contentEditable
-                      suppressContentEditableWarning
-                      className="min-h-[360px] w-full bg-background px-3 py-3 text-sm focus:outline-none [&_b]:font-bold [&_i]:italic [&_u]:underline [&_s]:line-through"
-                      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                      onInput={() => setCustomizeData((prev) => ({ ...prev, body: customizeEditorRef.current?.innerHTML ?? prev.body }))}
+                {customizeBodyTab === 'edit' ? (
+                  <Textarea
+                    ref={customizeEditorRef}
+                    value={customizeData.body}
+                    onChange={(e) => setCustomizeData((prev) => ({ ...prev, body: e.target.value }))}
+                    placeholder="Write your email body here. Use variables like {{client_name}} or click 'Insert Variable'."
+                    className="min-h-[300px] font-mono text-sm resize-y"
+                  />
+                ) : (
+                  <div className="rounded-md border border-border overflow-hidden" style={{ height: 300 }}>
+                    <iframe
+                      srcDoc={previewEmailTemplate(customizeData.body, customizeData.subject || 'Preview')}
+                      title="Email preview"
+                      className="w-full h-full border-0"
                     />
                   </div>
-                ) : (
-                  <div className="border rounded-md p-4 bg-white min-h-[300px] max-h-[500px] overflow-auto">
-                    <div dangerouslySetInnerHTML={{ __html: previewEmailTemplate(customizeData.body, customizeData.subject) }} style={{ transform: 'scale(0.8)', transformOrigin: 'top left', width: '125%' }} />
-                  </div>
+                )}
+                {customizeBodyTab === 'edit' && (
+                  <p className="text-xs text-muted-foreground">Plain text with line breaks. Use the variable picker to insert dynamic values.</p>
                 )}
               </div>
             </div>
@@ -709,6 +660,7 @@ export default function EmailTemplatesPage() {
         if (!open) {
           setEditingTemplate(null)
           setFormData({ name: "", category: EmailTemplateCategory.SERVICE, type: EmailTemplateType.GST_FILING, subject: "", body: "" })
+          setBodyTab('edit')
         }
       }}>
         <DialogContent className="max-w-[95vw] sm:max-w-[900px] max-h-[95vh] overflow-y-auto">
@@ -757,38 +709,48 @@ export default function EmailTemplatesPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="template-subject">Subject *</Label>
-              <Input id="template-subject" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} placeholder="Enter email subject" />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="template-subject">Subject *</Label>
+                {renderSubjectVarDropdown(false)}
+              </div>
+              <Input ref={subjectRef} id="template-subject" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} placeholder="Enter email subject" />
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Email Body *</Label>
-                <div className="flex border rounded-md">
-                  <Button type="button" variant={bodyViewMode === "edit" ? "default" : "ghost"} size="sm" onClick={() => setBodyViewMode("edit")} className="rounded-r-none border-r">
-                    <Code className="w-4 h-4 mr-2" />Edit
-                  </Button>
-                  <Button type="button" variant={bodyViewMode === "preview" ? "default" : "ghost"} size="sm" onClick={() => setBodyViewMode("preview")} className="rounded-l-none">
-                    <Eye className="w-4 h-4 mr-2" />Preview
-                  </Button>
+                <div className="flex rounded-md border border-border overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setBodyTab('edit')}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${bodyTab === 'edit' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                  >Edit</button>
+                  <button
+                    type="button"
+                    onClick={() => setBodyTab('preview')}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-border flex items-center gap-1.5 ${bodyTab === 'preview' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+                  ><Eye className="h-3 w-3" />Preview</button>
                 </div>
+                {bodyTab === 'edit' && renderVarDropdown(false)}
               </div>
-              {bodyViewMode === "edit" ? (
-                <div className="rounded-md border border-input overflow-hidden">
-                  {renderToolbar(false)}
-                  <div
-                    ref={editorRef}
-                    contentEditable
-                    suppressContentEditableWarning
-                    className="min-h-[360px] w-full bg-background px-3 py-3 text-sm focus:outline-none [&_b]:font-bold [&_i]:italic [&_u]:underline [&_s]:line-through"
-                    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                    onInput={() => setFormData((prev) => ({ ...prev, body: editorRef.current?.innerHTML ?? prev.body }))}
+              {bodyTab === 'edit' ? (
+                <Textarea
+                  ref={editorRef}
+                  value={formData.body}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, body: e.target.value }))}
+                  placeholder="Write your email body here. Use variables like {{client_name}} or click 'Insert Variable'."
+                  className="min-h-[300px] font-mono text-sm resize-y"
+                />
+              ) : (
+                <div className="rounded-md border border-border overflow-hidden" style={{ height: 300 }}>
+                  <iframe
+                    srcDoc={previewEmailTemplate(formData.body, formData.subject || 'Preview')}
+                    title="Email preview"
+                    className="w-full h-full border-0"
                   />
                 </div>
-              ) : (
-                <div className="border rounded-md p-4 bg-white min-h-[300px] max-h-[500px] overflow-auto">
-                  <div dangerouslySetInnerHTML={{ __html: previewEmailTemplate(formData.body, formData.subject) }} style={{ transform: 'scale(0.8)', transformOrigin: 'top left', width: '125%' }} />
-                </div>
+              )}
+              {bodyTab === 'edit' && (
+                <p className="text-xs text-muted-foreground">Plain text with line breaks. Use the variable picker to insert dynamic values.</p>
               )}
             </div>
           </div>
@@ -816,8 +778,13 @@ export default function EmailTemplatesPage() {
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">Email Preview:</Label>
-                <div className="border rounded-md p-4 bg-white overflow-auto" style={{ maxHeight: 'calc(90vh - 250px)' }}>
-                  <div dangerouslySetInnerHTML={{ __html: previewEmailTemplate(previewTemplate.body, previewTemplate.subject) }} style={{ transform: 'scale(0.8)', transformOrigin: 'top left', width: '125%' }} />
+                <div className="border rounded-md bg-white overflow-auto" style={{ maxHeight: 'calc(90vh - 250px)' }}>
+                  <iframe
+                    srcDoc={previewEmailTemplate(previewTemplate.body, previewTemplate.subject)}
+                    title="Email preview"
+                    className="w-full border-0"
+                    style={{ minHeight: 300, height: 'calc(90vh - 260px)' }}
+                  />
                 </div>
               </div>
             </div>
