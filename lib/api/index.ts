@@ -200,21 +200,25 @@ export {
   getUserById,
 } from './users';
 
-// Compatibility: master admin user APIs (backend: GET/POST only for users)
+// Compatibility: master admin user APIs
 export {
   listUsers as masterAdminGetUsers,
   getUserById as masterAdminGetUserById,
   createEmployee as masterAdminCreateUser,
 } from './users';
 export async function masterAdminUpdateUser(
-  _id: number,
-  _data: Record<string, unknown>
-): Promise<never> {
-  throw new Error('PATCH /users/:id not in backend - add if needed');
+  id: number,
+  data: { name?: string; phone?: string }
+): Promise<unknown> {
+  const { apiRequestWithRefresh } = await import('./interceptor');
+  const { API_CONFIG } = await import('./config');
+  return apiRequestWithRefresh(API_CONFIG.endpoints.users.byId(id), {
+    method: 'PATCH',
+    body: data,
+    requiresAuth: true,
+  });
 }
-export async function masterAdminDeleteUser(_id: number): Promise<never> {
-  throw new Error('DELETE /users/:id not in backend - add if needed');
-}
+export { deleteUser as masterAdminDeleteUser } from './master-admin';
 
 // Client APIs
 export {
@@ -367,6 +371,23 @@ export async function getScheduledEmails(
   });
   return { scheduled_emails, total: scheduled_emails.length };
 }
+
+// Master Admin APIs
+export {
+  getMasterAdminStats,
+  getMasterAdminActivity,
+  getMasterAdminAnalytics,
+  getMasterAdminNotifications,
+  getActivityLogs,
+  downloadMasterAdminCsv,
+  deleteUser,
+  type MasterAdminStats,
+  type ActivityEvent,
+  type ActivityLog,
+  type ActivityLogsResponse,
+  type MasterAdminAnalytics,
+  type MasterAdminNotification,
+} from './master-admin';
 
 // Health Check
 export { healthCheck } from './health';

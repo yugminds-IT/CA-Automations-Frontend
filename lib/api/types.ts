@@ -314,6 +314,7 @@ export interface EmailTemplate {
   body: string;
   /** null = global (master admin created); number = org-specific */
   organizationId?: number | null;
+  organization?: { id: number; name: string } | null;
   [key: string]: unknown;
 }
 

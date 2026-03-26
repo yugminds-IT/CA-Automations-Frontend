@@ -406,42 +406,48 @@ export default function MasterAdminOrganizations() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+          <p className="text-sm text-[#64748B]">Verifying access…</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar 
-        mobileMenuOpen={mobileMenuOpen} 
+    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0A0F1E] text-foreground overflow-hidden">
+      <MasterAdminSidebar
+        mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
         collapsed={sidebarCollapsed}
       />
-      <div 
+      <div
         className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ 
+        style={{
           marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '240px') : '0',
           width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)') : '100%',
         }}
       >
-        <MasterAdminHeader 
+        <MasterAdminHeader
           onMenuClick={() => setMobileMenuOpen(true)}
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
-          <div className="p-4 sm:p-6 space-y-6">
+        <div className="overflow-auto" style={{ height: "calc(100vh - 56px)", marginTop: "56px" }}>
+          <div className="p-6 space-y-6 max-w-7xl mx-auto">
+            {/* ── Page Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-foreground">Organizations</h1>
-                <p className="text-muted-foreground mt-1">Manage all organizations and create admins</p>
+                <h1 className="text-2xl font-bold text-[#0F172A] dark:text-white">Organizations</h1>
+                <p className="text-sm text-[#64748B] mt-1">
+                  {isLoadingOrgs ? "Loading…" : `${organizations.length} organization${organizations.length !== 1 ? "s" : ""} registered`}
+                </p>
               </div>
               <div className="flex gap-2">
                 <Dialog open={createAdminDialogOpen} onOpenChange={handleDialogClose}>
                   <DialogTrigger asChild>
-                    <Button variant="default" className="bg-purple-600 hover:bg-purple-700">
+                    <Button variant="default" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white">
                       <UserPlus className="w-4 h-4 mr-2" />
                       Create Admin
                     </Button>
@@ -449,7 +455,7 @@ export default function MasterAdminOrganizations() {
                   <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
-                        <Shield className="h-5 w-5 text-purple-600" />
+                        <Shield className="h-5 w-5 text-[#2563EB]" />
                         Create Organization Admin
                       </DialogTitle>
                       <DialogDescription>
@@ -530,7 +536,7 @@ export default function MasterAdminOrganizations() {
                       <Button
                         onClick={handleCreateAdmin}
                         disabled={isCreatingAdmin || !selectedOrgId || !adminFormData.email || !adminFormData.password}
-                        className="bg-purple-600 hover:bg-purple-700"
+                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                       >
                         {isCreatingAdmin ? "Creating..." : "Create Admin"}
                       </Button>
@@ -547,7 +553,7 @@ export default function MasterAdminOrganizations() {
                   <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-purple-600" />
+                        <Building2 className="h-5 w-5 text-[#2563EB]" />
                         Add New Organization
                       </DialogTitle>
                       <DialogDescription>
@@ -619,7 +625,7 @@ export default function MasterAdminOrganizations() {
                       <Button
                         onClick={handleAddOrganization}
                         disabled={isCreatingOrg || !orgFormData.name}
-                        className="bg-purple-600 hover:bg-purple-700"
+                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                       >
                         {isCreatingOrg ? "Creating..." : "Create Organization"}
                       </Button>
@@ -630,7 +636,7 @@ export default function MasterAdminOrganizations() {
                   <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
-                        <Edit className="h-5 w-5 text-purple-600" />
+                        <Edit className="h-5 w-5 text-[#2563EB]" />
                         Edit Organization
                       </DialogTitle>
                       <DialogDescription>
@@ -702,7 +708,7 @@ export default function MasterAdminOrganizations() {
                       <Button
                         onClick={handleUpdateOrganization}
                         disabled={isUpdatingOrg}
-                        className="bg-purple-600 hover:bg-purple-700"
+                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                       >
                         {isUpdatingOrg ? "Updating..." : "Update Organization"}
                       </Button>
@@ -712,87 +718,103 @@ export default function MasterAdminOrganizations() {
               </div>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  All Organizations
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoadingOrgs ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-muted-foreground">Loading organizations...</div>
-                  </div>
-                ) : (organizations ?? []).length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No organizations found</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>ID</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>City</TableHead>
-                          <TableHead>State</TableHead>
-                          <TableHead>Country</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(organizations ?? []).map((org) => (
-                          <TableRow key={org.id}>
-                            <TableCell className="font-medium">{org.id}</TableCell>
-                            <TableCell>{org.name}</TableCell>
-                            <TableCell>{org.city || "-"}</TableCell>
-                            <TableCell>{org.state || "-"}</TableCell>
-                            <TableCell>{org.country || "-"}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedOrgId(org.id)
-                                    setCreateAdminDialogOpen(true)
-                                  }}
-                                  className="text-purple-600 hover:text-purple-700"
-                                  disabled={isDeletingOrg}
-                                >
-                                  <UserPlus className="w-4 h-4 mr-1" />
-                                  Create Admin
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon-sm" 
-                                  className="h-8 w-8"
-                                  onClick={() => handleEditOrganization(org)}
-                                  disabled={isDeletingOrg}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon-sm" 
-                                  className="h-8 w-8"
-                                  onClick={() => handleDeleteOrganization(org.id)}
-                                  disabled={isDeletingOrg}
-                                >
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
+            {/* ── Organizations Table ── */}
+            <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-[#334155] flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white">All Organizations</h2>
+                <span className="text-xs text-[#94A3B8]">{(organizations ?? []).length} total</span>
+              </div>
+
+              {isLoadingOrgs ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <div className="w-6 h-6 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+                  <span className="text-sm text-[#94A3B8]">Loading organizations…</span>
+                </div>
+              ) : (organizations ?? []).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <Building2 className="h-10 w-10 text-[#CBD5E1]" />
+                  <p className="text-sm text-[#94A3B8]">No organizations found</p>
+                  <p className="text-xs text-[#CBD5E1]">Create your first organization to get started</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-[#F8FAFC] dark:bg-[#0F172A] hover:bg-[#F8FAFC] dark:hover:bg-[#0F172A]">
+                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide py-3">#</TableHead>
+                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Name</TableHead>
+                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">City</TableHead>
+                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">State</TableHead>
+                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Country</TableHead>
+                        <TableHead className="text-right text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(organizations ?? []).map((org, idx) => (
+                        <TableRow
+                          key={org.id}
+                          className={`${
+                            idx % 2 === 0
+                              ? "bg-white dark:bg-[#1E293B]"
+                              : "bg-[#F8FAFC] dark:bg-[#162032]"
+                          } hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] transition-colors`}
+                        >
+                          <TableCell className="text-[#94A3B8] text-xs font-mono py-3">{org.id}</TableCell>
+                          <TableCell className="font-semibold text-[#0F172A] dark:text-white text-sm">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 bg-[#EFF6FF] dark:bg-[#1E3A5F] rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Building2 className="w-3.5 h-3.5 text-[#2563EB]" />
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                              {org.name}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-[#64748B] dark:text-[#94A3B8]">{org.city || "—"}</TableCell>
+                          <TableCell className="text-sm text-[#64748B] dark:text-[#94A3B8]">{org.state || "—"}</TableCell>
+                          <TableCell className="text-sm text-[#64748B] dark:text-[#94A3B8]">{org.country || "—"}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedOrgId(org.id)
+                                  setCreateAdminDialogOpen(true)
+                                }}
+                                className="h-8 px-2.5 text-[11px] font-semibold text-[#2563EB] hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] transition-colors"
+                                disabled={isDeletingOrg}
+                              >
+                                <UserPlus className="w-3.5 h-3.5 mr-1" />
+                                Admin
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="h-8 w-8 hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] hover:text-[#2563EB] transition-colors"
+                                onClick={() => handleEditOrganization(org)}
+                                disabled={isDeletingOrg}
+                                title="Edit organization"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="h-8 w-8 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                                onClick={() => handleDeleteOrganization(org.id)}
+                                disabled={isDeletingOrg}
+                                title="Delete organization"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-[#94A3B8]" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

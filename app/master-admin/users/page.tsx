@@ -373,41 +373,47 @@ export default function MasterAdminUsers() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+          <p className="text-sm text-[#64748B]">Verifying access…</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar 
-        mobileMenuOpen={mobileMenuOpen} 
+    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0A0F1E] text-foreground overflow-hidden">
+      <MasterAdminSidebar
+        mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
         collapsed={sidebarCollapsed}
       />
-      <div 
+      <div
         className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ 
+        style={{
           marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '240px') : '0',
           width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)') : '100%',
         }}
       >
-        <MasterAdminHeader 
+        <MasterAdminHeader
           onMenuClick={() => setMobileMenuOpen(true)}
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
-          <div className="p-4 sm:p-6 space-y-6">
+        <div className="overflow-auto" style={{ height: "calc(100vh - 56px)", marginTop: "56px" }}>
+          <div className="p-6 space-y-6 max-w-7xl mx-auto">
+            {/* ── Page Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-                <p className="text-muted-foreground mt-1">Manage all system users</p>
+                <h1 className="text-2xl font-bold text-[#0F172A] dark:text-white">User Management</h1>
+                <p className="text-sm text-[#64748B] mt-1">
+                  {isLoadingUsers ? "Loading…" : `${displayUsers.length} user${displayUsers.length !== 1 ? "s" : ""} found`}
+                </p>
               </div>
               <Dialog open={addUserDialogOpen} onOpenChange={handleDialogClose}>
                 <DialogTrigger asChild>
-                  <Button className="bg-purple-600 hover:bg-purple-700">
+                  <Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Add User
                   </Button>
@@ -415,7 +421,7 @@ export default function MasterAdminUsers() {
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                      <UserPlus className="h-5 w-5 text-purple-600" />
+                      <UserPlus className="h-5 w-5 text-[#2563EB]" />
                       Create User
                     </DialogTitle>
                     <DialogDescription>
@@ -511,7 +517,7 @@ export default function MasterAdminUsers() {
                     <Button
                       onClick={handleCreateUser}
                       disabled={isCreatingUser || !selectedOrgId || !userFormData.email || !userFormData.password}
-                      className="bg-purple-600 hover:bg-purple-700"
+                      className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                     >
                       {isCreatingUser ? "Creating..." : "Create User"}
                     </Button>
@@ -522,7 +528,7 @@ export default function MasterAdminUsers() {
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                      <Edit className="h-5 w-5 text-purple-600" />
+                      <Edit className="h-5 w-5 text-[#2563EB]" />
                       Edit User
                     </DialogTitle>
                     <DialogDescription>
@@ -618,7 +624,7 @@ export default function MasterAdminUsers() {
                     <Button
                       onClick={handleUpdateUser}
                       disabled={isUpdatingUser || !selectedOrgId || !userFormData.email}
-                      className="bg-purple-600 hover:bg-purple-700"
+                      className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                     >
                       {isUpdatingUser ? "Updating..." : "Update User"}
                     </Button>
@@ -627,101 +633,147 @@ export default function MasterAdminUsers() {
               </Dialog>
             </div>
 
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <CardTitle>All Users</CardTitle>
-                  <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search users..."
-                      className="pl-9"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
+            {/* ── Filter + Search Bar ── */}
+            <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] p-4 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+                  <Input
+                    placeholder="Search by name, email or role…"
+                    className="pl-9 border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A] focus-visible:ring-[#2563EB]/30"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
+                <div className="w-full sm:w-52">
+                  <Select
+                    value={selectedOrgId?.toString() ?? "all"}
+                    onValueChange={(v) => setSelectedOrgId(v === "all" ? null : parseInt(v))}
+                    disabled={isLoadingOrgs}
+                  >
+                    <SelectTrigger className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]">
+                      <SelectValue placeholder="All organizations" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All organizations</SelectItem>
+                      {(organizations ?? []).map((org) => (
+                        <SelectItem key={org.id} value={org.id.toString()}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Users Table ── */}
+            <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-[#334155]">
+                <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white">All Users</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-[#F8FAFC] dark:bg-[#0F172A] hover:bg-[#F8FAFC] dark:hover:bg-[#0F172A]">
+                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide py-3">#</TableHead>
+                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Name</TableHead>
+                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Email</TableHead>
+                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Role</TableHead>
+                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Organization</TableHead>
+                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Status</TableHead>
+                      <TableHead className="text-right text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoadingUsers ? (
                       <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Organization</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Last Login</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableCell colSpan={7} className="text-center py-12">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-6 h-6 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+                            <span className="text-sm text-[#94A3B8]">Loading users…</span>
+                          </div>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {isLoadingUsers ? (
-                        <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                            Loading users...
-                          </TableCell>
-                        </TableRow>
-                      ) : displayUsers.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                            No users found
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        displayUsers.map((user) => {
-                          const org = (organizations ?? []).find((o) => o.id === (user.organizationId ?? (user as { org_id?: number }).org_id))
-                          const roleName = (typeof user.role === 'object' && user.role?.name) ?? (user as { roleName?: string }).roleName ?? (typeof user.role === 'string' ? user.role : null) ?? '-'
-                          return (
-                            <TableRow key={user.id}>
-                              <TableCell className="font-medium">{user.id}</TableCell>
-                              <TableCell>{(user.name ?? user.full_name) || "-"}</TableCell>
-                              <TableCell>{user.email}</TableCell>
-                              <TableCell>
-                                <span className="px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                                  {roleName}
-                                </span>
-                              </TableCell>
-                              <TableCell>{(org?.name ?? user.organization?.name) || "-"}</TableCell>
-                              <TableCell>
-                                <span className="px-2 py-1 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                                  Active
-                                </span>
-                              </TableCell>
-                              <TableCell>-</TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon-sm" 
-                                    className="h-8 w-8"
-                                    onClick={() => handleEditUser(user)}
-                                    disabled={isDeletingUser}
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon-sm" 
-                                    className="h-8 w-8"
-                                    onClick={() => handleDeleteUser(user.id)}
-                                    disabled={isDeletingUser}
-                                  >
-                                    <Trash2 className="w-4 h-4 text-destructive" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+                    ) : displayUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-12">
+                          <p className="text-sm text-[#94A3B8]">No users found</p>
+                          <p className="text-xs text-[#CBD5E1] mt-1">Try adjusting your search or filter</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      displayUsers.map((user, idx) => {
+                        const org = (organizations ?? []).find(
+                          (o) => o.id === (user.organizationId ?? (user as { org_id?: number }).org_id)
+                        )
+                        const roleName =
+                          (typeof user.role === "object" && user.role?.name) ??
+                          (user as { roleName?: string }).roleName ??
+                          (typeof user.role === "string" ? user.role : null) ??
+                          "-"
+                        return (
+                          <TableRow
+                            key={user.id}
+                            className={`${
+                              idx % 2 === 0
+                                ? "bg-white dark:bg-[#1E293B]"
+                                : "bg-[#F8FAFC] dark:bg-[#162032]"
+                            } hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] transition-colors`}
+                          >
+                            <TableCell className="text-[#94A3B8] text-xs font-mono py-3">{user.id}</TableCell>
+                            <TableCell className="font-medium text-[#0F172A] dark:text-white text-sm">
+                              {(user.name ?? user.full_name) || "—"}
+                            </TableCell>
+                            <TableCell className="text-[#64748B] dark:text-[#94A3B8] text-sm">
+                              {user.email}
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#EFF6FF] dark:bg-[#1E3A5F] text-[#2563EB]">
+                                {roleName}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-sm text-[#64748B] dark:text-[#94A3B8]">
+                              {(org?.name ?? user.organization?.name) || "—"}
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#F0FDF4] dark:bg-green-900/30 text-[#22C55E]">
+                                <span className="w-1.5 h-1.5 bg-[#22C55E] rounded-full" />
+                                Active
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="h-8 w-8 hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] hover:text-[#2563EB] transition-colors"
+                                  onClick={() => handleEditUser(user)}
+                                  disabled={isDeletingUser}
+                                  title="Edit user"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="h-8 w-8 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  disabled={isDeletingUser}
+                                  title="Delete user"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-[#94A3B8]" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
           </div>
         </div>
       </div>

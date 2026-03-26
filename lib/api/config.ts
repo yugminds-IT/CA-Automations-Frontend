@@ -6,6 +6,7 @@ export const API_CONFIG = {
   endpoints: {
     auth: {
       login: '/auth/login',
+      logout: '/auth/logout',
       refresh: '/auth/refresh',
       me: '/auth/me',
       roles: '/auth/roles',
@@ -63,6 +64,15 @@ export const API_CONFIG = {
       schedule: '/mail-management/schedule',
       schedules: '/mail-management/schedules',
       scheduleById: (id: number | string) => `/mail-management/schedules/${id}`,
+    },
+    masterAdmin: {
+      stats: '/master-admin/stats',
+      activity: '/master-admin/activity',
+      activityLogs: '/master-admin/activity-logs',
+      analytics: '/master-admin/analytics',
+      notifications: '/master-admin/notifications',
+      exportUsers: '/master-admin/export/users',
+      exportOrganizations: '/master-admin/export/organizations',
     },
     health: '/',
   },

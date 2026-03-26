@@ -1,17 +1,16 @@
 "use client"
 
 /**
- * Master Admin Sidebar Component
- * 
- * This sidebar is specifically designed for Master Admin users
- * with different menu items and styling compared to regular admin sidebar.
+ * Master Admin Sidebar Component - Redesigned
+ *
+ * Clean, dark enterprise sidebar with Professional Blue (#2563EB) active state,
+ * grouped navigation with section labels, and smooth collapse/expand behavior.
  */
 
 import {
   LayoutDashboard,
   Settings,
   Bell,
-  Menu,
   Users,
   Shield,
   Building2,
@@ -19,6 +18,7 @@ import {
   FileText,
   BarChart3,
   Mail,
+  ChevronRight,
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState } from "react"
@@ -29,7 +29,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { getUserData } from "@/lib/api/index"
 
 interface MasterAdminSidebarProps {
   mobileMenuOpen?: boolean
@@ -37,138 +36,193 @@ interface MasterAdminSidebarProps {
   collapsed?: boolean
 }
 
-export function MasterAdminSidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuOpen: setExternalMobileMenuOpen, collapsed = false }: MasterAdminSidebarProps = {}) {
+const menuGroups = [
+  {
+    label: "Overview",
+    items: [
+      { icon: LayoutDashboard, label: "Dashboard", path: "/master-admin" },
+    ],
+  },
+  {
+    label: "Management",
+    items: [
+      { icon: Users, label: "User Management", path: "/master-admin/users" },
+      { icon: Building2, label: "Organizations", path: "/master-admin/organizations" },
+      { icon: Mail, label: "Email Templates", path: "/master-admin/email-templates" },
+    ],
+  },
+  {
+    label: "Monitoring",
+    items: [
+      { icon: Activity, label: "System Activity", path: "/master-admin/activity" },
+      { icon: BarChart3, label: "Analytics", path: "/master-admin/analytics" },
+      { icon: FileText, label: "Reports", path: "/master-admin/reports" },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { icon: Bell, label: "Notifications", path: "/master-admin/notifications" },
+      { icon: Settings, label: "Settings", path: "/master-admin/settings" },
+    ],
+  },
+]
+
+const allItems = menuGroups.flatMap((g) => g.items)
+
+export function MasterAdminSidebar({
+  mobileMenuOpen: externalMobileMenuOpen,
+  setMobileMenuOpen: setExternalMobileMenuOpen,
+  collapsed = false,
+}: MasterAdminSidebarProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const [internalMobileMenuOpen, setInternalMobileMenuOpen] = useState(false)
-  const user = getUserData()
-  
-  const mobileMenuOpen = externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen
+
+  const mobileMenuOpen =
+    externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen
   const setMobileMenuOpen = setExternalMobileMenuOpen || setInternalMobileMenuOpen
 
-  // Master Admin specific menu items
-  const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/master-admin" },
-    { icon: Users, label: "User Management", path: "/master-admin/users" },
-    { icon: Building2, label: "Organizations", path: "/master-admin/organizations" },
-    { icon: Mail, label: "Email Templates", path: "/master-admin/email-templates" },
-    { icon: Activity, label: "System Activity", path: "/master-admin/activity" },
-    { icon: BarChart3, label: "Analytics", path: "/master-admin/analytics" },
-    { icon: FileText, label: "Reports", path: "/master-admin/reports" },
-    { icon: Bell, label: "Notifications", path: "/master-admin/notifications" },
-    { icon: Settings, label: "Settings", path: "/master-admin/settings" },
-  ]
-
   const getActivePage = () => {
-    const exactMatch = menuItems.find(item => item.path === pathname)
+    const exactMatch = allItems.find((item) => item.path === pathname)
     if (exactMatch) return exactMatch.label
-    
-    const pathMatch = menuItems.find(item => pathname.startsWith(item.path) && item.path !== '/master-admin')
+    const pathMatch = allItems.find(
+      (item) => pathname.startsWith(item.path) && item.path !== "/master-admin"
+    )
     if (pathMatch) return pathMatch.label
-    
     return "Dashboard"
   }
-  
+
   const activePage = getActivePage()
 
+  const renderNavItem = (
+    item: (typeof allItems)[0],
+    isCollapsed: boolean
+  ) => {
+    const isActive = activePage === item.label
+    const button = (
+      <button
+        onClick={() => {
+          setMobileMenuOpen(false)
+          router.push(item.path)
+        }}
+        className={`w-full flex items-center ${
+          isCollapsed ? "justify-center px-2" : "gap-3 px-3"
+        } py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+          isActive
+            ? "bg-[#2563EB] text-white shadow-sm"
+            : "text-[#94A3B8] hover:bg-[#1E293B] hover:text-white"
+        }`}
+      >
+        <item.icon
+          className={`w-4 h-4 flex-shrink-0 ${
+            isActive ? "text-white" : "text-[#64748B]"
+          }`}
+        />
+        {!isCollapsed && <span className="truncate">{item.label}</span>}
+        {!isCollapsed && isActive && (
+          <ChevronRight className="w-3 h-3 ml-auto text-white/70 flex-shrink-0" />
+        )}
+      </button>
+    )
+
+    if (isCollapsed) {
+      return (
+        <Tooltip key={item.label}>
+          <TooltipTrigger asChild>
+            <div className="w-full">{button}</div>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">
+            {item.label}
+          </TooltipContent>
+        </Tooltip>
+      )
+    }
+
+    return <div key={item.label}>{button}</div>
+  }
+
   const renderMenuItems = (isCollapsed: boolean = false) => (
-    <>
-      <nav className="flex-1 py-2 sm:py-4 overflow-y-auto">
-        {menuItems.map((item) => {
-          const isActive = activePage === item.label
-          const menuItem = (
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false)
-                router.push(item.path)
-              }}
-              className={`w-full ${isCollapsed ? 'px-2 justify-center' : 'px-3 sm:px-4'} py-2.5 sm:py-3 flex items-center ${isCollapsed ? '' : 'gap-2 sm:gap-3'} text-xs sm:text-[13px] font-medium transition-colors ${
-                isActive
-                  ? "bg-gradient-to-r from-slate-600 to-slate-700 dark:from-purple-800 dark:to-indigo-800 text-white border-l-4 border-amber-400 dark:border-yellow-400"
-                  : "text-sidebar-foreground hover:bg-slate-100 dark:hover:bg-purple-900/30 hover:text-slate-700 dark:hover:text-purple-300"
-              }`}
-            >
-              <item.icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-              {!isCollapsed && <span className="truncate">{item.label}</span>}
-            </button>
-          )
-
-          if (isCollapsed) {
-            return (
-              <Tooltip key={item.label}>
-                <TooltipTrigger asChild>
-                  <div className="w-full">
-                    {menuItem}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>{item.label}</p>
-                </TooltipContent>
-              </Tooltip>
-            )
-          }
-
-          return (
-            <div key={item.label}>
-              {menuItem}
+    <nav className="flex-1 overflow-y-auto py-3">
+      {isCollapsed ? (
+        <div className="px-2 space-y-1">
+          {allItems.map((item) => renderNavItem(item, true))}
+        </div>
+      ) : (
+        menuGroups.map((group) => (
+          <div key={group.label} className="mb-4">
+            <div className="px-4 py-1">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">
+                {group.label}
+              </span>
             </div>
-          )
-        })}
-      </nav>
-    </>
+            <div className="px-2 space-y-0.5">
+              {group.items.map((item) => renderNavItem(item, false))}
+            </div>
+          </div>
+        ))
+      )}
+    </nav>
+  )
+
+  const brandSection = (isCollapsed: boolean) => (
+    <div
+      className={`${
+        isCollapsed ? "p-3" : "px-4 py-5"
+      } border-b border-[#1E293B] flex-shrink-0`}
+    >
+      <div
+        className={`flex items-center ${
+          isCollapsed ? "justify-center" : "gap-3"
+        }`}
+      >
+        <div className="w-8 h-8 bg-[#2563EB] rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20">
+          <Shield className="w-4 h-4 text-white" />
+        </div>
+        {!isCollapsed && (
+          <div className="min-w-0">
+            <h1 className="text-sm font-bold text-white truncate">Master Admin</h1>
+            <p className="text-[10px] text-[#64748B] font-medium">System Control Panel</p>
+          </div>
+        )}
+      </div>
+    </div>
   )
 
   return (
     <>
-      {/* Mobile/Tablet Menu Sheet */}
+      {/* Mobile Sheet */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="right" className="bg-gradient-to-b from-slate-50 to-slate-100 dark:from-purple-950 dark:to-indigo-950 text-sidebar-foreground w-[280px] xs:w-[300px] sm:w-[320px] md:w-[340px] p-0">
-          <SheetHeader className="p-4 sm:p-6 border-b border-slate-300 dark:border-purple-800">
-            <SheetTitle className="flex items-center gap-2 sm:gap-3">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-slate-600 to-slate-700 dark:from-purple-600 dark:to-indigo-600 rounded flex items-center justify-center text-white font-bold flex-shrink-0">
-                <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold truncate">Master Admin</h1>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">System Control</p>
-              </div>
-            </SheetTitle>
+        <SheetContent
+          side="left"
+          className="bg-[#0F172A] text-white w-[260px] p-0 border-r border-[#1E293B]"
+        >
+          <SheetHeader className="p-0">
+            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
           </SheetHeader>
-          <div className="flex flex-col h-[calc(100vh-100px)] sm:h-[calc(100vh-120px)] px-2 sm:px-3 overflow-y-auto">
-            {renderMenuItems()}
+          {brandSection(false)}
+          <div className="flex flex-col h-[calc(100vh-73px)] overflow-y-auto">
+            {renderMenuItems(false)}
           </div>
         </SheetContent>
       </Sheet>
 
-      {/* Desktop: Sidebar on the left */}
+      {/* Desktop Sidebar */}
       <aside
-        className="hidden lg:flex bg-gradient-to-b from-slate-50 to-slate-100 dark:from-purple-950 dark:to-indigo-950 text-sidebar-foreground flex-col border-r border-slate-300 dark:border-purple-800 m-0 py-0 h-screen fixed top-0 bottom-0 left-0 transition-all duration-300 shadow-lg"
-        style={{ 
-          width: collapsed ? "60px" : "240px",
-          minWidth: collapsed ? "60px" : "200px",
-          maxWidth: collapsed ? "60px" : "280px",
-          paddingLeft: collapsed ? "0" : "0.5rem",
-          paddingRight: collapsed ? "0" : "0.5rem"
-        }}
+        className="hidden lg:flex bg-[#0F172A] flex-col border-r border-[#1E293B] h-screen fixed top-0 bottom-0 left-0 transition-all duration-300 z-40"
+        style={{ width: collapsed ? "60px" : "240px" }}
       >
-        {/* Header */}
-        <div className={`${collapsed ? 'p-2' : 'p-4 xl:p-6'} border-b border-slate-300 dark:border-purple-800 flex-shrink-0`}>
-          <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2 sm:gap-3'}`}>
-            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-slate-600 to-slate-700 dark:from-purple-600 dark:to-indigo-600 rounded flex items-center justify-center text-white font-bold flex-shrink-0">
-              <Shield className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            {!collapsed && (
-              <div className="min-w-0">
-                <h1 className="text-lg xl:text-xl font-bold truncate">Master Admin</h1>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">System Control</p>
-              </div>
-            )}
-          </div>
-        </div>
-
+        {brandSection(collapsed)}
         {renderMenuItems(collapsed)}
+
+        {/* Footer */}
+        {!collapsed && (
+          <div className="px-4 py-3 border-t border-[#1E293B] flex-shrink-0">
+            <p className="text-[10px] text-[#475569] font-medium">CA Automations v1.0</p>
+            <p className="text-[10px] text-[#334155]">yugminds × navedhana</p>
+          </div>
+        )}
       </aside>
     </>
   )
 }
-

@@ -51,7 +51,7 @@ import {
   RefreshCw,
   ChevronDown,
 } from "lucide-react"
-import { Textarea } from "@/components/ui/textarea"
+import { RichTextarea, type RichTextareaRef } from "@/components/ui/rich-textarea"
 import { previewEmailTemplate } from "@/lib/utils/email-template"
 
 // ─── Grouped template variables ─────────────────────────────────────────────
@@ -127,9 +127,9 @@ export default function EmailTemplatesPage() {
   const [bodyTab, setBodyTab] = useState<'edit' | 'preview'>('edit')
   const [customizeBodyTab, setCustomizeBodyTab] = useState<'edit' | 'preview'>('edit')
 
-  // Textarea refs for variable insertion
-  const editorRef = useRef<HTMLTextAreaElement | null>(null)
-  const customizeEditorRef = useRef<HTMLTextAreaElement | null>(null)
+  // Editor refs for variable insertion
+  const editorRef = useRef<RichTextareaRef | null>(null)
+  const customizeEditorRef = useRef<RichTextareaRef | null>(null)
   const subjectRef = useRef<HTMLInputElement | null>(null)
   const customizeSubjectRef = useRef<HTMLInputElement | null>(null)
   const varDropdownRef = useRef<HTMLDivElement | null>(null)
@@ -144,18 +144,6 @@ export default function EmailTemplatesPage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  // Strip HTML tags from old template bodies for plain-text editing
-  const stripHtmlToPlainText = (html: string): string => {
-    if (!html || !/<[a-z]/i.test(html)) return html
-    return html
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n')
-      .replace(/<\/div>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'")
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
-  }
 
   // ─── Close dropdowns on outside click ────────────────────────────────────
   useEffect(() => {
@@ -216,10 +204,12 @@ export default function EmailTemplatesPage() {
   }
 
   const insertVar = (varStr: string) => {
-    if (editorRef.current) insertAtCursor(editorRef.current, varStr, formData.body, (v) => setFormData((p) => ({ ...p, body: v })), () => setVarDropdownOpen(false))
+    editorRef.current?.insert(varStr)
+    setVarDropdownOpen(false)
   }
   const customizeInsertVar = (varStr: string) => {
-    if (customizeEditorRef.current) insertAtCursor(customizeEditorRef.current, varStr, customizeData.body, (v) => setCustomizeData((p) => ({ ...p, body: v })), () => setCustomizeVarDropdownOpen(false))
+    customizeEditorRef.current?.insert(varStr)
+    setCustomizeVarDropdownOpen(false)
   }
   const insertVarToSubject = (varStr: string) => {
     if (subjectRef.current) insertAtCursor(subjectRef.current, varStr, formData.subject, (v) => setFormData((p) => ({ ...p, subject: v })), () => setSubjectVarDropdownOpen(false))
@@ -249,13 +239,13 @@ export default function EmailTemplatesPage() {
 
   const handleCustomize = (template: EmailTemplate) => {
     setCustomizingTemplate(template)
-    setCustomizeData({ subject: template.subject, body: stripHtmlToPlainText(template.body) })
+    setCustomizeData({ subject: template.subject, body: template.body })
     setCustomizeDialogOpen(true)
   }
 
   const handleEdit = (template: EmailTemplate) => {
     setEditingTemplate(template)
-    setFormData({ name: template.name, category: template.category as TemplateCategory, type: template.type, subject: template.subject, body: stripHtmlToPlainText(template.body) })
+    setFormData({ name: template.name, category: template.category as TemplateCategory, type: template.type, subject: template.subject, body: template.body })
     setEditDialogOpen(true)
   }
 
@@ -432,7 +422,7 @@ export default function EmailTemplatesPage() {
       dropOpen={isCustomize ? customizeSubjectVarDropdownOpen : subjectVarDropdownOpen}
       setOpen={isCustomize ? setCustomizeSubjectVarDropdownOpen : setSubjectVarDropdownOpen}
       onVar={isCustomize ? customizeInsertVarToSubject : insertVarToSubject}
-      label="{{x}}"
+      label="Variable"
     />
   )
 
@@ -583,7 +573,7 @@ export default function EmailTemplatesPage() {
 
       {/* ─── Customize Dialog ──────────────────────────────────────────────── */}
       <Dialog open={customizeDialogOpen} onOpenChange={(open) => { setCustomizeDialogOpen(open); if (!open) setCustomizeBodyTab('edit') }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-[800px] max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Customize Template for Your Organization</DialogTitle>
             <DialogDescription>Customize this default template. Changes only affect your organization.</DialogDescription>
@@ -624,12 +614,12 @@ export default function EmailTemplatesPage() {
                   {customizeBodyTab === 'edit' && renderVarDropdown(true)}
                 </div>
                 {customizeBodyTab === 'edit' ? (
-                  <Textarea
+                  <RichTextarea
                     ref={customizeEditorRef}
                     value={customizeData.body}
-                    onChange={(e) => setCustomizeData((prev) => ({ ...prev, body: e.target.value }))}
+                    onChange={(v) => setCustomizeData((prev) => ({ ...prev, body: v }))}
                     placeholder="Write your email body here. Use variables like {{client_name}} or click 'Insert Variable'."
-                    className="min-h-[300px] font-mono text-sm resize-y"
+                    rows={14}
                   />
                 ) : (
                   <div className="rounded-md border border-border overflow-hidden" style={{ height: 300 }}>
@@ -663,22 +653,22 @@ export default function EmailTemplatesPage() {
           setBodyTab('edit')
         }
       }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[900px] max-h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-[900px] max-h-[95vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{editingTemplate ? "Edit Template" : "Create Template"}</DialogTitle>
             <DialogDescription>{editingTemplate ? "Update the email template" : "Create a new email template for your organization"}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {!editingTemplate ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="template-name">Template Name *</Label>
-                  <Input id="template-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Enter template name" />
+                  <Input id="template-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Enter template name" className="h-9" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="template-category">Category *</Label>
                   <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value as EmailTemplateCategory, type: getDefaultTypeForCategory(value as EmailTemplateCategory) })}>
-                    <SelectTrigger id="template-category"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="template-category" className="h-9 w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {Object.values(EmailTemplateCategory).map((cat) => (
                         <SelectItem key={cat} value={cat}>{getCategoryLabel(cat)}</SelectItem>
@@ -689,7 +679,7 @@ export default function EmailTemplatesPage() {
                 <div className="space-y-2">
                   <Label htmlFor="template-type">Type *</Label>
                   <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as EmailTemplateTypeValue })}>
-                    <SelectTrigger id="template-type"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="template-type" className="h-9 w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {Object.values(EmailTemplateType).filter((type) => {
                         const defaultTemplate = DEFAULT_EMAIL_TEMPLATES.find((t) => t.type === type)
@@ -704,7 +694,7 @@ export default function EmailTemplatesPage() {
             ) : (
               <div className="space-y-2">
                 <Label htmlFor="template-name">Template Name *</Label>
-                <Input id="template-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Enter template name" />
+                <Input id="template-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Enter template name" className="h-9" />
               </div>
             )}
 
@@ -733,12 +723,12 @@ export default function EmailTemplatesPage() {
                 {bodyTab === 'edit' && renderVarDropdown(false)}
               </div>
               {bodyTab === 'edit' ? (
-                <Textarea
+                <RichTextarea
                   ref={editorRef}
                   value={formData.body}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, body: e.target.value }))}
+                  onChange={(v) => setFormData((prev) => ({ ...prev, body: v }))}
                   placeholder="Write your email body here. Use variables like {{client_name}} or click 'Insert Variable'."
-                  className="min-h-[300px] font-mono text-sm resize-y"
+                  rows={14}
                 />
               ) : (
                 <div className="rounded-md border border-border overflow-hidden" style={{ height: 300 }}>

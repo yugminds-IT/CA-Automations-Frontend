@@ -1,6 +1,23 @@
 "use client"
 
-import { User as UserIcon, Menu, HelpCircle, LogOut, Sun, Moon, PanelLeft, Shield } from "lucide-react"
+/**
+ * Master Admin Header - Redesigned
+ *
+ * Clean white sticky header with global search, notification bell,
+ * theme toggle, and profile section. Uses #2563EB Professional Blue accent.
+ */
+
+import {
+  LogOut,
+  Sun,
+  Moon,
+  PanelLeft,
+  Shield,
+  Search,
+  Bell,
+  ChevronDown,
+  Menu,
+} from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, getOrganizationData, logout } from "@/lib/api/index"
@@ -13,7 +30,11 @@ interface MasterAdminHeaderProps {
   sidebarCollapsed?: boolean
 }
 
-export function MasterAdminHeader({ onMenuClick, onSidebarToggle, sidebarCollapsed = false }: MasterAdminHeaderProps) {
+export function MasterAdminHeader({
+  onMenuClick,
+  onSidebarToggle,
+  sidebarCollapsed = false,
+}: MasterAdminHeaderProps) {
   const router = useRouter()
   const { theme, toggleTheme } = useTheme()
   const [user, setUser] = useState<User | null>(null)
@@ -24,152 +45,157 @@ export function MasterAdminHeader({ onMenuClick, onSidebarToggle, sidebarCollaps
   const loadUserData = () => {
     const userData = getUserData()
     const orgData = getOrganizationData()
-    if (userData) {
-      setUser(userData)
-    }
-    if (orgData) {
-      setOrganization(orgData)
-    }
+    if (userData) setUser(userData)
+    if (orgData) setOrganization(orgData)
   }
 
   useEffect(() => {
     setMounted(true)
     loadUserData()
 
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
+    const checkIsDesktop = () => setIsDesktop(window.innerWidth >= 1024)
     checkIsDesktop()
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'user_data' || e.key === 'organization_data') {
-        loadUserData()
-      }
+      if (e.key === "user_data" || e.key === "organization_data") loadUserData()
     }
 
-    const handleCustomStorage = () => {
-      loadUserData()
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-    window.addEventListener('userDataUpdated', handleCustomStorage)
-    window.addEventListener('resize', checkIsDesktop)
-
-    const handleFocus = () => {
-      loadUserData()
-    }
-    window.addEventListener('focus', handleFocus)
+    window.addEventListener("storage", handleStorageChange)
+    window.addEventListener("userDataUpdated", loadUserData)
+    window.addEventListener("resize", checkIsDesktop)
+    window.addEventListener("focus", loadUserData)
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('userDataUpdated', handleCustomStorage)
-      window.removeEventListener('resize', checkIsDesktop)
-      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("userDataUpdated", loadUserData)
+      window.removeEventListener("resize", checkIsDesktop)
+      window.removeEventListener("focus", loadUserData)
     }
   }, [])
 
   const getHeaderStyle = () => {
     if (isDesktop) {
       return {
-        left: sidebarCollapsed ? '60px' : '240px',
+        left: sidebarCollapsed ? "60px" : "240px",
         right: 0,
-        width: sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)',
+        width: sidebarCollapsed ? "calc(100% - 60px)" : "calc(100% - 240px)",
       }
     }
-    return {
-      left: 0,
-      right: 0,
-      width: '100%',
-    }
+    return { left: 0, right: 0, width: "100%" }
   }
 
+  const userInitial = (user?.full_name || user?.email || "A").charAt(0).toUpperCase()
+  const displayName =
+    user?.full_name || user?.email?.split("@")[0] || "Admin"
+
   return (
-    <header 
-      className="fixed top-0 z-50 bg-gradient-to-r from-slate-700 to-slate-800 dark:from-purple-800 dark:to-indigo-800 text-white border-b border-slate-500 dark:border-purple-600 flex items-center justify-between px-2 sm:px-3 md:px-4 transition-[left,width] duration-300 ease-out shadow-lg"
-      style={{ 
-        height: "3vh",
-        minHeight: "48px",
-        ...getHeaderStyle()
-      }}
+    <header
+      className="fixed top-0 z-50 bg-white dark:bg-[#0F172A] border-b border-[#E2E8F0] dark:border-[#1E293B] flex items-center justify-between px-4 md:px-6 transition-[left,width] duration-300 ease-out shadow-sm"
+      style={{ height: "56px", minHeight: "56px", ...getHeaderStyle() }}
     >
-      {/* Left side: Master Admin badge, company name, sidebar toggle */}
-      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 min-w-0">
+      {/* ── Left: Controls + brand badge ── */}
+      <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
+        {/* Mobile hamburger */}
         {onMenuClick && (
           <button
             onClick={onMenuClick}
-            className="lg:hidden p-1.5 sm:p-2 rounded-md hover:bg-slate-600 dark:hover:bg-purple-700 transition-colors flex-shrink-0"
+            className="lg:hidden p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors"
             aria-label="Open menu"
           >
-            <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Menu className="w-5 h-5 text-[#64748B] dark:text-[#94A3B8]" />
           </button>
         )}
+
+        {/* Desktop sidebar collapse toggle */}
         {onSidebarToggle && (
           <button
             onClick={onSidebarToggle}
-            className="hidden lg:flex p-1.5 sm:p-2 rounded-md hover:bg-slate-600 dark:hover:bg-purple-700 transition-colors flex-shrink-0"
+            className="hidden lg:flex p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors"
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <PanelLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            <PanelLeft className="w-5 h-5 text-[#64748B] dark:text-[#94A3B8]" />
           </button>
         )}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 dark:text-yellow-300 flex-shrink-0" />
-          <span className="text-[10px] xs:text-xs font-semibold bg-amber-400 dark:bg-yellow-500 text-slate-900 dark:text-purple-950 px-1.5 sm:px-2 py-0.5 rounded whitespace-nowrap">
-            MASTER ADMIN
+
+        {/* Master Admin badge + org name */}
+        <div className="flex items-center gap-2 ml-1">
+          <div className="hidden sm:flex items-center gap-1.5 bg-[#EFF6FF] dark:bg-[#1E3A5F] px-2.5 py-1 rounded-lg">
+            <Shield className="w-3.5 h-3.5 text-[#2563EB]" />
+            <span className="text-[11px] font-semibold text-[#2563EB] tracking-wide">
+              MASTER ADMIN
+            </span>
+          </div>
+          <span className="text-sm font-semibold text-[#0F172A] dark:text-white hidden md:block truncate max-w-[160px]">
+            {organization?.name || "AIFlow"}
           </span>
         </div>
-        {organization?.name ? (
-          <h1 className="text-xs sm:text-sm font-bold ml-1 sm:ml-2 truncate">{organization.name}</h1>
-        ) : (
-          <h1 className="text-xs sm:text-sm font-bold ml-1 sm:ml-2 truncate">AIFlow</h1>
-        )}
       </div>
 
-      {/* Right side: User icon, name, Help, Dark Mode, and Logout */}
-      <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 flex-shrink-0">
-        <button
-          className="p-1.5 sm:p-2 rounded-md hover:bg-slate-600 dark:hover:bg-purple-700 transition-colors flex-shrink-0"
-          aria-label="Help"
-          title="Help"
-        >
-          <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-        </button>
+      {/* ── Center: Global search ── */}
+      <div className="hidden md:flex flex-1 max-w-sm mx-6">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+          <input
+            type="text"
+            placeholder="Search organizations, users..."
+            className="w-full pl-9 pr-4 py-2 text-sm bg-[#F8FAFC] dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-[#334155] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] text-[#0F172A] dark:text-white placeholder:text-[#94A3B8] transition-all"
+          />
+        </div>
+      </div>
 
+      {/* ── Right: Theme + notifications + profile ── */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {/* Theme toggle */}
         <button
           onClick={toggleTheme}
-          className="p-1.5 sm:p-2 rounded-md hover:bg-slate-600 dark:hover:bg-purple-700 transition-colors flex-shrink-0"
+          className="p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors"
           aria-label="Toggle theme"
-          title={mounted && theme === "light" ? "Dark Mode" : "Light Mode"}
           suppressHydrationWarning
         >
           {mounted && theme === "light" ? (
-            <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-          ) : mounted && theme === "dark" ? (
-            <Sun className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            <Moon className="w-4 h-4 text-[#64748B]" />
           ) : (
-            <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            <Sun className="w-4 h-4 text-[#94A3B8]" />
           )}
         </button>
 
+        {/* Notification bell */}
+        <button className="relative p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors">
+          <Bell className="w-4 h-4 text-[#64748B] dark:text-[#94A3B8]" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#2563EB] rounded-full ring-2 ring-white dark:ring-[#0F172A]" />
+        </button>
+
+        {/* Divider */}
+        <div className="w-px h-5 bg-[#E2E8F0] dark:bg-[#1E293B] mx-1 hidden sm:block" />
+
+        {/* Profile section */}
         {user && (
-          <div className="flex items-center gap-1 xs:gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-500 dark:border-purple-600 flex-shrink-0">
-            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-400 dark:bg-yellow-500 flex items-center justify-center flex-shrink-0">
-              <UserIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-900 dark:text-purple-950" />
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors cursor-default">
+              <div className="w-7 h-7 rounded-full bg-[#2563EB] flex items-center justify-center flex-shrink-0 shadow-sm">
+                <span className="text-[11px] font-bold text-white">{userInitial}</span>
+              </div>
+              <div className="hidden sm:block min-w-0">
+                <p className="text-xs font-semibold text-[#0F172A] dark:text-white leading-none truncate max-w-[100px]">
+                  {displayName}
+                </p>
+                <p className="text-[10px] text-[#64748B] dark:text-[#94A3B8] leading-none mt-0.5">
+                  Master Admin
+                </p>
+              </div>
+              <ChevronDown className="w-3 h-3 text-[#CBD5E1] hidden sm:block flex-shrink-0" />
             </div>
-            <span className="text-[10px] xs:text-xs sm:text-sm font-semibold text-white hidden xs:inline truncate max-w-[100px] sm:max-w-[150px] md:max-w-none">
-              {user.full_name || user.email || 'Admin'}
-            </span>
+
             <button
               onClick={() => {
                 logout()
                 router.push("/login")
               }}
-              className="p-1.5 sm:p-2 rounded-md hover:bg-red-600 dark:hover:bg-red-600 transition-colors flex-shrink-0"
+              className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group"
               aria-label="Logout"
-              title="Logout"
+              title="Sign out"
             >
-              <LogOut className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <LogOut className="w-4 h-4 text-[#94A3B8] group-hover:text-red-500 transition-colors" />
             </button>
           </div>
         )}
@@ -177,4 +203,3 @@ export function MasterAdminHeader({ onMenuClick, onSidebarToggle, sidebarCollaps
     </header>
   )
 }
-

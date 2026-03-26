@@ -100,8 +100,14 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<unknown
   });
 }
 
-export function logout(): void {
-  clearTokens();
+export async function logout(): Promise<void> {
+  try {
+    await apiRequest(API_CONFIG.endpoints.auth.logout, { method: 'POST', requiresAuth: true });
+  } catch {
+    // ignore errors — always clear tokens regardless
+  } finally {
+    clearTokens();
+  }
 }
 
 export function isAuthenticated(): boolean {

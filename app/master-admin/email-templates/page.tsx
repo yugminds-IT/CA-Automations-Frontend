@@ -2,9 +2,9 @@
 
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { getUserData, isAuthenticated, isMasterAdminUser, ApiError } from "@/lib/api/index"
+import { isAuthenticated, isMasterAdminUser, ApiError } from "@/lib/api/index"
 import {
   getEmailTemplates,
   createEmailTemplate,
@@ -12,20 +12,15 @@ import {
   deleteEmailTemplate,
   EmailTemplateCategory,
   EmailTemplateType,
-  TEMPLATE_VARIABLES,
   type EmailTemplate,
   type EmailTemplateTypeValue,
-  type CreateEmailTemplateRequest,
 } from "@/lib/api/index"
 import type { TemplateCategory } from "@/lib/api/index"
 import { DEFAULT_EMAIL_TEMPLATES } from "@/lib/api/default-email-templates"
 import { useToast } from "@/components/ui/use-toast"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -33,7 +28,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -42,18 +36,72 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
-import { Mail, Edit, Trash2, Plus, Eye, EyeOff } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import {
+  Mail,
+  Edit,
+  Trash2,
+  Plus,
+  Eye,
+  FileText,
+  Search,
+  Bell,
+  Clock,
+  RefreshCw,
+  ChevronDown,
+  Building2,
+} from "lucide-react"
+import { RichTextarea, type RichTextareaRef } from "@/components/ui/rich-textarea"
+import { previewEmailTemplate } from "@/lib/utils/email-template"
 
-export default function EmailTemplatesPage() {
+// ─── Grouped template variables ─────────────────────────────────────────────
+const TEMPLATE_VAR_GROUPS = [
+  {
+    label: "Client Details",
+    vars: [
+      { label: "Client Name",      value: "{{client_name}}" },
+      { label: "Client Email",     value: "{{client_email}}" },
+      { label: "Client Phone",     value: "{{client_phone}}" },
+      { label: "Company Name",     value: "{{company_name}}" },
+      { label: "Login Email",      value: "{{login_email}}" },
+      { label: "Login Password",   value: "{{login_password}}" },
+      { label: "Login URL",        value: "{{login_url}}" },
+      { label: "Additional Notes", value: "{{additional_notes}}" },
+    ],
+  },
+  {
+    label: "Organization Details",
+    vars: [
+      { label: "Org Name",  value: "{{org_name}}" },
+      { label: "Org Email", value: "{{org_email}}" },
+      { label: "Org Phone", value: "{{org_phone}}" },
+    ],
+  },
+  {
+    label: "Service & Dates",
+    vars: [
+      { label: "Service Name",        value: "{{service_name}}" },
+      { label: "Service Description", value: "{{service_description}}" },
+      { label: "Date",                value: "{{date}}" },
+      { label: "Today",               value: "{{today}}" },
+      { label: "Current Date",        value: "{{current_date}}" },
+      { label: "Deadline Date",       value: "{{deadline_date}}" },
+      { label: "Follow-up Date",      value: "{{follow_up_date}}" },
+      { label: "Amount",              value: "{{amount}}" },
+      { label: "Document Name",       value: "{{document_name}}" },
+    ],
+  },
+]
+
+export default function MasterAdminEmailTemplates() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-  const [templates, setTemplates] = useState<EmailTemplate[]>([])
+  const [systemTemplates, setSystemTemplates] = useState<EmailTemplate[]>([])
+  const [orgTemplates, setOrgTemplates] = useState<EmailTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [activeCategory, setActiveCategory] = useState<EmailTemplateCategory>(EmailTemplateCategory.SERVICE)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>("all")
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
@@ -72,72 +120,97 @@ export default function EmailTemplatesPage() {
     subject: "",
     body: "",
   })
-  const [showVariables, setShowVariables] = useState(false)
+  const [bodyTab, setBodyTab] = useState<"edit" | "preview">("edit")
+
+  // Refs for variable insertion
+  const editorRef = useRef<RichTextareaRef | null>(null)
+  const subjectRef = useRef<HTMLInputElement | null>(null)
+  const varDropdownRef = useRef<HTMLDivElement | null>(null)
+  const subjectVarDropdownRef = useRef<HTMLDivElement | null>(null)
+  const [varDropdownOpen, setVarDropdownOpen] = useState(false)
+  const [subjectVarDropdownOpen, setSubjectVarDropdownOpen] = useState(false)
+
   const router = useRouter()
   const { toast } = useToast()
 
+
+  // Close dropdowns on outside click
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.replace("/login")
-      return
+    const handler = (e: MouseEvent) => {
+      if (varDropdownRef.current && !varDropdownRef.current.contains(e.target as Node)) setVarDropdownOpen(false)
+      if (subjectVarDropdownRef.current && !subjectVarDropdownRef.current.contains(e.target as Node)) setSubjectVarDropdownOpen(false)
     }
-    
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated()) { router.replace("/login"); return }
     if (!isMasterAdminUser()) {
-      toast({
-        title: "Access Denied",
-        description: "You must be a master admin to access this page.",
-        variant: "destructive",
-      })
+      toast({ title: "Access Denied", description: "You must be a master admin to access this page.", variant: "destructive" })
       router.replace("/")
       return
     }
-    
     setIsCheckingAuth(false)
     fetchTemplates()
   }, [router, toast])
 
   useEffect(() => {
-    const savedState = localStorage.getItem('sidebarCollapsed')
-    if (savedState !== null) {
-      setSidebarCollapsed(savedState === 'true')
-    } else {
-      setSidebarCollapsed(true)
-    }
+    const saved = localStorage.getItem("sidebarCollapsed")
+    setSidebarCollapsed(saved !== null ? saved === "true" : true)
   }, [])
 
   useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
-    checkIsDesktop()
-    window.addEventListener('resize', checkIsDesktop)
-    return () => window.removeEventListener('resize', checkIsDesktop)
+    const check = () => setIsDesktop(window.innerWidth >= 1024)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString())
+    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
   }, [sidebarCollapsed])
 
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed)
+  // ─── Variable insertion helpers ───────────────────────────────────────────
+  const insertAtCursor = (
+    el: HTMLTextAreaElement | HTMLInputElement,
+    varStr: string,
+    currentValue: string,
+    setValue: (v: string) => void,
+    closeDropdown: () => void,
+  ) => {
+    const start = el.selectionStart ?? currentValue.length
+    const end = el.selectionEnd ?? start
+    const newVal = currentValue.substring(0, start) + varStr + currentValue.substring(end)
+    setValue(newVal)
+    closeDropdown()
+    setTimeout(() => {
+      el.selectionStart = el.selectionEnd = start + varStr.length
+      el.focus()
+    }, 0)
   }
 
+  const insertVar = (varStr: string) => {
+    editorRef.current?.insert(varStr)
+    setVarDropdownOpen(false)
+  }
+  const insertVarToSubject = (varStr: string) => {
+    if (subjectRef.current) insertAtCursor(subjectRef.current, varStr, formData.subject, (v) => setFormData((p) => ({ ...p, subject: v })), () => setSubjectVarDropdownOpen(false))
+  }
+
+  // ─── API calls ────────────────────────────────────────────────────────────
   const fetchTemplates = async () => {
     try {
       setIsLoading(true)
-      // listTemplates returns EmailTemplate[] directly, not { templates }
       const list = await getEmailTemplates()
-      setTemplates(Array.isArray(list) ? list : [])
+      const all = Array.isArray(list) ? list : []
+      setSystemTemplates(all.filter((t: EmailTemplate) => t.organizationId == null))
+      setOrgTemplates(all.filter((t: EmailTemplate) => t.organizationId != null))
     } catch (error) {
-      console.error('Error fetching templates:', error)
       if (error instanceof ApiError && error.status === 401) {
         router.replace("/login")
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to load email templates. Please try again.",
-          variant: "destructive",
-        })
+        toast({ title: "Error", description: "Failed to load email templates.", variant: "destructive" })
       }
     } finally {
       setIsLoading(false)
@@ -146,129 +219,43 @@ export default function EmailTemplatesPage() {
 
   const handleEdit = (template: EmailTemplate) => {
     setEditingTemplate(template)
-    setFormData({
-      name: template.name,
-      category: template.category as TemplateCategory,
-      type: template.type,
-      subject: template.subject,
-      body: template.body,
-    })
+    setFormData({ name: template.name, category: template.category as TemplateCategory, type: template.type, subject: template.subject, body: template.body })
+    setBodyTab("edit")
     setEditDialogOpen(true)
   }
 
   const handleCreate = () => {
-    console.log('handleCreate called')
     setEditingTemplate(null)
-    setFormData({
-      name: "",
-      category: activeCategory,
-      type: getDefaultTypeForCategory(activeCategory),
-      subject: "",
-      body: "",
-    })
+    setFormData({ name: "", category: EmailTemplateCategory.SERVICE, type: getDefaultTypeForCategory(EmailTemplateCategory.SERVICE), subject: "", body: "" })
+    setBodyTab("edit")
     setCreateDialogOpen(true)
-    console.log('createDialogOpen set to true')
   }
 
   const handleSave = async () => {
-    console.log('handleSave called', { editingTemplate, formData })
     try {
       if (editingTemplate) {
-        console.log('Updating template:', editingTemplate.id)
-        await updateEmailTemplate(editingTemplate.id, {
-          name: formData.name,
-          subject: formData.subject,
-          body: formData.body,
-        })
-        toast({
-          title: "Success",
-          description: "Template updated successfully",
-        })
+        await updateEmailTemplate(editingTemplate.id, { name: formData.name, subject: formData.subject, body: formData.body })
+        toast({ title: "Success", description: "Template updated successfully", variant: "success" })
       } else {
-        console.log('Creating template with data:', {
-          name: formData.name,
-          category: formData.category,
-          type: formData.type,
-          subject: formData.subject,
-          body: formData.body,
-          is_default: false,
-        })
-        await createEmailTemplate({
-          name: formData.name,
-          category: formData.category,
-          type: formData.type,
-          subject: formData.subject,
-          body: formData.body,
-          is_default: false,
-        })
-        toast({
-          title: "Success",
-          description: "Template created successfully",
-          variant: "success",
-        })
+        await createEmailTemplate({ name: formData.name, category: formData.category, type: formData.type, subject: formData.subject, body: formData.body, is_default: false })
+        toast({ title: "Success", description: "Template created successfully", variant: "success" })
       }
       setEditDialogOpen(false)
       setCreateDialogOpen(false)
       fetchTemplates()
     } catch (error) {
-      // Enhanced error logging
-      if (error instanceof ApiError) {
-        console.error('Error saving template:', {
-          status: error.status,
-          detail: error.detail,
-          message: error.message,
-          error: error
-        });
-        const errorMessage = typeof error.detail === 'string' 
-          ? error.detail 
-          : (error.detail ? JSON.stringify(error.detail) : error.message) || "Failed to save template";
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        })
-      } else {
-        console.error('Error saving template:', error);
-        const errorMessage = error instanceof Error 
-          ? error.message 
-          : (error ? String(error) : "Failed to save template. Please try again.");
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        })
-      }
+      toast({ title: "Error", description: error instanceof ApiError ? (error.detail as string) || "Failed to save template" : "Failed to save template", variant: "destructive" })
     }
   }
 
   const handleDelete = async (templateId: number) => {
-    if (!confirm("Are you sure you want to delete this template? This action cannot be undone.")) {
-      return
-    }
-
+    if (!confirm("Are you sure you want to delete this template? This action cannot be undone.")) return
     try {
       await deleteEmailTemplate(templateId)
-      toast({
-        title: "Success",
-        description: "Template deleted successfully",
-        variant: "success",
-      })
+      toast({ title: "Success", description: "Template deleted successfully", variant: "success" })
       fetchTemplates()
     } catch (error) {
-      console.error('Error deleting template:', error)
-      if (error instanceof ApiError) {
-        toast({
-          title: "Error",
-          description: error.detail || "Failed to delete template",
-          variant: "destructive",
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete template. Please try again.",
-          variant: "destructive",
-        })
-      }
+      toast({ title: "Error", description: error instanceof ApiError ? (error.detail as string) || "Failed to delete template" : "Failed to delete template", variant: "destructive" })
     }
   }
 
@@ -277,388 +264,434 @@ export default function EmailTemplatesPage() {
     setPreviewDialogOpen(true)
   }
 
-  const insertVariable = (variable: string) => {
-    const textarea = document.getElementById('template-body') as HTMLTextAreaElement
-    if (textarea) {
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const text = formData.body
-      const newText = text.substring(0, start) + variable + text.substring(end)
-      setFormData({ ...formData, body: newText })
-      setTimeout(() => {
-        textarea.focus()
-        textarea.setSelectionRange(start + variable.length, start + variable.length)
-      }, 0)
-    }
-  }
-
+  // ─── Label / style helpers ────────────────────────────────────────────────
   const getDefaultTypeForCategory = (category: EmailTemplateCategory): EmailTemplateTypeValue => {
     switch (category) {
-      case EmailTemplateCategory.SERVICE:
-        return EmailTemplateType.GST_FILING
-      case EmailTemplateCategory.LOGIN:
-        return EmailTemplateType.LOGIN_CREDENTIALS
-      case EmailTemplateCategory.NOTIFICATION:
-        return EmailTemplateType.CLIENT_ONBOARDED
-      case EmailTemplateCategory.FOLLOW_UP:
-        return EmailTemplateType.FOLLOW_UP_DOCUMENTS
-      case EmailTemplateCategory.REMINDER:
-        return EmailTemplateType.REMINDER_DEADLINE
-      default:
-        return EmailTemplateType.GST_FILING
+      case EmailTemplateCategory.SERVICE:      return EmailTemplateType.GST_FILING
+      case EmailTemplateCategory.LOGIN:        return EmailTemplateType.LOGIN_CREDENTIALS
+      case EmailTemplateCategory.NOTIFICATION: return EmailTemplateType.CLIENT_ONBOARDED
+      case EmailTemplateCategory.FOLLOW_UP:    return EmailTemplateType.FOLLOW_UP_DOCUMENTS
+      case EmailTemplateCategory.REMINDER:     return EmailTemplateType.REMINDER_DEADLINE
+      default:                                  return EmailTemplateType.GST_FILING
     }
   }
 
-  const getCategoryTemplates = (category: EmailTemplateCategory) => {
-    return (templates ?? []).filter(t => t.category === category)
-  }
-
-  const getCategoryLabel = (category: EmailTemplateCategory) => {
+  const getCategoryLabel = (category: string) => {
     switch (category) {
-      case EmailTemplateCategory.SERVICE:
-        return "Service Templates"
-      case EmailTemplateCategory.LOGIN:
-        return "Login Templates"
-      case EmailTemplateCategory.NOTIFICATION:
-        return "Notification Templates"
-      case EmailTemplateCategory.FOLLOW_UP:
-        return "Follow-up Templates"
-      case EmailTemplateCategory.REMINDER:
-        return "Reminder Templates"
-      default:
-        return category
+      case EmailTemplateCategory.SERVICE:      return "Service"
+      case EmailTemplateCategory.LOGIN:        return "Login Credentials"
+      case EmailTemplateCategory.NOTIFICATION: return "Notifications"
+      case EmailTemplateCategory.FOLLOW_UP:    return "Follow-ups"
+      case EmailTemplateCategory.REMINDER:     return "Reminders"
+      default: return category
     }
   }
 
-  const getTypeLabel = (type: string) => {
-    return type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+  const getTypeLabel = (type: string) =>
+    type.split("_").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case EmailTemplateCategory.LOGIN:        return Mail
+      case EmailTemplateCategory.NOTIFICATION: return Bell
+      case EmailTemplateCategory.REMINDER:     return Clock
+      case EmailTemplateCategory.FOLLOW_UP:    return RefreshCw
+      default: return FileText
+    }
   }
+
+  const getCategoryBadgeClass = (category: string) => {
+    switch (category) {
+      case EmailTemplateCategory.SERVICE:      return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+      case EmailTemplateCategory.LOGIN:        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+      case EmailTemplateCategory.NOTIFICATION: return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+      case EmailTemplateCategory.FOLLOW_UP:    return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+      case EmailTemplateCategory.REMINDER:     return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+      default: return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+    }
+  }
+
+  const filterTemplates = (templates: EmailTemplate[]) =>
+    templates.filter((t) => {
+      const matchesSearch = !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.category.toLowerCase().includes(searchQuery.toLowerCase()) || t.subject.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesCategory = activeCategoryFilter === "all" || t.category === activeCategoryFilter
+      return matchesSearch && matchesCategory
+    })
+
+  const filteredSystemTemplates = filterTemplates(systemTemplates)
+  const filteredOrgTemplates = filterTemplates(orgTemplates)
+
+  // Group org templates by organization name
+  const orgTemplatesByOrg = filteredOrgTemplates.reduce<Record<string, EmailTemplate[]>>((acc, t) => {
+    const orgName = t.organization?.name ?? `Organization ${t.organizationId}`
+    if (!acc[orgName]) acc[orgName] = []
+    acc[orgName].push(t)
+    return acc
+  }, {})
+
+  const categoryFilters = [
+    { value: "all",                              label: "All" },
+    { value: EmailTemplateCategory.LOGIN,        label: "Login Credentials" },
+    { value: EmailTemplateCategory.NOTIFICATION, label: "Notifications" },
+    { value: EmailTemplateCategory.FOLLOW_UP,    label: "Follow-ups" },
+    { value: EmailTemplateCategory.REMINDER,     label: "Reminders" },
+    { value: EmailTemplateCategory.SERVICE,      label: "Service" },
+  ]
+
+  // ─── Variable dropdown component ─────────────────────────────────────────
+  const VarDropdown = ({
+    dropRef, dropOpen, setOpen, onVar, label = "Insert Variable",
+  }: {
+    dropRef: React.RefObject<HTMLDivElement | null>
+    dropOpen: boolean
+    setOpen: React.Dispatch<React.SetStateAction<boolean>>
+    onVar: (v: string) => void
+    label?: string
+  }) => (
+    <div ref={dropRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 h-8 px-3 rounded border border-input bg-background text-xs hover:bg-muted transition-colors font-medium"
+      >
+        {label}
+        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+      </button>
+      {dropOpen && (
+        <div className="absolute top-full right-0 mt-1 w-56 rounded-lg border border-border bg-popover shadow-lg z-[200] py-1 text-sm" style={{ maxHeight: 260, overflowY: "auto" }}>
+          {TEMPLATE_VAR_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
+              {group.vars.map((v) => (
+                <button
+                  key={v.value}
+                  type="button"
+                  onClick={() => onVar(v.value)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-muted transition-colors flex items-center justify-between gap-2"
+                >
+                  <span className="text-foreground">{v.label}</span>
+                  <span className="text-[10px] font-mono text-primary/70 truncate">{v.value}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
+        <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar 
-        mobileMenuOpen={mobileMenuOpen} 
+    <div className="flex h-screen bg-background text-foreground overflow-hidden w-full">
+      <MasterAdminSidebar
+        mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
         collapsed={sidebarCollapsed}
       />
-      <div 
+      <div
         className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ 
-          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '240px') : '0',
-          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)') : '100%',
+        style={{
+          marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0",
+          width: isDesktop ? (sidebarCollapsed ? "calc(100% - 60px)" : "calc(100% - 240px)") : "100%",
         }}
       >
-        <MasterAdminHeader 
+        <MasterAdminHeader
           onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={toggleSidebar}
+          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
-          <div className="p-4 sm:p-6 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="overflow-y-auto overflow-x-hidden w-full" style={{ height: "calc(100vh - 56px)", marginTop: "56px" }}>
+          <div className="p-4 sm:p-6 space-y-5">
+
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Email Templates</h1>
-                <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage email templates for master-admin to admins and admins to clients</p>
+                <h1 className="text-xl font-semibold">Email Templates</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">Manage system-wide email templates</p>
               </div>
-              <Button 
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  console.log('Create Template button clicked')
-                  handleCreate()
-                }} 
-                className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto"
-                type="button"
-                size="sm"
-              >
-                <Plus className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Create Template</span>
-                <span className="sm:hidden">Create</span>
+              <Button onClick={handleCreate} className="w-full sm:w-auto bg-[#2563EB] hover:bg-[#1D4ED8] text-white" size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Create New Template
               </Button>
             </div>
 
-            <Tabs value={activeCategory} onValueChange={(value) => setActiveCategory(value as EmailTemplateCategory)}>
-              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
-                <TabsList className="inline-flex w-max min-w-full lg:grid lg:w-full lg:grid-cols-5 lg:min-w-0">
-                  <TabsTrigger value={EmailTemplateCategory.SERVICE} className="text-xs lg:text-sm whitespace-nowrap">Services</TabsTrigger>
-                  <TabsTrigger value={EmailTemplateCategory.LOGIN} className="text-xs lg:text-sm whitespace-nowrap">Login</TabsTrigger>
-                  <TabsTrigger value={EmailTemplateCategory.NOTIFICATION} className="text-xs lg:text-sm whitespace-nowrap">Notifications</TabsTrigger>
-                  <TabsTrigger value={EmailTemplateCategory.FOLLOW_UP} className="text-xs lg:text-sm whitespace-nowrap">Follow-up</TabsTrigger>
-                  <TabsTrigger value={EmailTemplateCategory.REMINDER} className="text-xs lg:text-sm whitespace-nowrap">Reminders</TabsTrigger>
-              </TabsList>
-              </div>
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input className="pl-9" placeholder="Search templates by name or category..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            </div>
 
-              {Object.values(EmailTemplateCategory).map((category) => (
-                <TabsContent key={category} value={category} className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>{getCategoryLabel(category)}</CardTitle>
-                      <CardDescription>
-                        Templates for {getCategoryLabel(category).toLowerCase()}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {isLoading ? (
-                        <div className="flex items-center justify-center py-12">
-                          <div className="text-muted-foreground">Loading templates...</div>
-                        </div>
-                      ) : getCategoryTemplates(category).length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12">
-                          <Mail className="h-12 w-12 text-muted-foreground mb-4" />
-                          <p className="text-muted-foreground">No templates found for this category</p>
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto -mx-4 sm:mx-0">
-                          <div className="inline-block min-w-full align-middle px-4 sm:px-0">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                  <TableHead className="min-w-[120px]">Name</TableHead>
-                                  <TableHead className="hidden sm:table-cell min-w-[100px]">Type</TableHead>
-                                  <TableHead className="min-w-[150px]">Subject</TableHead>
-                                  <TableHead className="hidden md:table-cell min-w-[80px]">Status</TableHead>
-                                  <TableHead className="text-right min-w-[120px]">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {getCategoryTemplates(category).map((template) => (
-                                <TableRow key={template.id}>
-                                    <TableCell className="font-medium">
-                                      <div className="flex flex-col sm:block">
-                                        <span>{template.name}</span>
-                                        <span className="text-xs text-muted-foreground sm:hidden mt-1">{getTypeLabel(template.type)}</span>
-                                        <div className="md:hidden mt-1">
-                                          {template.is_default ? (
-                                            <Badge variant="default" className="text-xs">Default</Badge>
-                                          ) : (
-                                            <Badge variant="secondary" className="text-xs">Custom</Badge>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="hidden sm:table-cell">{getTypeLabel(template.type)}</TableCell>
-                                    <TableCell className="max-w-[150px] sm:max-w-md truncate">{template.subject}</TableCell>
-                                    <TableCell className="hidden md:table-cell">
-                                    {template.is_default ? (
-                                      <Badge variant="default">Default</Badge>
-                                    ) : (
-                                      <Badge variant="secondary">Custom</Badge>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                      <div className="flex items-center justify-end gap-1 sm:gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                          className="h-7 w-7 sm:h-8 sm:w-8"
-                                        onClick={() => handlePreview(template)}
-                                          title="Preview"
-                                      >
-                                          <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                          className="h-7 w-7 sm:h-8 sm:w-8"
-                                        onClick={() => handleEdit(template)}
-                                          title="Edit"
-                                      >
-                                          <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                      </Button>
-                                      {!template.is_default && (
-                                        <Button
-                                          variant="ghost"
-                                          size="icon-sm"
-                                            className="h-7 w-7 sm:h-8 sm:w-8"
-                                          onClick={() => handleDelete(template.id)}
-                                            title="Delete"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-destructive" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {categoryFilters.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setActiveCategoryFilter(f.value)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                    activeCategoryFilter === f.value
+                      ? "bg-[#2563EB] text-white border-[#2563EB] shadow-sm"
+                      : "bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {f.label}
+                </button>
               ))}
-            </Tabs>
+            </div>
+
+            {/* System Templates */}
+            <div>
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold">System Templates</h2>
+                <p className="text-xs text-muted-foreground">Platform-wide default templates available to all organizations</p>
+              </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
+              ) : filteredSystemTemplates.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <FileText className="w-10 h-10 mb-3 opacity-40" />
+                  <p className="text-sm">No system templates found</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredSystemTemplates.map((template) => {
+                    const Icon = getCategoryIcon(template.category)
+                    return (
+                      <div key={template.id} className="flex flex-col border border-border rounded-xl shadow-sm p-4 bg-card hover:shadow-md transition-all duration-150">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="p-2 rounded-md bg-muted shrink-0">
+                            <Icon className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm text-foreground truncate">{template.name}</p>
+                            <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>
+                              {getCategoryLabel(template.category)}
+                            </span>
+                          </div>
+                          {template.is_default && (
+                            <span className="text-xs text-[#2563EB] font-medium shrink-0">Default</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-4 flex-1 truncate">{template.subject}</p>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => handleEdit(template)}>
+                            <Edit className="w-3.5 h-3.5 mr-1.5" />
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handlePreview(template)} title="Preview">
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                          {!template.is_default && (
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(template.id)} title="Delete">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Organization-specific Templates */}
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold">Organization Templates</h2>
+                  <p className="text-xs text-muted-foreground">Customized templates created by individual organizations</p>
+                </div>
+                {orgTemplates.length > 0 && (
+                  <span className="text-sm text-muted-foreground">{filteredOrgTemplates.length} template{filteredOrgTemplates.length !== 1 ? "s" : ""}</span>
+                )}
+              </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
+              ) : filteredOrgTemplates.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-muted-foreground">
+                  <Mail className="w-10 h-10 mb-3 opacity-40" />
+                  <p className="text-sm">No organization templates yet</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(orgTemplatesByOrg).map(([orgName, templates]) => (
+                    <div key={orgName}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 rounded bg-muted flex items-center justify-center shrink-0">
+                          <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-sm font-medium text-foreground">{orgName}</h3>
+                        <span className="text-xs text-muted-foreground">({templates.length} template{templates.length !== 1 ? "s" : ""})</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {templates.map((template) => (
+                          <div key={template.id} className="flex flex-col border border-border rounded-lg shadow-sm p-3 bg-card hover:shadow-md transition-all duration-150">
+                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                              <div className="min-w-0">
+                                <p className="font-medium text-xs text-foreground truncate">{template.name}</p>
+                                <p className="text-[11px] text-muted-foreground truncate mt-0.5">{template.subject}</p>
+                              </div>
+                              <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>
+                                {getCategoryLabel(template.category)}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mb-2">{getTypeLabel(template.type)}</p>
+                            <div className="border-t border-border pt-2 flex items-center gap-0.5">
+                              <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handleEdit(template)}>
+                                <Edit className="w-3 h-3 mr-1" />Edit
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handlePreview(template)}>
+                                <Eye className="w-3 h-3 mr-1" />Preview
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(template.id)} title="Delete">
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
 
-      {/* Edit/Create Dialog */}
+      {/* ─── Edit / Create Dialog ──────────────────────────────────────────── */}
       <Dialog open={editDialogOpen || createDialogOpen} onOpenChange={(open) => {
         setEditDialogOpen(open)
         setCreateDialogOpen(open)
         if (!open) {
           setEditingTemplate(null)
-          setFormData({
-            name: "",
-            category: EmailTemplateCategory.SERVICE,
-            type: EmailTemplateType.GST_FILING,
-            subject: "",
-            body: "",
-          })
+          setFormData({ name: "", category: EmailTemplateCategory.SERVICE, type: EmailTemplateType.GST_FILING, subject: "", body: "" })
+          setBodyTab("edit")
         }
       }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-[900px] max-h-[95vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>
-              {editingTemplate ? "Edit Template" : "Create Template"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingTemplate ? "Update the email template" : "Create a new email template"}
-            </DialogDescription>
+            <DialogTitle>{editingTemplate ? "Edit Template" : "Create Template"}</DialogTitle>
+            <DialogDescription>{editingTemplate ? "Update the email template" : "Create a new system-wide email template"}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="template-name">Template Name *</Label>
-              <Input
-                id="template-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter template name"
-              />
-            </div>
-            {!editingTemplate && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="template-category">Category *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => {
-                      setFormData({
-                        ...formData,
-                        category: value as EmailTemplateCategory,
-                        type: getDefaultTypeForCategory(value as EmailTemplateCategory),
-                      })
-                    }}
-                  >
-                    <SelectTrigger id="template-category">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(EmailTemplateCategory).map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {getCategoryLabel(cat)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="template-type">Type *</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value as EmailTemplateTypeValue })}
-                  >
-                    <SelectTrigger id="template-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(EmailTemplateType)
-                        .filter(type => {
-                          const defaultTemplate = DEFAULT_EMAIL_TEMPLATES.find(t => t.type === type)
-                          return defaultTemplate?.category === formData.category
-                        })
-                        .map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {getTypeLabel(type)}
-                          </SelectItem>
+            {!editingTemplate ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="template-name">Template Name *</Label>
+                    <Input id="template-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Enter template name" className="h-9" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="template-category">Category *</Label>
+                    <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value as EmailTemplateCategory, type: getDefaultTypeForCategory(value as EmailTemplateCategory) })}>
+                      <SelectTrigger id="template-category" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.values(EmailTemplateCategory).map((cat) => (
+                          <SelectItem key={cat} value={cat}>{getCategoryLabel(cat)}</SelectItem>
                         ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="template-subject">Subject *</Label>
-              <Input
-                id="template-subject"
-                value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                placeholder="Enter email subject"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="template-body">Body *</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowVariables(!showVariables)}
-                >
-                  {showVariables ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
-                  {showVariables ? "Hide" : "Show"} Variables
-                </Button>
-              </div>
-              {showVariables && (
-                <div className="p-2 sm:p-3 bg-muted rounded-md mb-2">
-                  <p className="text-xs sm:text-sm font-medium mb-2">Available Variables:</p>
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {Object.values(TEMPLATE_VARIABLES).map((variable) => (
-                      <Button
-                        key={variable}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => insertVariable(variable)}
-                        className="text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3"
-                      >
-                        {variable}
-                      </Button>
-                    ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="template-type">Type *</Label>
+                    <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as EmailTemplateTypeValue })}>
+                      <SelectTrigger id="template-type" className="h-9 w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.values(EmailTemplateType).filter((type) => {
+                          const defaultTemplate = DEFAULT_EMAIL_TEMPLATES.find((t) => t.type === type)
+                          return defaultTemplate?.category === formData.category
+                        }).map((type) => (
+                          <SelectItem key={type} value={type}>{getTypeLabel(type)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="template-name">Template Name *</Label>
+                <Input id="template-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Enter template name" className="h-9" />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="template-subject">Subject *</Label>
+                <VarDropdown
+                  dropRef={subjectVarDropdownRef}
+                  dropOpen={subjectVarDropdownOpen}
+                  setOpen={setSubjectVarDropdownOpen}
+                  onVar={insertVarToSubject}
+                  label="Variable"
+                />
+              </div>
+              <Input ref={subjectRef} id="template-subject" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} placeholder="Enter email subject" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex rounded-md border border-border overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setBodyTab("edit")}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${bodyTab === "edit" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                  >Edit</button>
+                  <button
+                    type="button"
+                    onClick={() => setBodyTab("preview")}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-border flex items-center gap-1.5 ${bodyTab === "preview" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                  >
+                    <Eye className="h-3 w-3" />Preview
+                  </button>
+                </div>
+                {bodyTab === "edit" && (
+                  <VarDropdown
+                    dropRef={varDropdownRef}
+                    dropOpen={varDropdownOpen}
+                    setOpen={setVarDropdownOpen}
+                    onVar={insertVar}
+                  />
+                )}
+              </div>
+              {bodyTab === "edit" ? (
+                <RichTextarea
+                  ref={editorRef}
+                  value={formData.body}
+                  onChange={(v) => setFormData((prev) => ({ ...prev, body: v }))}
+                  placeholder="Write your email body here. Use variables like {{client_name}} or click 'Insert Variable'."
+                  rows={14}
+                />
+              ) : (
+                <div className="rounded-md border border-border overflow-hidden" style={{ height: 300 }}>
+                  <iframe
+                    srcDoc={previewEmailTemplate(formData.body, formData.subject || "Preview")}
+                    title="Email preview"
+                    className="w-full h-full border-0"
+                  />
+                </div>
               )}
-              <Textarea
-                id="template-body"
-                value={formData.body}
-                onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-                placeholder="Enter email body"
-                rows={10}
-                className="font-mono text-sm"
-              />
+              {bodyTab === "edit" && (
+                <p className="text-xs text-muted-foreground">Plain text with line breaks. Use the variable picker to insert dynamic values.</p>
+              )}
             </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setEditDialogOpen(false); setCreateDialogOpen(false) }} className="w-full sm:w-auto">Cancel</Button>
             <Button
-              variant="outline"
-              onClick={() => {
-                setEditDialogOpen(false)
-                setCreateDialogOpen(false)
-              }}
-              className="w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                console.log('Save button clicked', { formData, editingTemplate })
-                handleSave()
-              }}
-              disabled={!formData.name || !formData.subject || !formData.body}
-              className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto"
               type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSave() }}
+              disabled={!formData.name || !formData.subject || !formData.body}
+              className="w-full sm:w-auto bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
             >
               {editingTemplate ? "Update" : "Create"}
             </Button>
@@ -666,51 +699,37 @@ export default function EmailTemplatesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog */}
+      {/* ─── Preview Dialog ────────────────────────────────────────────────── */}
       <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[640px] p-0 gap-0 overflow-hidden">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b bg-muted/30">
-            <DialogTitle className="text-lg font-semibold">Template Preview</DialogTitle>
-            <DialogDescription>
-              How this email will appear to recipients
-            </DialogDescription>
+        <DialogContent className="max-w-[95vw] sm:max-w-[900px] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Template Preview</DialogTitle>
+            <DialogDescription>Preview of the email template</DialogDescription>
           </DialogHeader>
           {previewTemplate && (
-            <div className="flex flex-col">
-              {/* Email-style header */}
-              <div className="px-6 py-4 space-y-3 border-b bg-background">
-                {previewTemplate.name && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Template</span>
-                    <Badge variant="secondary" className="font-normal">{previewTemplate.name}</Badge>
-                  </div>
-                )}
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Subject</span>
-                  <p className="mt-1.5 text-sm font-medium text-foreground leading-snug">
-                    {previewTemplate.subject}
-                  </p>
-                </div>
+            <div className="space-y-4 py-4 overflow-y-auto flex-1 min-h-0">
+              <div>
+                <Label className="text-sm font-medium">Subject:</Label>
+                <p className="mt-1 p-3 bg-muted rounded border">{previewTemplate.subject}</p>
               </div>
-              {/* Email body - scrollable */}
-              <div className="px-6 py-4 flex-1 min-h-0">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Body</span>
-                <div className="mt-1.5 rounded-lg border bg-muted/50 p-4 max-h-[min(50vh,320px)] overflow-y-auto">
-                  <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed break-words m-0">
-                    {previewTemplate.body}
-                  </pre>
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Email Preview:</Label>
+                <div className="border rounded-md bg-white overflow-auto" style={{ maxHeight: "calc(90vh - 250px)" }}>
+                  <iframe
+                    srcDoc={previewEmailTemplate(previewTemplate.body, previewTemplate.subject)}
+                    title="Email preview"
+                    className="w-full border-0"
+                    style={{ minHeight: 300, height: "calc(90vh - 260px)" }}
+                  />
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter className="px-6 py-4 border-t bg-muted/20">
-            <Button variant="outline" onClick={() => setPreviewDialogOpen(false)} className="w-full sm:w-auto">
-              Close
-            </Button>
+          <DialogFooter className="mt-auto pt-4 border-t">
+            <Button variant="outline" onClick={() => setPreviewDialogOpen(false)} className="w-full sm:w-auto">Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
-
