@@ -393,7 +393,7 @@ export async function apiRequest<T>(
       rawMessage === 'Load failed' ||
       rawMessage === 'Network request failed';
     const message = isNetworkFailure
-      ? 'Unable to reach the server. Check that the API is running and the URL in .env is correct.'
+      ? 'Unable to reach the server. Reload the page.'
       : rawMessage;
     const status = isNetworkFailure ? 0 : 500;
     throw new ApiError(status, message);
@@ -538,7 +538,7 @@ export async function uploadFiles<T>(
       rawMessage === 'Load failed' ||
       rawMessage === 'Network request failed';
     const message = isNetworkFailure
-      ? 'Unable to reach the server. Check that the API is running and the URL in .env is correct.'
+      ? 'Unable to reach the server. Reload the page.'
       : rawMessage;
     const status = isNetworkFailure ? 0 : 500;
     throw new ApiError(status, message);

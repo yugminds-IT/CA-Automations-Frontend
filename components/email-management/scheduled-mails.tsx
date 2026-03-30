@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Loader2, Trash2, RefreshCw, Clock, CheckCircle2, XCircle, AlertCircle, Repeat } from 'lucide-react'
+import { Loader2, Trash2, RefreshCw, Clock, CheckCircle2, XCircle, AlertCircle, Repeat, Pencil } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,8 +20,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { listSchedules, cancelSchedule } from '@/lib/api/mail-management'
+import { listSchedules, cancelSchedule, updateSchedule } from '@/lib/api/mail-management'
 
 interface Schedule {
   id: number | string
@@ -176,6 +178,11 @@ export function ScheduledMails() {
   const [isLoading, setIsLoading] = useState(true)
   const [cancelTarget, setCancelTarget] = useState<Schedule | null>(null)
   const [isCancelling, setIsCancelling] = useState(false)
+  const [editTarget, setEditTarget] = useState<Schedule | null>(null)
+  const [editDate, setEditDate] = useState('')
+  const [editTime, setEditTime] = useState('')
+  const [editRecipients, setEditRecipients] = useState('')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('all')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -219,6 +226,48 @@ export function ScheduledMails() {
       toast({ title: 'Error', description: 'Failed to cancel scheduled mail.', variant: 'destructive' })
     } finally {
       setIsCancelling(false)
+    }
+  }
+
+  const openEdit = (s: Schedule) => {
+    const d = parseUTC(s.scheduledAt as string)
+    if (d) {
+      const pad = (n: number) => String(n).padStart(2, '0')
+      setEditDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`)
+      setEditTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`)
+    } else {
+      setEditDate('')
+      setEditTime('')
+    }
+    setEditRecipients(Array.isArray(s.recipientEmails) ? s.recipientEmails.join(', ') : '')
+    setEditTarget(s)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return
+    if (!editDate || !editTime) {
+      toast({ title: 'Missing date/time', description: 'Please set a date and time.', variant: 'destructive' })
+      return
+    }
+    const scheduledAt = new Date(`${editDate}T${editTime}:00`).toISOString()
+    const recipientEmails = editRecipients
+      .split(/[,\n]+/)
+      .map((e) => e.trim())
+      .filter(Boolean)
+    if (recipientEmails.length === 0) {
+      toast({ title: 'No recipients', description: 'Add at least one email.', variant: 'destructive' })
+      return
+    }
+    setIsSavingEdit(true)
+    try {
+      await updateSchedule(editTarget.id, { scheduledAt, recipientEmails })
+      toast({ title: 'Updated', description: 'Schedule updated successfully.', variant: 'success' })
+      setEditTarget(null)
+      await load()
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update schedule.', variant: 'destructive' })
+    } finally {
+      setIsSavingEdit(false)
     }
   }
 
@@ -312,20 +361,20 @@ export function ScheduledMails() {
                         <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-sm">
-                              {s.template?.name ?? s.templateName ?? s.subject ?? (s.templateId ? `Template #${s.templateId}` : 'Custom Email')}
-                              {s.template?.category && (
-                                <span className="text-muted-foreground font-normal"> · {s.template.category}</span>
-                              )}
-                            </span>
-                            {(s.template?.name || s.templateName || s.templateId || s.subject) && (
-                              <span className={`text-[10px] font-medium w-fit px-1.5 py-0.5 rounded-full ${
-                                (s.template?.organizationId ?? s.templateOrganizationId)
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-sm">
+                                {s.template?.name ?? s.templateName ?? s.subject ?? (s.templateId ? `Template #${s.templateId}` : 'Custom Email')}
+                              </span>
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${
+                                !s.templateId || (s.template?.organizationId ?? s.templateOrganizationId)
                                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                   : 'bg-muted text-muted-foreground'
                               }`}>
                                 {!s.templateId ? 'Custom' : (s.template?.organizationId ?? s.templateOrganizationId) ? 'Custom' : 'Pre-built'}
                               </span>
+                            </div>
+                            {s.template?.category && (
+                              <span className="text-[11px] text-muted-foreground">{s.template.category}</span>
                             )}
                           </div>
                         </TableCell>
@@ -354,15 +403,26 @@ export function ScheduledMails() {
                         <TableCell><span className="text-xs">{formatDate(s.createdAt as string)}</span></TableCell>
                         <TableCell className="text-center">
                           {canCancel(s) ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              title="Cancel schedule"
-                              onClick={() => setCancelTarget(s)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                title="Edit schedule"
+                                onClick={() => openEdit(s)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Cancel schedule"
+                                onClick={() => setCancelTarget(s)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
@@ -376,6 +436,46 @@ export function ScheduledMails() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Edit Schedule</DialogTitle>
+            <DialogDescription>
+              Update the scheduled date, time, or recipients. Only pending schedules can be edited.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Date</Label>
+                <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Time</Label>
+                <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="h-8 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Recipients <span className="text-muted-foreground font-normal">(comma-separated)</span></Label>
+              <textarea
+                value={editRecipients}
+                onChange={(e) => setEditRecipients(e.target.value)}
+                rows={3}
+                placeholder="email1@example.com, email2@example.com"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={isSavingEdit}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={isSavingEdit}>
+              {isSavingEdit ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Saving…</> : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>
         <DialogContent>

@@ -74,6 +74,15 @@ export const API_CONFIG = {
       exportUsers: '/master-admin/export/users',
       exportOrganizations: '/master-admin/export/organizations',
     },
+    notifications: {
+      base: '/notifications',
+      readAll: '/notifications/read-all',
+      markRead: (id: number | string) => `/notifications/${id}/read`,
+    },
+    dashboard: {
+      stats: '/dashboard/stats',
+    },
+    profile: '/auth/profile',
     health: '/',
   },
 } as const;

@@ -71,9 +71,10 @@ const TEMPLATE_VAR_GROUPS = [
   {
     label: "Organization Details",
     vars: [
-      { label: "Org Name",  value: "{{org_name}}" },
-      { label: "Org Email", value: "{{org_email}}" },
-      { label: "Org Phone", value: "{{org_phone}}" },
+      { label: "Org Name",       value: "{{org_name}}" },
+      { label: "Org Admin Name", value: "{{org_admin_name}}" },
+      { label: "Org Email",      value: "{{org_email}}" },
+      { label: "Org Phone",      value: "{{org_phone}}" },
     ],
   },
   {

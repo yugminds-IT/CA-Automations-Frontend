@@ -76,34 +76,33 @@ export function previewEmailTemplate(body: string, subject = 'Sample Email'): st
   });
 
   const sampleData: Record<string, string> = {
+    // Client variables
     '{{client_name}}': 'John Doe',
-    '{{clientName}}': 'John Doe',
     '{{client_email}}': 'john.doe@example.com',
-    '{{clientEmail}}': 'john.doe@example.com',
     '{{client_phone}}': '+91 98765 43210',
-    '{{clientPhone}}': '+91 98765 43210',
     '{{company_name}}': 'ABC Pvt. Ltd.',
-    '{{clientCompany}}': 'ABC Pvt. Ltd.',
+    '{{client_city}}': 'Mumbai',
+    // Organization variables (auto-enriched by backend; shown with sample data in preview)
+    '{{org_name}}': 'Navedhana Pvt. Ltd.',
+    '{{org_admin_name}}': 'Navedhana Team',
+    '{{org_email}}': 'contact@navedhana.com',
+    '{{org_phone}}': '+91 90000 00000',
+    // Login / credentials variables
     '{{login_email}}': 'john.doe@example.com',
     '{{login_password}}': 'TempPass@123',
     '{{login_url}}': 'https://app.navedhana.com/login',
-    '{{org_name}}': 'Navedhana Pvt. Ltd.',
-    '{{org_email}}': 'contact@navedhana.com',
-    '{{org_phone}}': '+91 90000 00000',
+    // Service variables
     '{{service_name}}': 'GST Filing',
     '{{service_description}}': 'Monthly GST return filing service',
     '{{amount}}': '₹5,000',
     '{{document_name}}': 'Form 16',
+    // Date variables
     '{{date}}': currentDate,
     '{{today}}': currentDate,
     '{{current_date}}': currentDate,
     '{{deadline_date}}': currentDate,
     '{{follow_up_date}}': currentDate,
     '{{additional_notes}}': 'Please submit all documents by the due date.',
-    '{{senderName}}': 'Navedhana Team',
-    '{{senderEmail}}': 'contact@navedhana.com',
-    '{{senderPhone}}': '+91 90000 00000',
-    '{{senderCompany}}': 'Navedhana Pvt. Ltd.',
   };
 
   let previewBody = body;

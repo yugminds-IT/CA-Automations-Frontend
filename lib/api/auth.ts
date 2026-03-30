@@ -110,6 +110,21 @@ export async function logout(): Promise<void> {
   }
 }
 
+export async function updateProfile(data: { name?: string; phone?: string }): Promise<unknown> {
+  const updated = await apiRequest('/auth/profile', {
+    method: 'PATCH',
+    body: data,
+    requiresAuth: true,
+  });
+  if (updated && typeof updated === 'object') {
+    const current = (() => {
+      try { return JSON.parse(localStorage.getItem('user_data') ?? 'null'); } catch { return null; }
+    })();
+    setUserData({ ...current, ...(updated as object) });
+  }
+  return updated;
+}
+
 export function isAuthenticated(): boolean {
   const token = getAccessToken();
   return !!token && token.trim() !== '';

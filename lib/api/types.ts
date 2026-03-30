@@ -343,10 +343,46 @@ export interface ScheduleMultipleDates {
   timeZoneOffset?: string;
 }
 
-export type ScheduleConfig = ScheduleSingleDate | ScheduleDateRange | ScheduleMultipleDates;
+export interface ScheduleDaily {
+  type: 'daily';
+  fromDate: string;
+  toDate: string;
+  times: string[];
+  timeZoneOffset?: string;
+}
+
+export interface ScheduleWeekly {
+  type: 'weekly';
+  fromDate: string;
+  toDate: string;
+  /** Day names/abbrs: mon/monday, tue/tuesday, wed, thu, fri, sat, sun. Defaults to all days. */
+  days?: string[];
+  times: string[];
+  timeZoneOffset?: string;
+}
+
+export interface ScheduleMonthly {
+  type: 'monthly';
+  fromDate: string;
+  toDate: string;
+  /** Day of month 1–31. Defaults to day of fromDate. */
+  dayOfMonth?: number;
+  times: string[];
+  timeZoneOffset?: string;
+}
+
+export type ScheduleConfig =
+  | ScheduleSingleDate
+  | ScheduleDateRange
+  | ScheduleMultipleDates
+  | ScheduleDaily
+  | ScheduleWeekly
+  | ScheduleMonthly;
 
 export interface ScheduleEmailRequest {
-  templateId: number;
+  templateId?: number;
+  subject?: string;
+  body?: string;
   recipientEmails: string[];
   variables?: Record<string, string>;
   schedule: ScheduleConfig;

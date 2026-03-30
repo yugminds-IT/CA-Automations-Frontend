@@ -34,7 +34,7 @@ import { scheduleEmail } from '@/lib/api/mail-management'
 import { getUserData } from '@/lib/api/index'
 import type { EmailTemplate } from '@/lib/api/types'
 
-type ScheduleMode = 'single_date' | 'date_range' | 'multiple_dates' | 'all_dates'
+type ScheduleMode = 'single_date' | 'date_range' | 'multiple_dates' | 'all_dates' | 'daily' | 'weekly' | 'monthly'
 
 interface ClientItem {
   id: string | number
@@ -94,25 +94,34 @@ function cleanAndSubstituteVars(html: string, vars: Record<string, string>): str
   return substituteVars(tmp.innerHTML, vars)
 }
 
+/** Strip variable-chip spans back to their {{var}} text without substituting — backend resolves all variables */
+function stripChips(html: string): string {
+  const tmp = document.createElement('div')
+  tmp.innerHTML = html
+  tmp.querySelectorAll('span[contenteditable="false"]').forEach((span) => {
+    span.replaceWith(document.createTextNode(span.textContent ?? ''))
+  })
+  return tmp.innerHTML
+}
+
 const COMPOSE_VAR_GROUPS = [
   {
     label: 'Client Details',
     vars: [
-      { label: 'Name',    value: '{{clientName}}' },
-      { label: 'Email',   value: '{{clientEmail}}' },
-      { label: 'Phone',   value: '{{clientPhone}}' },
-      { label: 'Company', value: '{{clientCompany}}' },
-      { label: 'City',    value: '{{clientCity}}' },
-      { label: 'Status',  value: '{{clientStatus}}' },
+      { label: 'Client Name',    value: '{{client_name}}' },
+      { label: 'Client Email',   value: '{{client_email}}' },
+      { label: 'Client Phone',   value: '{{client_phone}}' },
+      { label: 'Company Name',   value: '{{company_name}}' },
+      { label: 'City',           value: '{{client_city}}' },
     ],
   },
   {
-    label: 'Sender Details',
+    label: 'Organization',
     vars: [
-      { label: 'Name',    value: '{{senderName}}' },
-      { label: 'Email',   value: '{{senderEmail}}' },
-      { label: 'Phone',   value: '{{senderPhone}}' },
-      { label: 'Company', value: '{{senderCompany}}' },
+      { label: 'Org Name',       value: '{{org_name}}' },
+      { label: 'Org Admin Name', value: '{{org_admin_name}}' },
+      { label: 'Org Email',      value: '{{org_email}}' },
+      { label: 'Org Phone',      value: '{{org_phone}}' },
     ],
   },
 ]
@@ -141,7 +150,7 @@ export function SendMails() {
   const [composeMode, setComposeMode] = useState<'template' | 'custom'>('template')
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null)
   const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('Dear {{clientName}},<br><br>')
+  const [body, setBody] = useState('Dear {{client_name}},<br><br>')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewClientIndex, setPreviewClientIndex] = useState(0)
   const editorRef = useRef<HTMLDivElement>(null)
@@ -164,13 +173,15 @@ export function SendMails() {
   const [rangeTo, setRangeTo] = useState('')
   const [multipleDates, setMultipleDates] = useState<string[]>([''])
   const [times, setTimes] = useState<string[]>([''])
+  const [weeklyDays, setWeeklyDays] = useState<string[]>([])
+  const [monthlyDay, setMonthlyDay] = useState('')
   const [isScheduling, setIsScheduling] = useState(false)
 
   // Set initial editor content once on mount — do NOT use dangerouslySetInnerHTML on the
   // contentEditable div, because React re-applies it on every re-render and wipes typed content.
   useEffect(() => {
     if (editorRef.current) {
-      editorRef.current.innerHTML = 'Dear {{clientName}},<br><br>'
+      editorRef.current.innerHTML = 'Dear {{client_name}},<br><br>'
     }
   }, [])
 
@@ -197,9 +208,13 @@ export function SendMails() {
       toast({ title: 'No recipients', description: 'Please select at least one client.', variant: 'destructive' })
       return
     }
-    if (!selectedTemplate) {
+    if (composeMode === 'template' && !selectedTemplate) {
       toast({ title: 'No template', description: 'Please select a template in Compose Message.', variant: 'destructive' })
       return
+    }
+    if (composeMode === 'custom') {
+      if (!subject.trim()) { toast({ title: 'Missing subject', description: 'Please enter a subject.', variant: 'destructive' }); return }
+      if (!editorRef.current?.innerHTML.trim()) { toast({ title: 'Missing message', description: 'Please write a message.', variant: 'destructive' }); return }
     }
     const validTimes = times.filter((t) => t.trim())
     if (validTimes.length === 0) {
@@ -224,8 +239,17 @@ export function SendMails() {
       const validDates = multipleDates.filter((d) => d.trim())
       if (validDates.length === 0) { toast({ title: 'No dates', description: 'Please add at least one date.', variant: 'destructive' }); return }
       schedule = { type: 'multiple_dates', dates: validDates, times: validTimes, timeZoneOffset }
+    } else if (scheduleMode === 'daily') {
+      if (!rangeFrom || !rangeTo) { toast({ title: 'Incomplete range', description: 'Please set From and To dates.', variant: 'destructive' }); return }
+      schedule = { type: 'daily', fromDate: rangeFrom, toDate: rangeTo, times: validTimes, timeZoneOffset }
+    } else if (scheduleMode === 'weekly') {
+      if (!rangeFrom || !rangeTo) { toast({ title: 'Incomplete range', description: 'Please set From and To dates.', variant: 'destructive' }); return }
+      schedule = { type: 'weekly', fromDate: rangeFrom, toDate: rangeTo, days: weeklyDays.length ? weeklyDays : undefined, times: validTimes, timeZoneOffset }
+    } else if (scheduleMode === 'monthly') {
+      if (!rangeFrom || !rangeTo) { toast({ title: 'Incomplete range', description: 'Please set From and To dates.', variant: 'destructive' }); return }
+      const dom = monthlyDay ? parseInt(monthlyDay, 10) : undefined
+      schedule = { type: 'monthly', fromDate: rangeFrom, toDate: rangeTo, dayOfMonth: dom, times: validTimes, timeZoneOffset }
     } else {
-      // all_dates → wide date_range from today to 1 year ahead
       const today = new Date()
       const nextYear = new Date(today)
       nextYear.setFullYear(today.getFullYear() + 1)
@@ -240,11 +264,20 @@ export function SendMails() {
 
     setIsScheduling(true)
     try {
-      await scheduleEmail({
-        templateId: Number(selectedTemplate.id),
+      const firstClient = selectedClients[0]
+      const payload: any = {
         recipientEmails: selectedClients.map((c) => c.email),
         schedule,
-      })
+      }
+      if (composeMode === 'template') {
+        payload.templateId = Number(selectedTemplate!.id)
+        payload.variables = buildVars(firstClient)
+      } else {
+        payload.subject = subject.trim()
+        payload.body = stripChips(editorRef.current?.innerHTML ?? '')
+        payload.variables = buildVars(firstClient)
+      }
+      await scheduleEmail(payload)
       toast({ title: 'Scheduled!', description: `Email scheduled for ${selectedIds.size} client${selectedIds.size > 1 ? 's' : ''}.`, variant: 'success' })
     } catch (err) {
       console.error('Failed to schedule email:', err)
@@ -345,7 +378,7 @@ export function SendMails() {
     setSubject('')
     setBody('')
     setTimeout(() => {
-      if (editorRef.current) editorRef.current.innerHTML = 'Dear {{clientName}},<br><br>'
+      if (editorRef.current) editorRef.current.innerHTML = 'Dear {{client_name}},<br><br>'
     }, 0)
   }
 
@@ -356,34 +389,17 @@ export function SendMails() {
     const orgEmail = user?.organization?.email ?? user?.org_email ?? user?.email ?? ''
     const orgPhone = user?.organization?.phone ?? user?.org_phone ?? user?.phone ?? ''
     return {
-      // legacy short keys
-      name: client.name,
-      company: client.companyName,
-      email: client.email,
-      city: client.city ?? '',
-      phone: client.phone ?? '',
-      category: client.businessType ?? '',
-      // client vars — camelCase (compose editor)
-      clientName: client.name,
-      clientEmail: client.email,
-      clientPhone: client.phone ?? '',
-      clientCompany: client.companyName,
-      clientCity: client.city ?? '',
-      clientStatus: client.status ?? '',
-      // client vars — snake_case (template variables)
+      // client vars — snake_case (backend standard)
       client_name: client.name,
       client_email: client.email,
       client_phone: client.phone ?? '',
       company_name: client.companyName,
-      // org vars — snake_case (template variables)
+      client_city: client.city ?? '',
+      // org vars — snake_case (backend standard, also auto-enriched by backend)
       org_name: orgName,
+      org_admin_name: user?.name ?? user?.full_name ?? '',
       org_email: orgEmail,
       org_phone: orgPhone,
-      // sender vars — camelCase
-      senderName: user?.name ?? user?.full_name ?? '',
-      senderEmail: user?.email ?? '',
-      senderPhone: user?.phone ?? '',
-      senderCompany: orgName,
     }
   }
 
@@ -519,9 +535,10 @@ export function SendMails() {
 
     for (const client of selectedClients) {
       try {
+        const vars = buildVars(client)
         const payload = composeMode === 'custom'
-          ? { to: client.email, subject: subject.trim(), body: cleanAndSubstituteVars(editorRef.current?.innerHTML ?? '', buildVars(client)) }
-          : { to: client.email, templateId: selectedTemplate!.id, variables: buildVars(client) }
+          ? { to: client.email, subject: subject.trim(), body: stripChips(editorRef.current?.innerHTML ?? ''), variables: vars }
+          : { to: client.email, templateId: selectedTemplate!.id, variables: vars }
         const result = await sendEmail(payload) as { sent: boolean }
         if (result?.sent === false) {
           errorCount++
@@ -725,7 +742,7 @@ export function SendMails() {
                 className="text-xs h-8 gap-1.5"
                 onClick={() => {
                   setComposeMode('template')
-                  if (!selectedTemplate) { setSubject(''); setBody('Dear {{name}},\n\n') }
+                  if (!selectedTemplate) { setSubject(''); setBody('Dear {{client_name}},\n\n') }
                 }}
               >
                 <Mail01 className="h-3.5 w-3.5" />
@@ -1092,10 +1109,13 @@ export function SendMails() {
             <p className="text-xs font-medium text-muted-foreground mb-2">Schedule Type</p>
             <div className="flex flex-wrap gap-2">
               {([
-                { value: 'single_date', label: 'Single Date' },
-                { value: 'date_range', label: 'Date Range' },
+                { value: 'single_date',    label: 'Single Date' },
+                { value: 'date_range',     label: 'Date Range' },
                 { value: 'multiple_dates', label: 'Multiple Dates' },
-                { value: 'all_dates', label: 'All Dates' },
+                { value: 'daily',          label: 'Daily' },
+                { value: 'weekly',         label: 'Weekly' },
+                { value: 'monthly',        label: 'Monthly' },
+                { value: 'all_dates',      label: 'All Dates' },
               ] as const).map((opt) => (
                 <button
                   key={opt.value}
@@ -1184,6 +1204,80 @@ export function SendMails() {
                 <p className="text-xs text-primary/80">Every day · next 12 months</p>
               </div>
             )}
+
+            {scheduleMode === 'daily' && (
+              <div className="flex flex-col gap-2">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</label>
+                  <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</label>
+                  <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+                </div>
+              </div>
+            )}
+
+            {scheduleMode === 'weekly' && (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</label>
+                    <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</label>
+                    <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    Days <span className="font-normal">(optional — defaults to every day)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as const).map((d) => {
+                      const key = d.toLowerCase()
+                      const active = weeklyDays.includes(key)
+                      return (
+                        <button key={d} type="button"
+                          onClick={() => setWeeklyDays((prev) => active ? prev.filter((x) => x !== key) : [...prev, key])}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+                            active ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                          }`}
+                        >{d}</button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {scheduleMode === 'monthly' && (
+              <div className="flex flex-col gap-2">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</label>
+                  <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</label>
+                  <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    Day of month <span className="font-normal">(1–31, optional)</span>
+                  </label>
+                  <input type="number" min={1} max={31} value={monthlyDay} onChange={(e) => setMonthlyDay(e.target.value)}
+                    placeholder="e.g. 15"
+                    className="h-8 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Times section */}
@@ -1226,7 +1320,7 @@ export function SendMails() {
             size="sm"
             className="w-full gap-1.5 text-xs"
             onClick={handleSchedule}
-            disabled={isScheduling || selectedIds.size === 0 || !selectedTemplate}
+            disabled={isScheduling || selectedIds.size === 0 || (composeMode === 'template' && !selectedTemplate)}
           >
             {isScheduling ? (
               <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Scheduling...</>

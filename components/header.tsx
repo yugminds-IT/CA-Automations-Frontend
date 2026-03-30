@@ -1,10 +1,10 @@
 "use client"
 
-import { User as UserIcon, Menu,  LogOut, Sun, Moon, PanelLeft, Home, Send, FileText, Clock } from "lucide-react"
+import { User as UserIcon, Menu, LogOut, Sun, Moon, PanelLeft, Home, Send, FileText, Clock, Bell } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
-import { getUserData, getOrganizationData, logout } from "@/lib/api/index"
+import { getUserData, getOrganizationData, logout, listNotifications } from "@/lib/api/index"
 import type { User, Organization } from "@/lib/api/index"
 import { useTheme } from "./theme-provider"
 import { useToast } from "@/components/ui/use-toast"
@@ -70,6 +70,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
   const [isDesktop, setIsDesktop] = useState(false)
   const [emailDropdownOpen, setEmailDropdownOpen] = useState(false)
   const emailDropdownRef = useRef<HTMLDivElement>(null)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
 
   // Build breadcrumb items from current pathname
   const breadcrumbItems = (() => {
@@ -154,6 +155,21 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('mousedown', handleClickOutside)
     }
+  }, [])
+
+  // Poll unread notification count every 60s for org users
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await listNotifications({ limit: 1 })
+        setUnreadNotifications(res.unread)
+      } catch {
+        // not an org user or not logged in — ignore
+      }
+    }
+    fetchUnread()
+    const interval = setInterval(fetchUnread, 60_000)
+    return () => clearInterval(interval)
   }, [])
 
   // Calculate header position based on sidebar state
@@ -291,6 +307,21 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Help button */}
         
+        {/* Notification bell */}
+        <Link
+          href="/notifications"
+          className="relative p-1 rounded-md hover:bg-muted transition-colors"
+          aria-label="Notifications"
+          title="Notifications"
+        >
+          <Bell className="w-4 h-4 text-foreground" />
+          {unreadNotifications > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground leading-none">
+              {unreadNotifications > 99 ? "99+" : unreadNotifications}
+            </span>
+          )}
+        </Link>
+
         {/* Dark Mode toggle */}
         <button
           onClick={toggleTheme}

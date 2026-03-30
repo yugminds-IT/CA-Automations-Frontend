@@ -143,7 +143,20 @@ export {
   resetPassword,
   logout,
   isAuthenticated,
+  updateProfile,
 } from './auth';
+
+// Notifications APIs
+export {
+  listNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  type AppNotification,
+  type NotificationsResponse,
+} from './notifications';
+
+// Dashboard API
+export { getDashboardStats, type DashboardStats } from './dashboard';
 
 // Compatibility: signup (maps to signupOrganization)
 export async function signup(data: {
@@ -287,6 +300,7 @@ export {
   getOrgMails,
   getMailTemplates,
   scheduleEmail,
+  updateSchedule,
   listSchedules,
   getScheduleById,
   cancelSchedule,
