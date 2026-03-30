@@ -68,6 +68,10 @@ export async function apiRequestWithRefresh<T>(
       throw new ApiError(401, 'Session expired. Please login again.');
     }
     
+    // Notify the global NetworkStatus component when the server is unreachable
+    if (error instanceof ApiError && error.status === 0 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('api-network-error'))
+    }
     throw error;
   }
 }

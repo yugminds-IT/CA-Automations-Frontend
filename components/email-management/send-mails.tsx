@@ -279,6 +279,7 @@ export function SendMails() {
       }
       await scheduleEmail(payload)
       toast({ title: 'Scheduled!', description: `Email scheduled for ${selectedIds.size} client${selectedIds.size > 1 ? 's' : ''}.`, variant: 'success' })
+      window.location.reload()
     } catch (err) {
       console.error('Failed to schedule email:', err)
       toast({ title: 'Error', description: 'Failed to schedule email.', variant: 'destructive' })
@@ -560,6 +561,7 @@ export function SendMails() {
         variant: 'success',
       })
       setSelectedIds(new Set())
+      window.location.reload()
     } else {
       toast({
         title: 'Partial success',

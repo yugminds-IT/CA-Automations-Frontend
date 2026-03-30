@@ -36,6 +36,7 @@ interface Schedule {
   scheduledAt?: string
   createdAt?: string
   subject?: string
+  body?: string
   recurring?: boolean
   isRecurring?: boolean
   [key: string]: unknown
@@ -182,6 +183,8 @@ export function ScheduledMails() {
   const [editDate, setEditDate] = useState('')
   const [editTime, setEditTime] = useState('')
   const [editRecipients, setEditRecipients] = useState('')
+  const [editSubject, setEditSubject] = useState('')
+  const [editBody, setEditBody] = useState('')
   const [isSavingEdit, setIsSavingEdit] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('all')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -240,6 +243,8 @@ export function ScheduledMails() {
       setEditTime('')
     }
     setEditRecipients(Array.isArray(s.recipientEmails) ? s.recipientEmails.join(', ') : '')
+    setEditSubject(s.subject ?? '')
+    setEditBody((s.body as string) ?? '')
     setEditTarget(s)
   }
 
@@ -259,8 +264,14 @@ export function ScheduledMails() {
       return
     }
     setIsSavingEdit(true)
+    const isCustom = !editTarget.templateId
     try {
-      await updateSchedule(editTarget.id, { scheduledAt, recipientEmails })
+      await updateSchedule(editTarget.id, {
+        scheduledAt,
+        recipientEmails,
+        ...(isCustom && editSubject.trim() && { subject: editSubject.trim() }),
+        ...(isCustom && editBody.trim() && { body: editBody.trim() }),
+      })
       toast({ title: 'Updated', description: 'Schedule updated successfully.', variant: 'success' })
       setEditTarget(null)
       await load()
@@ -439,11 +450,11 @@ export function ScheduledMails() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
-        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()} className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit Schedule</DialogTitle>
             <DialogDescription>
-              Update the scheduled date, time, or recipients. Only pending schedules can be edited.
+              Update the scheduled date, time, recipients{!editTarget?.templateId ? ', subject, or message' : ''}. Only pending schedules can be edited.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -462,11 +473,34 @@ export function ScheduledMails() {
               <textarea
                 value={editRecipients}
                 onChange={(e) => setEditRecipients(e.target.value)}
-                rows={3}
+                rows={2}
                 placeholder="email1@example.com, email2@example.com"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
+            {!editTarget?.templateId && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Subject</Label>
+                  <Input
+                    value={editSubject}
+                    onChange={(e) => setEditSubject(e.target.value)}
+                    placeholder="Email subject"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Message</Label>
+                  <textarea
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
+                    rows={6}
+                    placeholder="Email message body…"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={isSavingEdit}>Cancel</Button>

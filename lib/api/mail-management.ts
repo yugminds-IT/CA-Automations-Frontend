@@ -65,7 +65,7 @@ export async function getScheduleById(id: number | string): Promise<unknown> {
 
 export async function updateSchedule(
   id: number | string,
-  data: { scheduledAt?: string; recipientEmails?: string[]; variables?: Record<string, string> }
+  data: { scheduledAt?: string; recipientEmails?: string[]; variables?: Record<string, string>; subject?: string; body?: string }
 ): Promise<unknown> {
   return apiRequestWithRefresh(
     API_CONFIG.endpoints.mailManagement.scheduleById(id),
