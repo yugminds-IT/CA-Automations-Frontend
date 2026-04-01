@@ -264,20 +264,20 @@ export function SendMails() {
 
     setIsScheduling(true)
     try {
-      const firstClient = selectedClients[0]
-      const payload: any = {
-        recipientEmails: selectedClients.map((c) => c.email),
-        schedule,
-      }
+      const basePayload: any = { schedule }
       if (composeMode === 'template') {
-        payload.templateId = Number(selectedTemplate!.id)
-        payload.variables = buildVars(firstClient)
+        basePayload.templateId = Number(selectedTemplate!.id)
       } else {
-        payload.subject = subject.trim()
-        payload.body = stripChips(editorRef.current?.innerHTML ?? '')
-        payload.variables = buildVars(firstClient)
+        basePayload.subject = subject.trim()
+        basePayload.body = stripChips(editorRef.current?.innerHTML ?? '')
       }
-      await scheduleEmail(payload)
+      for (const client of selectedClients) {
+        await scheduleEmail({
+          ...basePayload,
+          recipientEmails: [client.email],
+          variables: buildVars(client),
+        })
+      }
       toast({ title: 'Scheduled!', description: `Email scheduled for ${selectedIds.size} client${selectedIds.size > 1 ? 's' : ''}.`, variant: 'success' })
       window.location.reload()
     } catch (err) {
