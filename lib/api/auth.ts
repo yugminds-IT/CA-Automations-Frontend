@@ -93,6 +93,13 @@ export async function forgotPassword(data: ForgotPasswordRequest): Promise<unkno
   });
 }
 
+export async function verifyPasswordResetOtp(data: { email: string; otp: string }): Promise<unknown> {
+  return apiRequest(API_CONFIG.endpoints.auth.verifyPasswordResetOtp, {
+    method: 'POST',
+    body: data,
+  });
+}
+
 export async function resetPassword(data: ResetPasswordRequest): Promise<unknown> {
   return apiRequest(API_CONFIG.endpoints.auth.resetPassword, {
     method: 'POST',

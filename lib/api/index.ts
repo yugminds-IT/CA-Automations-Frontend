@@ -140,6 +140,7 @@ export {
   signupOrganization,
   signupOrgAdmin,
   forgotPassword,
+  verifyPasswordResetOtp,
   resetPassword,
   logout,
   isAuthenticated,

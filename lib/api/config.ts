@@ -16,6 +16,7 @@ export const API_CONFIG = {
       signupOrganization: '/auth/signup/organization',
       signupOrgAdmin: '/auth/signup/org-admin',
       forgotPassword: '/auth/forgot-password',
+      verifyPasswordResetOtp: '/auth/verify-password-reset-otp',
       resetPassword: '/auth/reset-password',
     },
     organizations: {
