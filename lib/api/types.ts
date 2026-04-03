@@ -111,6 +111,33 @@ export interface Organization {
   pincode?: string;
 }
 
+export interface SmtpConfigResponse {
+  configured: boolean;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpSecure: boolean | null;
+  smtpUser: string | null;
+  smtpFrom: string | null;
+}
+
+export interface SmtpConfigRequest {
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPass: string;
+  smtpFrom?: string;
+}
+
+export interface SmtpTestRequest {
+  testEmail: string;
+}
+
+export interface SmtpTestResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface CreateOrganizationRequest {
   name: string;
   slug?: string;

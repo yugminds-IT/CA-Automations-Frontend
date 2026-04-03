@@ -350,14 +350,9 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
             </span>
             {/* Logout button */}
             <button
-              onClick={() => {
-                toast({
-                  title: 'Logged Out',
-                  description: 'You have been successfully logged out.',
-                  variant: 'success',
-                })
-                logout()
-                router.push("/login")
+              onClick={async () => {
+                await logout()
+                window.location.replace("/login")
               }}
               className="p-1 rounded-md hover:bg-muted hover:text-destructive transition-colors"
               aria-label="Logout"

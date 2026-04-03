@@ -187,9 +187,9 @@ export function MasterAdminHeader({
             </div>
 
             <button
-              onClick={() => {
-                logout()
-                router.push("/login")
+              onClick={async () => {
+                await logout()
+                window.location.replace("/login")
               }}
               className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group"
               aria-label="Logout"

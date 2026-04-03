@@ -22,6 +22,8 @@ export const API_CONFIG = {
     organizations: {
       base: '/organizations',
       byId: (id: number | string) => `/organizations/${id}`,
+      smtpConfig: (id: number | string) => `/organizations/${id}/smtp-config`,
+      smtpConfigTest: (id: number | string) => `/organizations/${id}/smtp-config/test`,
     },
     users: {
       base: '/users',
