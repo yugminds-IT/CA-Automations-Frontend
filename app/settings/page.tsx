@@ -3,14 +3,12 @@
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import {
-  Settings,
   User,
   Pencil,
   Save,
@@ -23,15 +21,13 @@ import {
   Lock,
   Bell,
   ChevronRight,
-  Eye,
-  EyeOff,
   Trash2,
   SendHorizontal,
   CheckCircle2,
   XCircle,
   Loader2,
 } from "lucide-react"
-import { getMe, updateProfile, getUserData, isAuthenticated } from "@/lib/api/index"
+import { getMe, updateProfile, isAuthenticated } from "@/lib/api/index"
 import { getSmtpConfig, saveSmtpConfig, clearSmtpConfig, testSmtpConfig } from "@/lib/api/organizations"
 import { useToast } from "@/components/ui/use-toast"
 import type { SmtpConfigResponse } from "@/lib/api/types"
@@ -97,7 +93,6 @@ const settingSections = [
 
 export default function SettingsPage() {
   const { toast } = useToast()
-  const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [isDesktop, setIsDesktop] = useState(false)
@@ -118,13 +113,12 @@ export default function SettingsPage() {
   const [smtpTesting, setSmtpTesting] = useState(false)
   const [smtpClearing, setSmtpClearing] = useState(false)
   const [smtpEditMode, setSmtpEditMode] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
   const [testEmail, setTestEmail] = useState("")
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
   const [smtpForm, setSmtpForm] = useState({
     smtpHost: "",
-    smtpPort: 587,
+    smtpPort: "",
     smtpSecure: false,
     smtpUser: "",
     smtpPass: "",
@@ -187,7 +181,7 @@ export default function SettingsPage() {
       if (cfg.configured) {
         setSmtpForm({
           smtpHost: cfg.smtpHost ?? "",
-          smtpPort: cfg.smtpPort ?? 587,
+          smtpPort: cfg.smtpPort?.toString() ?? "",
           smtpSecure: cfg.smtpSecure ?? false,
           smtpUser: cfg.smtpUser ?? "",
           smtpPass: "",
@@ -237,7 +231,7 @@ export default function SettingsPage() {
     try {
       await saveSmtpConfig(orgId, {
         smtpHost: smtpForm.smtpHost,
-        smtpPort: smtpForm.smtpPort,
+        smtpPort: parseInt(smtpForm.smtpPort as string) || 587,
         smtpSecure: smtpForm.smtpSecure,
         smtpUser: smtpForm.smtpUser,
         smtpPass: smtpForm.smtpPass,
@@ -262,7 +256,7 @@ export default function SettingsPage() {
       toast({ title: "Removed", description: "SMTP config removed. Global SMTP will be used." })
       setSmtpEditMode(false)
       setTestResult(null)
-      setSmtpForm({ smtpHost: "", smtpPort: 587, smtpSecure: false, smtpUser: "", smtpPass: "", smtpFrom: "" })
+      setSmtpForm({ smtpHost: "", smtpPort: "", smtpSecure: false, smtpUser: "", smtpPass: "", smtpFrom: "" })
       await loadSmtpConfig(orgId)
     } catch {
       toast({ title: "Error", description: "Failed to remove SMTP config", variant: "destructive" })
@@ -283,8 +277,17 @@ export default function SettingsPage() {
       } else {
         toast({ title: "Test failed", description: result.message, variant: "destructive" })
       }
-    } catch {
-      toast({ title: "Error", description: "Failed to run SMTP test", variant: "destructive" })
+    } catch (err: any) {
+      const msg: string = err?.detail ?? err?.message ?? "Failed to run SMTP test"
+      const isKeyMismatch = msg.toLowerCase().includes("re-save")
+      setTestResult({ success: false, message: msg })
+      toast({
+        title: "Test failed",
+        description: isKeyMismatch
+          ? "Encryption key changed — click Edit Config and re-save your password to fix this."
+          : msg,
+        variant: "destructive",
+      })
     } finally {
       setSmtpTesting(false)
     }
@@ -506,10 +509,10 @@ export default function SettingsPage() {
                                 <div className="space-y-1.5">
                                   <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">Port</Label>
                                   <Input
-                                    type="number"
+                                    type="text"
                                     placeholder="587"
                                     value={smtpForm.smtpPort}
-                                    onChange={(e) => setSmtpForm((f) => ({ ...f, smtpPort: parseInt(e.target.value) || 587 }))}
+                                    onChange={(e) => setSmtpForm((f) => ({ ...f, smtpPort: e.target.value }))}
                                     className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]"
                                   />
                                 </div>
@@ -540,22 +543,13 @@ export default function SettingsPage() {
                                 <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">
                                   Password {smtpConfig?.configured && <span className="text-[11px] text-[#94A3B8] font-normal">(leave blank to keep current)</span>}
                                 </Label>
-                                <div className="relative">
-                                  <Input
-                                    type={showPassword ? "text" : "password"}
-                                    placeholder={smtpConfig?.configured ? "••••••••" : "SMTP password or app password"}
-                                    value={smtpForm.smtpPass}
-                                    onChange={(e) => setSmtpForm((f) => ({ ...f, smtpPass: e.target.value }))}
-                                    className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A] pr-10"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowPassword((v) => !v)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#64748B]"
-                                  >
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                  </button>
-                                </div>
+                                <Input
+                                  type="text"
+                                  placeholder={smtpConfig?.configured ? "••••••••" : "SMTP password or app password"}
+                                  value={smtpForm.smtpPass}
+                                  onChange={(e) => setSmtpForm((f) => ({ ...f, smtpPass: e.target.value }))}
+                                  className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]"
+                                />
                               </div>
 
                               <div className="space-y-1.5">
@@ -590,8 +584,8 @@ export default function SettingsPage() {
                             </div>
                           )}
 
-                          {/* Test email — always visible, disabled until SMTP is configured */}
-                          {!smtpEditMode && (
+                          {/* Test email — only shown after SMTP config is saved */}
+                          {smtpConfig?.configured && !smtpEditMode && (
                             <div className="rounded-xl border border-[#E2E8F0] dark:border-[#334155] overflow-hidden">
                               {/* header */}
                               <div className="flex items-center gap-3 px-4 py-3 bg-[#F8FAFC] dark:bg-[#0F172A] border-b border-[#E2E8F0] dark:border-[#334155]">
@@ -606,11 +600,6 @@ export default function SettingsPage() {
 
                               {/* body */}
                               <div className="px-4 py-4 space-y-3">
-                                {!smtpConfig?.configured && (
-                                  <p className="text-[11px] text-[#94A3B8] bg-[#F8FAFC] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-[#334155] rounded-lg px-3 py-2">
-                                    Save your SMTP configuration first to enable test emails.
-                                  </p>
-                                )}
                                 <div className="space-y-1.5">
                                   <Label className="text-[12px] font-medium text-[#64748B]">Recipient Email</Label>
                                   <div className="flex gap-2">
@@ -619,14 +608,13 @@ export default function SettingsPage() {
                                       placeholder="recipient@example.com"
                                       value={testEmail}
                                       onChange={(e) => { setTestEmail(e.target.value); setTestResult(null) }}
-                                      disabled={!smtpConfig?.configured}
-                                      className="border-[#E2E8F0] dark:border-[#334155] bg-white dark:bg-[#1E293B] disabled:opacity-50"
+                                      className="border-[#E2E8F0] dark:border-[#334155] bg-white dark:bg-[#1E293B]"
                                     />
                                     <Button
                                       size="sm"
                                       onClick={handleSmtpTest}
-                                      disabled={smtpTesting || !testEmail || !smtpConfig?.configured}
-                                      className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5 flex-shrink-0 disabled:opacity-50"
+                                      disabled={smtpTesting || !testEmail}
+                                      className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5 flex-shrink-0"
                                     >
                                       {smtpTesting ? (
                                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
