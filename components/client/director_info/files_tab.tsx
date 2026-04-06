@@ -1,28 +1,25 @@
 'use client'
 
-import * as React from 'react'
 import { useState, useEffect, useRef } from 'react'
-import { 
-  Upload, 
-  FileText, 
-  Trash2, 
-  Download, 
-  Eye, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  Upload,
+  FileText,
+  Trash2,
+  Download,
+  Eye,
+  Loader2,
+  CheckCircle2,
   X,
-  ExternalLink
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { 
-  uploadFilesToServer, 
-  getUploadedFiles, 
+  uploadFilesToServer,
+  getUploadedFiles,
   listClientFiles,
   deleteUploadedFile,
-  getFileDownloadUrl,
   downloadFile,
   getFilePreviewBlobUrl,
   type UploadResponse,
@@ -401,40 +398,36 @@ export function FilesTab({
               {isAdmin && ' - View, preview, and download client files'}
             </CardDescription>
           </div>
-          {!isAdmin && (
-            <div className="flex gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                multiple
-                onChange={(e) => {
-                  onPickFiles(e.target.files)
-                  if (e.target) {
-                    e.target.value = ''
-                  }
-                }}
-              />
-              <Button 
-                type="button" 
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Add Files
-              </Button>
-              <Button 
-                type="button" 
-                size="sm"
-                onClick={handleUpload}
-                disabled={items.filter(item => !item.isServerFile && item.status !== 'success').length === 0}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Upload {items.filter(item => !item.isServerFile && item.status !== 'success').length > 0 && `(${items.filter(item => !item.isServerFile && item.status !== 'success').length})`}
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              multiple
+              onChange={(e) => {
+                onPickFiles(e.target.files)
+                if (e.target) e.target.value = ''
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Add Files
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleUpload}
+              disabled={items.filter(item => !item.isServerFile && item.status !== 'success').length === 0}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload{items.filter(item => !item.isServerFile && item.status !== 'success').length > 0 && ` (${items.filter(item => !item.isServerFile && item.status !== 'success').length})`}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-4 pt-0 sm:px-6 sm:pb-5">

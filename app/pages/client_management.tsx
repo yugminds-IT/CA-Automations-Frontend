@@ -70,19 +70,42 @@ export function ClientManagement({
     }
     
     try {
-    // Convert to CSV
-    const headers = ['Name', 'Email', 'Phone', 'Company Name', 'Directories', 'Follow-up Date', 'Onboard Date', 'Last Contacted']
-    const rows = toExport.map(client => [
-      client.name,
-      client.email,
-      client.phone || '',
-      client.companyName,
-      Array.isArray(client.directories) ? client.directories.join('; ') : client.directories || '',
-      client.followUpDate ? new Date(client.followUpDate).toLocaleDateString() : '',
-      client.onboardDate ? new Date(client.onboardDate).toLocaleDateString() : '',
-      client.lastContactedDate ? new Date(client.lastContactedDate).toLocaleDateString() : '',
-    ])
-    
+    // Convert to CSV — one row per director (client info repeated); clients with no directors get one row
+    const headers = [
+      'Name', 'Email', 'Phone', 'Company Name', 'Services', 'Follow-up Date', 'Onboard Date', 'Last Contacted',
+      'Director Name', 'Director Email', 'Director Phone', 'Director Designation', 'Director DIN', 'Director PAN', 'Director Aadhar',
+    ]
+    const rows: string[][] = []
+    for (const client of toExport) {
+      const clientBase = [
+        client.name,
+        client.email,
+        client.phone || '',
+        client.companyName,
+        Array.isArray(client.directories) ? client.directories.join('; ') : client.directories || '',
+        client.followUpDate ? new Date(client.followUpDate).toLocaleDateString() : '',
+        client.onboardDate ? new Date(client.onboardDate).toLocaleDateString() : '',
+        client.lastContactedDate ? new Date(client.lastContactedDate).toLocaleDateString() : '',
+      ]
+      const directors = Array.isArray(client.directors) ? client.directors : []
+      if (directors.length === 0) {
+        rows.push([...clientBase, '', '', '', '', '', '', ''])
+      } else {
+        for (const dir of directors) {
+          rows.push([
+            ...clientBase,
+            dir.name || '',
+            dir.email || '',
+            dir.phone || '',
+            dir.designation || '',
+            dir.din || '',
+            dir.pan || '',
+            dir.aadhar || '',
+          ])
+        }
+      }
+    }
+
     const csvContent = [
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))

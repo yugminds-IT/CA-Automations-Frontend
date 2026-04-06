@@ -16,32 +16,32 @@ const settingSections = [
     id: "general",
     title: "General",
     icon: Globe,
-    color: "text-[#2563EB]",
-    bg: "bg-[#EFF6FF]",
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-50 dark:bg-blue-900/30",
     desc: "Platform name, timezone, and locale settings.",
   },
   {
     id: "security",
     title: "Security",
     icon: Lock,
-    color: "text-[#EF4444]",
-    bg: "bg-[#FEF2F2]",
+    color: "text-red-500 dark:text-red-400",
+    bg: "bg-red-50 dark:bg-red-900/30",
     desc: "Password policy, session timeout, 2FA settings.",
   },
   {
     id: "notifications",
     title: "Notifications",
     icon: Bell,
-    color: "text-[#F59E0B]",
-    bg: "bg-[#FFFBEB]",
+    color: "text-amber-500 dark:text-amber-400",
+    bg: "bg-amber-50 dark:bg-amber-900/30",
     desc: "Email alerts, push notifications, digest frequency.",
   },
   {
     id: "email",
     title: "Email Config",
     icon: Mail,
-    color: "text-[#8B5CF6]",
-    bg: "bg-[#F5F3FF]",
+    color: "text-purple-500 dark:text-purple-400",
+    bg: "bg-purple-50 dark:bg-purple-900/30",
     desc: "SMTP settings, sender address, email limits.",
   },
 ]
@@ -84,14 +84,14 @@ export default function MasterAdminSettings() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
-        <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0A0F1E] text-foreground overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <MasterAdminSidebar
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -110,20 +110,20 @@ export default function MasterAdminSettings() {
           <div className="p-6 space-y-6 max-w-5xl mx-auto">
 
             <div>
-              <h1 className="text-2xl font-bold text-[#0F172A] dark:text-white">Settings</h1>
-              <p className="text-sm text-[#64748B] mt-1">Master admin system configuration and preferences.</p>
+              <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+              <p className="text-sm text-muted-foreground mt-1">Master admin system configuration and preferences.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Sidebar nav */}
-              <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] p-2 shadow-sm h-fit">
+              <div className="bg-card rounded-xl border border-border p-2 shadow-sm h-fit">
                 {settingSections.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setActiveSection(s.id)}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all ${
                       activeSection === s.id
-                        ? "bg-[#EFF6FF] dark:bg-[#1E3A5F]"
+                        ? "bg-blue-50 dark:bg-blue-900/30"
                         : "hover:bg-[#F8FAFC] dark:hover:bg-[#0F172A]"
                     }`}
                   >
@@ -131,21 +131,21 @@ export default function MasterAdminSettings() {
                       <s.icon className={`w-4 h-4 ${s.color}`} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${activeSection === s.id ? "text-[#2563EB]" : "text-[#0F172A] dark:text-white"}`}>
+                      <p className={`text-sm font-medium ${activeSection === s.id ? "text-blue-600 dark:text-blue-400" : "text-foreground"}`}>
                         {s.title}
                       </p>
-                      <p className="text-[10px] text-[#94A3B8] truncate">{s.desc}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{s.desc}</p>
                     </div>
-                    <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${activeSection === s.id ? "text-[#2563EB]" : "text-[#CBD5E1]"}`} />
+                    <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${activeSection === s.id ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground/50"}`} />
                   </button>
                 ))}
               </div>
 
               {/* Settings panel */}
-              <div className="lg:col-span-2 bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] shadow-sm">
-                <div className="px-6 py-5 border-b border-[#E2E8F0] dark:border-[#334155] flex items-center gap-3">
-                  <Settings className="w-4 h-4 text-[#2563EB]" />
-                  <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white capitalize">
+              <div className="lg:col-span-2 bg-card rounded-xl border border-border shadow-sm">
+                <div className="px-6 py-5 border-b border-border flex items-center gap-3">
+                  <Settings className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <h2 className="text-sm font-semibold text-foreground capitalize">
                     {settingSections.find((s) => s.id === activeSection)?.title} Settings
                   </h2>
                 </div>
@@ -154,25 +154,25 @@ export default function MasterAdminSettings() {
                   {activeSection === "general" && (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="platform-name" className="text-[13px] font-medium text-[#0F172A] dark:text-white">
+                        <Label htmlFor="platform-name" className="text-[13px] font-medium text-foreground">
                           Platform Name
                         </Label>
                         <Input
                           id="platform-name"
                           value={platformName}
                           onChange={(e) => setPlatformName(e.target.value)}
-                          className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A] focus-visible:ring-[#2563EB]/30"
+                          className="border-border bg-muted focus-visible:ring-[#2563EB]/30"
                         />
-                        <p className="text-xs text-[#94A3B8]">Displayed in email headers and the browser tab.</p>
+                        <p className="text-xs text-muted-foreground">Displayed in email headers and the browser tab.</p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="timezone" className="text-[13px] font-medium text-[#0F172A] dark:text-white">
+                        <Label htmlFor="timezone" className="text-[13px] font-medium text-foreground">
                           Default Timezone
                         </Label>
                         <Input
                           id="timezone"
                           defaultValue="Asia/Kolkata"
-                          className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A] focus-visible:ring-[#2563EB]/30"
+                          className="border-border bg-muted focus-visible:ring-[#2563EB]/30"
                         />
                       </div>
                     </>
@@ -187,9 +187,9 @@ export default function MasterAdminSettings() {
                             <div className={`w-12 h-12 ${sec.bg} rounded-xl flex items-center justify-center`}>
                               <sec.icon className={`w-6 h-6 ${sec.color}`} />
                             </div>
-                            <p className="text-sm font-semibold text-[#0F172A] dark:text-white">{sec.title} Settings</p>
-                            <p className="text-xs text-[#94A3B8] text-center max-w-xs">{sec.desc}</p>
-                            <span className="text-[11px] text-[#F59E0B] bg-[#FFFBEB] px-3 py-1 rounded-full font-medium">
+                            <p className="text-sm font-semibold text-foreground">{sec.title} Settings</p>
+                            <p className="text-xs text-muted-foreground text-center max-w-xs">{sec.desc}</p>
+                            <span className="text-[11px] text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 rounded-full font-medium">
                               Coming Soon
                             </span>
                           </>
@@ -200,17 +200,17 @@ export default function MasterAdminSettings() {
                 </div>
 
                 {activeSection === "general" && (
-                  <div className="px-6 py-4 border-t border-[#E2E8F0] dark:border-[#334155] flex justify-end gap-3">
+                  <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-[#E2E8F0] dark:border-[#334155] text-sm"
+                      className="border-border text-sm"
                     >
                       Cancel
                     </Button>
                     <Button
                       size="sm"
-                      className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm"
                       onClick={() =>
                         toast({ title: "Settings saved", description: "Platform settings updated successfully.", variant: "success" })
                       }
@@ -224,12 +224,12 @@ export default function MasterAdminSettings() {
 
             {/* Security notice */}
             <div className="bg-[#0F172A] dark:bg-[#1E293B] rounded-xl p-5 flex items-start gap-4">
-              <div className="w-9 h-9 bg-[#2563EB] rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
                 <Shield className="w-4 h-4 text-white" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">Master Admin Access</p>
-                <p className="text-xs text-[#94A3B8] mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   All configuration changes made here are logged and audited. Changes take effect immediately across the platform.
                 </p>
               </div>

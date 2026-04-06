@@ -81,10 +81,10 @@ export default function MasterAdminDashboard() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
-          <p className="text-sm text-[#64748B]">Verifying access…</p>
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Verifying access…</p>
         </div>
       </div>
     )
@@ -96,10 +96,10 @@ export default function MasterAdminDashboard() {
       value: isLoadingStats ? "—" : (stats?.totalOrganizations ?? 0).toString(),
       subtitle: `${stats?.recentOrganizations ?? 0} added last 30 days`,
       icon: Building2,
-      iconColor: "text-[#2563EB]",
-      iconBg: "bg-[#EFF6FF]",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      iconBg: "bg-blue-50 dark:bg-blue-900/30",
       badge: "Active",
-      badgeColor: "text-[#2563EB] bg-[#EFF6FF]",
+      badgeColor: "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30",
       path: "/master-admin/organizations",
     },
     {
@@ -107,10 +107,10 @@ export default function MasterAdminDashboard() {
       value: isLoadingStats ? "—" : (stats?.totalUsers ?? 0).toString(),
       subtitle: `${stats?.recentUsers ?? 0} joined last 30 days`,
       icon: Users,
-      iconColor: "text-[#22C55E]",
-      iconBg: "bg-[#F0FDF4]",
+      iconColor: "text-green-600 dark:text-green-400",
+      iconBg: "bg-green-50 dark:bg-green-900/30",
       badge: "All roles",
-      badgeColor: "text-[#22C55E] bg-[#F0FDF4]",
+      badgeColor: "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30",
       path: "/master-admin/users",
     },
     {
@@ -118,10 +118,10 @@ export default function MasterAdminDashboard() {
       value: isLoadingStats ? "—" : (stats?.totalEmailTemplates ?? 0).toString(),
       subtitle: "System-wide templates",
       icon: Mail,
-      iconColor: "text-[#8B5CF6]",
-      iconBg: "bg-[#F5F3FF]",
+      iconColor: "text-purple-600 dark:text-purple-400",
+      iconBg: "bg-purple-50 dark:bg-purple-900/30",
       badge: "5 categories",
-      badgeColor: "text-[#8B5CF6] bg-[#F5F3FF]",
+      badgeColor: "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/30",
       path: "/master-admin/email-templates",
     },
     {
@@ -129,10 +129,10 @@ export default function MasterAdminDashboard() {
       value: isLoadingStats ? "—" : (stats?.usersByRole?.ORG_ADMIN ?? 0 + (stats?.usersByRole?.CAA ?? 0)).toString(),
       subtitle: "Admins + CA Associates",
       icon: Activity,
-      iconColor: "text-[#22C55E]",
-      iconBg: "bg-[#F0FDF4]",
+      iconColor: "text-green-600 dark:text-green-400",
+      iconBg: "bg-green-50 dark:bg-green-900/30",
       badge: "Org staff",
-      badgeColor: "text-[#22C55E] bg-[#F0FDF4]",
+      badgeColor: "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30",
       path: "/master-admin/activity",
     },
   ]
@@ -142,25 +142,25 @@ export default function MasterAdminDashboard() {
       label: "Add Organization",
       icon: Plus,
       path: "/master-admin/organizations",
-      color: "bg-[#2563EB] hover:bg-[#1D4ED8]",
+      color: "bg-blue-600 hover:bg-blue-700",
     },
     {
       label: "Create User",
       icon: UserPlus,
       path: "/master-admin/users",
-      color: "bg-[#22C55E] hover:bg-[#16A34A]",
+      color: "bg-green-600 hover:bg-green-700",
     },
     {
       label: "View Analytics",
       icon: BarChart3,
       path: "/master-admin/analytics",
-      color: "bg-[#8B5CF6] hover:bg-[#7C3AED]",
+      color: "bg-purple-600 hover:bg-purple-700",
     },
     {
       label: "Activity Log",
       icon: Activity,
       path: "/master-admin/activity",
-      color: "bg-[#F59E0B] hover:bg-[#D97706]",
+      color: "bg-amber-500 hover:bg-amber-600",
     },
   ]
 
@@ -170,53 +170,53 @@ export default function MasterAdminDashboard() {
       desc: "Manage CA firm registrations & admins",
       icon: Building2,
       path: "/master-admin/organizations",
-      color: "text-[#2563EB]",
-      bg: "bg-[#EFF6FF]",
+      color: "text-blue-600 dark:text-blue-400",
+      bg: "bg-blue-50 dark:bg-blue-900/30",
     },
     {
       label: "User Management",
       desc: "Roles, permissions & user accounts",
       icon: Users,
       path: "/master-admin/users",
-      color: "text-[#22C55E]",
-      bg: "bg-[#F0FDF4]",
+      color: "text-green-600 dark:text-green-400",
+      bg: "bg-green-50 dark:bg-green-900/30",
     },
     {
       label: "Email Templates",
       desc: "System notification templates",
       icon: Mail,
       path: "/master-admin/email-templates",
-      color: "text-[#8B5CF6]",
-      bg: "bg-[#F5F3FF]",
+      color: "text-purple-600 dark:text-purple-400",
+      bg: "bg-purple-50 dark:bg-purple-900/30",
     },
     {
       label: "System Activity",
       desc: "Audit logs & event monitoring",
       icon: Activity,
       path: "/master-admin/activity",
-      color: "text-[#F59E0B]",
-      bg: "bg-[#FFFBEB]",
+      color: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-50 dark:bg-amber-900/30",
     },
     {
       label: "Analytics",
       desc: "Usage metrics & performance",
       icon: TrendingUp,
       path: "/master-admin/analytics",
-      color: "text-[#EF4444]",
-      bg: "bg-[#FEF2F2]",
+      color: "text-red-600 dark:text-red-400",
+      bg: "bg-red-50 dark:bg-red-900/30",
     },
     {
       label: "Reports",
       desc: "Export & download system reports",
       icon: BarChart3,
       path: "/master-admin/reports",
-      color: "text-[#0EA5E9]",
-      bg: "bg-[#F0F9FF]",
+      color: "text-sky-600 dark:text-sky-400",
+      bg: "bg-sky-50 dark:bg-sky-900/30",
     },
   ]
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0A0F1E] text-foreground overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <MasterAdminSidebar
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -240,15 +240,15 @@ export default function MasterAdminDashboard() {
             {/* ── Page Header ── */}
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-[#0F172A] dark:text-white">
+                <h1 className="text-2xl font-bold text-foreground">
                   Dashboard
                 </h1>
-                <p className="text-sm text-[#64748B] mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   System overview — manage organizations, users, and platform settings.
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-xs text-[#64748B] bg-white dark:bg-[#1E293B] px-3 py-2 rounded-lg border border-[#E2E8F0] dark:border-[#334155] flex-shrink-0">
-                <span className="w-2 h-2 bg-[#22C55E] rounded-full animate-pulse inline-block" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-card px-3 py-2 rounded-lg border border-border flex-shrink-0">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse inline-block" />
                 All Systems Online
               </div>
             </div>
@@ -259,7 +259,7 @@ export default function MasterAdminDashboard() {
                 <button
                   key={card.title}
                   onClick={() => router.push(card.path)}
-                  className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] p-5 shadow-sm hover:shadow-md hover:border-[#BFDBFE] dark:hover:border-[#334155] transition-all text-left group"
+                  className="bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md hover:border-primary/30 transition-all text-left group"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div
@@ -273,13 +273,13 @@ export default function MasterAdminDashboard() {
                       {card.badge}
                     </span>
                   </div>
-                  <p className="text-[13px] font-medium text-[#64748B] dark:text-[#94A3B8] mb-1">
+                  <p className="text-[13px] font-medium text-muted-foreground mb-1">
                     {card.title}
                   </p>
-                  <p className="text-2xl font-bold text-[#0F172A] dark:text-white">
+                  <p className="text-2xl font-bold text-foreground">
                     {card.value}
                   </p>
-                  <p className="text-[11px] text-[#94A3B8] mt-1">{card.subtitle}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{card.subtitle}</p>
                 </button>
               ))}
             </div>
@@ -288,8 +288,8 @@ export default function MasterAdminDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* Quick Actions */}
-              <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] p-5 shadow-sm">
-                <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white mb-4">
+              <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+                <h2 className="text-sm font-semibold text-foreground mb-4">
                   Quick Actions
                 </h2>
                 <div className="grid grid-cols-2 gap-3">
@@ -309,12 +309,12 @@ export default function MasterAdminDashboard() {
               </div>
 
               {/* Management Modules */}
-              <div className="lg:col-span-2 bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] p-5 shadow-sm">
+              <div className="lg:col-span-2 bg-card rounded-xl border border-border p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white">
+                  <h2 className="text-sm font-semibold text-foreground">
                     Management Modules
                   </h2>
-                  <span className="text-[11px] text-[#94A3B8]">
+                  <span className="text-[11px] text-muted-foreground">
                     {modules.length} modules
                   </span>
                 </div>
@@ -323,7 +323,7 @@ export default function MasterAdminDashboard() {
                     <button
                       key={item.label}
                       onClick={() => router.push(item.path)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#F8FAFC] dark:hover:bg-[#0F172A] transition-colors group text-left"
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors group text-left"
                     >
                       <div
                         className={`w-9 h-9 ${item.bg} rounded-lg flex items-center justify-center flex-shrink-0`}
@@ -331,14 +331,14 @@ export default function MasterAdminDashboard() {
                         <item.icon className={`w-4 h-4 ${item.color}`} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-semibold text-[#0F172A] dark:text-white">
+                        <p className="text-[13px] font-semibold text-foreground">
                           {item.label}
                         </p>
-                        <p className="text-[11px] text-[#94A3B8] truncate">
+                        <p className="text-[11px] text-muted-foreground truncate">
                           {item.desc}
                         </p>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-[#CBD5E1] group-hover:text-[#2563EB] transition-colors flex-shrink-0" />
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary transition-colors flex-shrink-0" />
                     </button>
                   ))}
                 </div>

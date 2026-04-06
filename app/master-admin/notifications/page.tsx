@@ -29,13 +29,13 @@ function formatTimestamp(ts: string): string {
 }
 
 function getNotifStyle(severity: MasterAdminNotification["severity"], type: string) {
-  if (severity === "success") return { icon: CheckCircle, color: "text-[#22C55E]", bg: "bg-[#F0FDF4]" }
-  if (severity === "warning") return { icon: AlertTriangle, color: "text-[#F59E0B]", bg: "bg-[#FFFBEB]" }
-  if (severity === "error") return { icon: AlertTriangle, color: "text-[#EF4444]", bg: "bg-[#FEF2F2]" }
+  if (severity === "success") return { icon: CheckCircle, color: "text-green-500 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/30" }
+  if (severity === "warning") return { icon: AlertTriangle, color: "text-amber-500 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/30" }
+  if (severity === "error") return { icon: AlertTriangle, color: "text-red-500 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/30" }
   // info — pick icon by type
-  if (type === "user_created") return { icon: UserPlus, color: "text-[#2563EB]", bg: "bg-[#EFF6FF]" }
-  if (type === "org_created") return { icon: Building2, color: "text-[#8B5CF6]", bg: "bg-[#F5F3FF]" }
-  return { icon: Info, color: "text-[#0EA5E9]", bg: "bg-[#F0F9FF]" }
+  if (type === "user_created") return { icon: UserPlus, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/30" }
+  if (type === "org_created") return { icon: Building2, color: "text-purple-500 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/30" }
+  return { icon: Info, color: "text-sky-500 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-900/30" }
 }
 
 interface NotifState extends MasterAdminNotification {
@@ -100,14 +100,14 @@ export default function MasterAdminNotificationsPage() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
-        <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0A0F1E] text-foreground overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <MasterAdminSidebar
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -127,15 +127,15 @@ export default function MasterAdminNotificationsPage() {
 
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                   Notifications
                   {unreadCount > 0 && (
-                    <span className="text-xs font-semibold bg-[#2563EB] text-white px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-semibold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
                       {unreadCount}
                     </span>
                   )}
                 </h1>
-                <p className="text-sm text-[#64748B] mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {isLoading ? "Loading…" : `${notifications.length} notification${notifications.length !== 1 ? "s" : ""} loaded`}
                 </p>
               </div>
@@ -145,7 +145,7 @@ export default function MasterAdminNotificationsPage() {
                     variant="outline"
                     size="sm"
                     onClick={markAllRead}
-                    className="text-xs border-[#E2E8F0] dark:border-[#334155] hover:bg-[#EFF6FF] hover:text-[#2563EB]"
+                    className="text-xs border-border hover:bg-[#EFF6FF] hover:text-blue-600 dark:text-blue-400"
                   >
                     Mark all read
                   </Button>
@@ -155,7 +155,7 @@ export default function MasterAdminNotificationsPage() {
                   size="sm"
                   onClick={fetchNotifications}
                   disabled={isLoading}
-                  className="border-[#E2E8F0] dark:border-[#334155] text-xs"
+                  className="border-border text-xs"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
                   Refresh
@@ -163,22 +163,22 @@ export default function MasterAdminNotificationsPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-[#334155] flex items-center gap-2">
-                <Bell className="w-4 h-4 text-[#2563EB]" />
-                <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white">All Notifications</h2>
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+                <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <h2 className="text-sm font-semibold text-foreground">All Notifications</h2>
               </div>
 
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="w-6 h-6 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
-                  <span className="text-sm text-[#94A3B8]">Loading notifications…</span>
+                  <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading notifications…</span>
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Bell className="w-10 h-10 text-[#CBD5E1]" />
-                  <p className="text-sm text-[#94A3B8]">No notifications yet</p>
-                  <p className="text-xs text-[#CBD5E1]">System events will appear here as activity occurs</p>
+                  <Bell className="w-10 h-10 text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">No notifications yet</p>
+                  <p className="text-xs text-muted-foreground/50">System events will appear here as activity occurs</p>
                 </div>
               ) : (
                 <div className="divide-y divide-[#F1F5F9] dark:divide-[#334155]">
@@ -190,7 +190,7 @@ export default function MasterAdminNotificationsPage() {
                         className={`flex items-start gap-4 px-5 py-4 transition-colors cursor-default ${
                           notif.read
                             ? "hover:bg-[#F8FAFC] dark:hover:bg-[#0F172A]"
-                            : "bg-[#EFF6FF]/40 dark:bg-[#1E3A5F]/20 hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F]/40"
+                            : "bg-[#EFF6FF]/40 dark:bg-[#1E3A5F]/20 hover:bg-blue-50 dark:hover:bg-blue-900/30/40"
                         }`}
                         onClick={() =>
                           setNotifications((prev) =>
@@ -203,14 +203,14 @@ export default function MasterAdminNotificationsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-[#0F172A] dark:text-white">{notif.title}</p>
+                            <p className="text-sm font-medium text-foreground">{notif.title}</p>
                             {!notif.read && (
-                              <span className="w-1.5 h-1.5 bg-[#2563EB] rounded-full flex-shrink-0" />
+                              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full flex-shrink-0" />
                             )}
                           </div>
-                          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-0.5">{notif.description}</p>
+                          <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5">{notif.description}</p>
                         </div>
-                        <div className="flex items-center gap-1 text-[11px] text-[#94A3B8] flex-shrink-0">
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground flex-shrink-0">
                           <Clock className="w-3 h-3" />
                           {formatTimestamp(notif.timestamp)}
                         </div>

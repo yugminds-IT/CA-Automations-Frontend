@@ -27,11 +27,11 @@ import {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof Activity; color: string; bg: string; badge: string }> = {
-  login:        { label: "Login",        icon: LogIn,       color: "text-[#22C55E]", bg: "bg-[#F0FDF4]", badge: "bg-[#DCFCE7] text-[#16A34A]" },
-  logout:       { label: "Logout",       icon: LogOut,      color: "text-[#3B82F6]", bg: "bg-[#EFF6FF]", badge: "bg-[#DBEAFE] text-[#1D4ED8]" },
-  login_failed: { label: "Login Failed", icon: ShieldAlert, color: "text-[#F59E0B]", bg: "bg-[#FFFBEB]", badge: "bg-[#FEF3C7] text-[#D97706]" },
-  error:        { label: "Error",        icon: AlertTriangle,color: "text-[#EF4444]",bg: "bg-[#FEF2F2]", badge: "bg-[#FEE2E2] text-[#DC2626]" },
-  info:         { label: "Info",         icon: Info,        color: "text-[#8B5CF6]", bg: "bg-[#F5F3FF]", badge: "bg-[#EDE9FE] text-[#7C3AED]" },
+  login:        { label: "Login",        icon: LogIn,       color: "text-green-500 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/30", badge: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400" },
+  logout:       { label: "Logout",       icon: LogOut,      color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/30", badge: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300" },
+  login_failed: { label: "Login Failed", icon: ShieldAlert, color: "text-amber-500 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/30", badge: "bg-[#FEF3C7] text-[#D97706]" },
+  error:        { label: "Error",        icon: AlertTriangle,color: "text-red-500 dark:text-red-400",bg: "bg-red-50 dark:bg-red-900/30", badge: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" },
+  info:         { label: "Info",         icon: Info,        color: "text-purple-500 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/30", badge: "bg-[#EDE9FE] text-[#7C3AED]" },
 }
 
 const FILTER_TYPES = [
@@ -44,7 +44,7 @@ const FILTER_TYPES = [
 ]
 
 function getTypeConfig(type: string) {
-  return TYPE_CONFIG[type] ?? { label: type, icon: Activity, color: "text-[#64748B]", bg: "bg-[#F8FAFC]", badge: "bg-[#F1F5F9] text-[#64748B]" }
+  return TYPE_CONFIG[type] ?? { label: type, icon: Activity, color: "text-muted-foreground", bg: "bg-muted", badge: "bg-muted text-muted-foreground" }
 }
 
 function formatTimestamp(ts: string): string {
@@ -100,16 +100,16 @@ function LogRow({ log }: { log: ActivityLog }) {
               {cfg.label}
             </span>
             {log.userEmail && (
-              <span className="text-xs font-medium text-[#0F172A] dark:text-white truncate">{log.userEmail}</span>
+              <span className="text-xs font-medium text-foreground truncate">{log.userEmail}</span>
             )}
             {log.orgName && (
-              <span className="text-[10px] text-[#64748B] dark:text-[#94A3B8] truncate">({log.orgName})</span>
+              <span className="text-[10px] text-muted-foreground dark:text-muted-foreground truncate">({log.orgName})</span>
             )}
             {log.userRole && (
-              <span className="text-[10px] bg-[#F1F5F9] dark:bg-[#334155] text-[#64748B] dark:text-[#94A3B8] px-1.5 py-0.5 rounded">{log.userRole}</span>
+              <span className="text-[10px] bg-muted dark:bg-[#334155] text-muted-foreground dark:text-muted-foreground px-1.5 py-0.5 rounded">{log.userRole}</span>
             )}
           </div>
-          <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-0.5 truncate">
+          <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5 truncate">
             {log.description ?? (log.method && log.path ? `${log.method} ${log.path}` : "—")}
           </p>
         </div>
@@ -118,31 +118,31 @@ function LogRow({ log }: { log: ActivityLog }) {
         <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
           <div className="flex items-center gap-1.5">
             {log.statusCode != null && (
-              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${log.statusCode >= 400 ? "bg-[#FEE2E2] text-[#DC2626]" : "bg-[#DCFCE7] text-[#16A34A]"}`}>
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${log.statusCode >= 400 ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" : "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"}`}>
                 {log.statusCode}
               </span>
             )}
             {log.durationMs != null && log.type === "logout" && (
-              <span className="text-[10px] text-[#64748B]">{formatDuration(log.durationMs)}</span>
+              <span className="text-[10px] text-muted-foreground">{formatDuration(log.durationMs)}</span>
             )}
           </div>
-          <div className="flex items-center gap-1 text-[11px] text-[#94A3B8]">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Clock className="w-3 h-3" />
             {formatTimestamp(log.createdAt)}
           </div>
-          {expanded ? <ChevronUp className="w-3 h-3 text-[#94A3B8]" /> : <ChevronDown className="w-3 h-3 text-[#94A3B8]" />}
+          {expanded ? <ChevronUp className="w-3 h-3 text-muted-foreground" /> : <ChevronDown className="w-3 h-3 text-muted-foreground" />}
         </div>
       </div>
 
       {/* Expanded details */}
       {expanded && (
         <div className="px-4 pb-3 ml-11 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs">
-          {log.ipAddress && <div><span className="text-[#94A3B8]">IP: </span><span className="font-mono">{log.ipAddress}</span></div>}
-          {log.method && log.path && <div><span className="text-[#94A3B8]">Path: </span><span className="font-mono">{log.method} {log.path}</span></div>}
-          {log.statusCode != null && <div><span className="text-[#94A3B8]">Status: </span><span className="font-mono">{log.statusCode}</span></div>}
-          {log.durationMs != null && <div><span className="text-[#94A3B8]">Duration: </span><span>{log.type === "logout" ? formatDuration(log.durationMs) + " session" : log.durationMs + "ms"}</span></div>}
-          {log.userAgent && <div className="col-span-2 sm:col-span-3"><span className="text-[#94A3B8]">User Agent: </span><span className="break-all">{log.userAgent}</span></div>}
-          <div className="col-span-2 sm:col-span-3"><span className="text-[#94A3B8]">Time: </span><span>{formatAbsolute(log.createdAt)}</span></div>
+          {log.ipAddress && <div><span className="text-muted-foreground">IP: </span><span className="font-mono">{log.ipAddress}</span></div>}
+          {log.method && log.path && <div><span className="text-muted-foreground">Path: </span><span className="font-mono">{log.method} {log.path}</span></div>}
+          {log.statusCode != null && <div><span className="text-muted-foreground">Status: </span><span className="font-mono">{log.statusCode}</span></div>}
+          {log.durationMs != null && <div><span className="text-muted-foreground">Duration: </span><span>{log.type === "logout" ? formatDuration(log.durationMs) + " session" : log.durationMs + "ms"}</span></div>}
+          {log.userAgent && <div className="col-span-2 sm:col-span-3"><span className="text-muted-foreground">User Agent: </span><span className="break-all">{log.userAgent}</span></div>}
+          <div className="col-span-2 sm:col-span-3"><span className="text-muted-foreground">Time: </span><span>{formatAbsolute(log.createdAt)}</span></div>
         </div>
       )}
     </div>
@@ -240,14 +240,14 @@ export default function MasterAdminActivity() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
-        <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0A0F1E] text-foreground overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <MasterAdminSidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} collapsed={sidebarCollapsed} />
       <div
         className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
@@ -264,8 +264,8 @@ export default function MasterAdminActivity() {
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold text-[#0F172A] dark:text-white">Activity Log</h1>
-                <p className="text-sm text-[#64748B] mt-0.5">
+                <h1 className="text-xl font-semibold text-foreground">Activity Log</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">
                   {isLoading ? "Loading…" : `${total.toLocaleString()} total events`}
                 </p>
               </div>
@@ -274,9 +274,9 @@ export default function MasterAdminActivity() {
                 <button
                   type="button"
                   onClick={() => setIsLive((v) => !v)}
-                  className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border transition-colors ${isLive ? "bg-[#F0FDF4] border-[#BBF7D0] text-[#16A34A]" : "bg-[#F8FAFC] border-[#E2E8F0] text-[#64748B]"}`}
+                  className={`flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border transition-colors ${isLive ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400" : "bg-muted border-border text-muted-foreground"}`}
                 >
-                  {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3 text-[#EF4444]" />}
+                  {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3 text-red-500 dark:text-red-400" />}
                   {isLive ? "Live" : "Paused"}
                 </button>
                 <Button
@@ -284,7 +284,7 @@ export default function MasterAdminActivity() {
                   size="sm"
                   onClick={() => fetchLogs()}
                   disabled={isLoading}
-                  className="border-[#E2E8F0] dark:border-[#334155] text-xs h-8"
+                  className="border-border text-xs h-8"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
                   Refresh
@@ -295,14 +295,14 @@ export default function MasterAdminActivity() {
             {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: "Today",        value: todayCount,   color: "text-[#2563EB]", bg: "bg-[#EFF6FF]" },
-                { label: "Logins",       value: loginCount,   color: "text-[#22C55E]", bg: "bg-[#F0FDF4]" },
-                { label: "Active Today", value: activeUsers,  color: "text-[#8B5CF6]", bg: "bg-[#F5F3FF]" },
-                { label: "Errors",       value: errorCount,   color: "text-[#EF4444]", bg: "bg-[#FEF2F2]" },
+                { label: "Today",        value: todayCount,   color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/30" },
+                { label: "Logins",       value: loginCount,   color: "text-green-500 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/30" },
+                { label: "Active Today", value: activeUsers,  color: "text-purple-500 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/30" },
+                { label: "Errors",       value: errorCount,   color: "text-red-500 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/30" },
               ].map((s) => (
                 <div key={s.label} className={`${s.bg} rounded-xl p-4`}>
                   <p className={`text-xl font-bold ${s.color}`}>{isLoading ? "—" : s.value}</p>
-                  <p className="text-xs text-[#64748B] mt-0.5">{s.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -317,8 +317,8 @@ export default function MasterAdminActivity() {
                     onClick={() => setActiveType(f.value)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                       activeType === f.value
-                        ? "bg-[#2563EB] text-white border-[#2563EB]"
-                        : "bg-white dark:bg-[#1E293B] text-[#64748B] border-[#E2E8F0] dark:border-[#334155] hover:bg-[#F8FAFC]"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card text-muted-foreground border-border hover:bg-muted"
                     }`}
                   >
                     {f.label}
@@ -326,9 +326,9 @@ export default function MasterAdminActivity() {
                 ))}
               </div>
               <div className="relative sm:ml-auto sm:w-60">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#94A3B8]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input
-                  className="pl-8 h-8 text-xs border-[#E2E8F0] dark:border-[#334155]"
+                  className="pl-8 h-8 text-xs border-border"
                   placeholder="Search email, path, IP…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -337,21 +337,21 @@ export default function MasterAdminActivity() {
             </div>
 
             {/* Log table */}
-            <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] shadow-sm overflow-hidden">
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
               {/* Table header */}
-              <div className="px-4 py-3 border-b border-[#E2E8F0] dark:border-[#334155] flex items-center justify-between bg-[#F8FAFC] dark:bg-[#0F172A]">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted">
                 <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-[#2563EB]" />
-                  <span className="text-sm font-semibold text-[#0F172A] dark:text-white">Live Logs</span>
+                  <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-semibold text-foreground">Live Logs</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {isLive && (
-                    <span className="flex items-center gap-1 text-[10px] text-[#16A34A]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
+                    <span className="flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                       Polling every 10s
                     </span>
                   )}
-                  <span className="text-[11px] text-[#94A3B8]">
+                  <span className="text-[11px] text-muted-foreground">
                     {filteredLogs.length} shown
                   </span>
                 </div>
@@ -359,14 +359,14 @@ export default function MasterAdminActivity() {
 
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="w-6 h-6 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
-                  <span className="text-sm text-[#94A3B8]">Loading logs…</span>
+                  <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading logs…</span>
                 </div>
               ) : filteredLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Activity className="w-10 h-10 text-[#CBD5E1]" />
-                  <p className="text-sm text-[#94A3B8]">No logs found</p>
-                  <p className="text-xs text-[#CBD5E1]">
+                  <Activity className="w-10 h-10 text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">No logs found</p>
+                  <p className="text-xs text-muted-foreground/50">
                     {search ? "Try a different search term" : "Logs appear here as users interact with the system"}
                   </p>
                 </div>

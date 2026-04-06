@@ -14,55 +14,55 @@ const reportTypes = [
     title: "User Report",
     desc: "Complete list of all users with roles, organizations, and registration dates.",
     icon: Users,
-    color: "text-[#2563EB]",
-    bg: "bg-[#EFF6FF]",
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-50 dark:bg-blue-900/30",
     formats: ["CSV"],
     status: "Available",
-    statusColor: "text-[#22C55E] bg-[#F0FDF4]",
+    statusColor: "text-green-500 dark:text-green-400 bg-green-50 dark:bg-green-900/30",
     exportKey: "users" as const,
   },
   {
     title: "Organization Report",
     desc: "All registered CA organizations with admin details and location data.",
     icon: Building2,
-    color: "text-[#22C55E]",
-    bg: "bg-[#F0FDF4]",
+    color: "text-green-500 dark:text-green-400",
+    bg: "bg-green-50 dark:bg-green-900/30",
     formats: ["CSV"],
     status: "Available",
-    statusColor: "text-[#22C55E] bg-[#F0FDF4]",
+    statusColor: "text-green-500 dark:text-green-400 bg-green-50 dark:bg-green-900/30",
     exportKey: "organizations" as const,
   },
   {
     title: "Email Activity Report",
     desc: "Summary of emails sent, templates used, and delivery statistics.",
     icon: Mail,
-    color: "text-[#8B5CF6]",
-    bg: "bg-[#F5F3FF]",
+    color: "text-purple-500 dark:text-purple-400",
+    bg: "bg-purple-50 dark:bg-purple-900/30",
     formats: ["CSV"],
     status: "Coming Soon",
-    statusColor: "text-[#F59E0B] bg-[#FFFBEB]",
+    statusColor: "text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30",
     exportKey: null,
   },
   {
     title: "System Activity Report",
     desc: "Audit log export covering logins, config changes, and admin actions.",
     icon: Activity,
-    color: "text-[#F59E0B]",
-    bg: "bg-[#FFFBEB]",
+    color: "text-amber-500 dark:text-amber-400",
+    bg: "bg-amber-50 dark:bg-amber-900/30",
     formats: ["CSV", "JSON"],
     status: "Coming Soon",
-    statusColor: "text-[#F59E0B] bg-[#FFFBEB]",
+    statusColor: "text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30",
     exportKey: null,
   },
   {
     title: "Monthly Summary",
     desc: "Aggregated monthly stats across all modules — ideal for management review.",
     icon: Calendar,
-    color: "text-[#0EA5E9]",
-    bg: "bg-[#F0F9FF]",
+    color: "text-sky-500 dark:text-sky-400",
+    bg: "bg-sky-50 dark:bg-sky-900/30",
     formats: ["PDF"],
     status: "Coming Soon",
-    statusColor: "text-[#F59E0B] bg-[#FFFBEB]",
+    statusColor: "text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30",
     exportKey: null,
   },
 ]
@@ -103,14 +103,14 @@ export default function MasterAdminReports() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
-        <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0A0F1E] text-foreground overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <MasterAdminSidebar
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -129,8 +129,8 @@ export default function MasterAdminReports() {
           <div className="p-6 space-y-6 max-w-5xl mx-auto">
 
             <div>
-              <h1 className="text-2xl font-bold text-[#0F172A] dark:text-white">Reports</h1>
-              <p className="text-sm text-[#64748B] mt-1">
+              <h1 className="text-2xl font-bold text-foreground">Reports</h1>
+              <p className="text-sm text-muted-foreground mt-1">
                 Download and export system reports in various formats.
               </p>
             </div>
@@ -139,7 +139,7 @@ export default function MasterAdminReports() {
               {reportTypes.map((report) => (
                 <div
                   key={report.title}
-                  className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] p-5 shadow-sm flex flex-col gap-4"
+                  className="bg-card rounded-xl border border-border p-5 shadow-sm flex flex-col gap-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className={`w-10 h-10 ${report.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
@@ -150,8 +150,8 @@ export default function MasterAdminReports() {
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-[#0F172A] dark:text-white">{report.title}</h3>
-                    <p className="text-xs text-[#64748B] dark:text-[#94A3B8] mt-1 leading-relaxed">{report.desc}</p>
+                    <h3 className="text-sm font-semibold text-foreground">{report.title}</h3>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1 leading-relaxed">{report.desc}</p>
                   </div>
                   <div className="flex items-center gap-2 mt-auto">
                     {report.formats.map((fmt) => (
@@ -160,7 +160,7 @@ export default function MasterAdminReports() {
                         variant="outline"
                         size="sm"
                         disabled={report.status !== "Available"}
-                        className="h-8 px-3 text-xs border-[#E2E8F0] dark:border-[#334155] hover:bg-[#EFF6FF] hover:text-[#2563EB] hover:border-[#BFDBFE] transition-colors disabled:opacity-40"
+                        className="h-8 px-3 text-xs border-border hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 hover:border-[#BFDBFE] transition-colors disabled:opacity-40"
                         onClick={() => {
                           if (report.exportKey) {
                             downloadMasterAdminCsv(report.exportKey)
@@ -176,12 +176,12 @@ export default function MasterAdminReports() {
               ))}
             </div>
 
-            <div className="bg-[#EFF6FF] dark:bg-[#1E3A5F] rounded-xl border border-[#BFDBFE] dark:border-[#1E3A5F] px-5 py-4">
+            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-[#BFDBFE] dark:border-[#1E3A5F] px-5 py-4">
               <div className="flex items-start gap-3">
-                <FileText className="w-5 h-5 text-[#2563EB] flex-shrink-0 mt-0.5" />
+                <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-[#1D4ED8] dark:text-[#93C5FD]">Custom Reports</p>
-                  <p className="text-xs text-[#3B82F6] dark:text-[#60A5FA] mt-0.5">
+                  <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 dark:text-[#93C5FD]">Custom Reports</p>
+                  <p className="text-xs text-blue-500 dark:text-blue-400 dark:text-[#60A5FA] mt-0.5">
                     Advanced filtering and custom date-range reports will be available in a future release.
                   </p>
                 </div>

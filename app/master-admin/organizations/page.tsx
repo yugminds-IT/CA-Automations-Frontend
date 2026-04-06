@@ -406,17 +406,17 @@ export default function MasterAdminOrganizations() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
-          <p className="text-sm text-[#64748B]">Verifying access…</p>
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Verifying access…</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0A0F1E] text-foreground overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <MasterAdminSidebar
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -439,15 +439,15 @@ export default function MasterAdminOrganizations() {
             {/* ── Page Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-[#0F172A] dark:text-white">Organizations</h1>
-                <p className="text-sm text-[#64748B] mt-1">
+                <h1 className="text-2xl font-bold text-foreground">Organizations</h1>
+                <p className="text-sm text-muted-foreground mt-1">
                   {isLoadingOrgs ? "Loading…" : `${organizations.length} organization${organizations.length !== 1 ? "s" : ""} registered`}
                 </p>
               </div>
               <div className="flex gap-2">
                 <Dialog open={createAdminDialogOpen} onOpenChange={handleDialogClose}>
                   <DialogTrigger asChild>
-                    <Button variant="default" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white">
+                    <Button variant="default" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                       <UserPlus className="w-4 h-4 mr-2" />
                       Create Admin
                     </Button>
@@ -455,7 +455,7 @@ export default function MasterAdminOrganizations() {
                   <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
-                        <Shield className="h-5 w-5 text-[#2563EB]" />
+                        <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         Create Organization Admin
                       </DialogTitle>
                       <DialogDescription>
@@ -536,7 +536,7 @@ export default function MasterAdminOrganizations() {
                       <Button
                         onClick={handleCreateAdmin}
                         disabled={isCreatingAdmin || !selectedOrgId || !adminFormData.email || !adminFormData.password}
-                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         {isCreatingAdmin ? "Creating..." : "Create Admin"}
                       </Button>
@@ -553,7 +553,7 @@ export default function MasterAdminOrganizations() {
                   <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-[#2563EB]" />
+                        <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         Add New Organization
                       </DialogTitle>
                       <DialogDescription>
@@ -625,7 +625,7 @@ export default function MasterAdminOrganizations() {
                       <Button
                         onClick={handleAddOrganization}
                         disabled={isCreatingOrg || !orgFormData.name}
-                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         {isCreatingOrg ? "Creating..." : "Create Organization"}
                       </Button>
@@ -636,7 +636,7 @@ export default function MasterAdminOrganizations() {
                   <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2">
-                        <Edit className="h-5 w-5 text-[#2563EB]" />
+                        <Edit className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         Edit Organization
                       </DialogTitle>
                       <DialogDescription>
@@ -708,7 +708,7 @@ export default function MasterAdminOrganizations() {
                       <Button
                         onClick={handleUpdateOrganization}
                         disabled={isUpdatingOrg}
-                        className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         {isUpdatingOrg ? "Updating..." : "Update Organization"}
                       </Button>
@@ -719,34 +719,34 @@ export default function MasterAdminOrganizations() {
             </div>
 
             {/* ── Organizations Table ── */}
-            <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-[#334155] flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white">All Organizations</h2>
-                <span className="text-xs text-[#94A3B8]">{(organizations ?? []).length} total</span>
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-foreground">All Organizations</h2>
+                <span className="text-xs text-muted-foreground">{(organizations ?? []).length} total</span>
               </div>
 
               {isLoadingOrgs ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="w-6 h-6 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
-                  <span className="text-sm text-[#94A3B8]">Loading organizations…</span>
+                  <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading organizations…</span>
                 </div>
               ) : (organizations ?? []).length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Building2 className="h-10 w-10 text-[#CBD5E1]" />
-                  <p className="text-sm text-[#94A3B8]">No organizations found</p>
-                  <p className="text-xs text-[#CBD5E1]">Create your first organization to get started</p>
+                  <Building2 className="h-10 w-10 text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">No organizations found</p>
+                  <p className="text-xs text-muted-foreground/50">Create your first organization to get started</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-[#F8FAFC] dark:bg-[#0F172A] hover:bg-[#F8FAFC] dark:hover:bg-[#0F172A]">
-                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide py-3">#</TableHead>
-                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Name</TableHead>
-                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">City</TableHead>
-                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">State</TableHead>
-                        <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Country</TableHead>
-                        <TableHead className="text-right text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Actions</TableHead>
+                      <TableRow className="bg-muted hover:bg-[#F8FAFC] dark:hover:bg-[#0F172A]">
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3">#</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Name</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">City</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">State</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Country</TableHead>
+                        <TableHead className="text-right text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -755,22 +755,22 @@ export default function MasterAdminOrganizations() {
                           key={org.id}
                           className={`${
                             idx % 2 === 0
-                              ? "bg-white dark:bg-[#1E293B]"
+                              ? "bg-card"
                               : "bg-[#F8FAFC] dark:bg-[#162032]"
-                          } hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] transition-colors`}
+                          } hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors`}
                         >
-                          <TableCell className="text-[#94A3B8] text-xs font-mono py-3">{org.id}</TableCell>
-                          <TableCell className="font-semibold text-[#0F172A] dark:text-white text-sm">
+                          <TableCell className="text-muted-foreground text-xs font-mono py-3">{org.id}</TableCell>
+                          <TableCell className="font-semibold text-foreground text-sm">
                             <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 bg-[#EFF6FF] dark:bg-[#1E3A5F] rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Building2 className="w-3.5 h-3.5 text-[#2563EB]" />
+                              <div className="w-7 h-7 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                               </div>
                               {org.name}
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm text-[#64748B] dark:text-[#94A3B8]">{org.city || "—"}</TableCell>
-                          <TableCell className="text-sm text-[#64748B] dark:text-[#94A3B8]">{org.state || "—"}</TableCell>
-                          <TableCell className="text-sm text-[#64748B] dark:text-[#94A3B8]">{org.country || "—"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground dark:text-muted-foreground">{org.city || "—"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground dark:text-muted-foreground">{org.state || "—"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground dark:text-muted-foreground">{org.country || "—"}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Button
@@ -780,7 +780,7 @@ export default function MasterAdminOrganizations() {
                                   setSelectedOrgId(org.id)
                                   setCreateAdminDialogOpen(true)
                                 }}
-                                className="h-8 px-2.5 text-[11px] font-semibold text-[#2563EB] hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] transition-colors"
+                                className="h-8 px-2.5 text-[11px] font-semibold text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                                 disabled={isDeletingOrg}
                               >
                                 <UserPlus className="w-3.5 h-3.5 mr-1" />
@@ -789,7 +789,7 @@ export default function MasterAdminOrganizations() {
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                className="h-8 w-8 hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] hover:text-[#2563EB] transition-colors"
+                                className="h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-[#2563EB] transition-colors"
                                 onClick={() => handleEditOrganization(org)}
                                 disabled={isDeletingOrg}
                                 title="Edit organization"
@@ -804,7 +804,7 @@ export default function MasterAdminOrganizations() {
                                 disabled={isDeletingOrg}
                                 title="Delete organization"
                               >
-                                <Trash2 className="w-3.5 h-3.5 text-[#94A3B8]" />
+                                <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
                               </Button>
                             </div>
                           </TableCell>

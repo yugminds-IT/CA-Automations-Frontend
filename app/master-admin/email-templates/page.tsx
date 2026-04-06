@@ -383,8 +383,8 @@ export default function MasterAdminEmailTemplates() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
-        <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
     )
   }
@@ -417,7 +417,7 @@ export default function MasterAdminEmailTemplates() {
                 <h1 className="text-xl font-semibold">Email Templates</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">Manage system-wide email templates</p>
               </div>
-              <Button onClick={handleCreate} className="w-full sm:w-auto bg-[#2563EB] hover:bg-[#1D4ED8] text-white" size="sm">
+              <Button onClick={handleCreate} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground" size="sm">
                 <Plus className="w-4 h-4 mr-2" />
                 Create New Template
               </Button>
@@ -438,7 +438,7 @@ export default function MasterAdminEmailTemplates() {
                   onClick={() => setActiveCategoryFilter(f.value)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
                     activeCategoryFilter === f.value
-                      ? "bg-[#2563EB] text-white border-[#2563EB] shadow-sm"
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
                       : "bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground"
                   }`}
                 >
@@ -477,7 +477,7 @@ export default function MasterAdminEmailTemplates() {
                             </span>
                           </div>
                           {template.is_default && (
-                            <span className="text-xs text-[#2563EB] font-medium shrink-0">Default</span>
+                            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium shrink-0">Default</span>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mb-4 flex-1 truncate">{template.subject}</p>
@@ -692,7 +692,7 @@ export default function MasterAdminEmailTemplates() {
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSave() }}
               disabled={!formData.name || !formData.subject || !formData.body}
-              className="w-full sm:w-auto bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {editingTemplate ? "Update" : "Create"}
             </Button>
@@ -715,7 +715,7 @@ export default function MasterAdminEmailTemplates() {
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">Email Preview:</Label>
-                <div className="border rounded-md bg-white overflow-auto" style={{ maxHeight: "calc(90vh - 250px)" }}>
+                <div className="border rounded-md bg-card overflow-auto" style={{ maxHeight: "calc(90vh - 250px)" }}>
                   <iframe
                     srcDoc={previewEmailTemplate(previewTemplate.body, previewTemplate.subject)}
                     title="Email preview"

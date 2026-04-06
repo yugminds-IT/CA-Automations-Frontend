@@ -373,17 +373,17 @@ export default function MasterAdminUsers() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] dark:bg-[#0A0F1E]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
-          <p className="text-sm text-[#64748B]">Verifying access…</p>
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Verifying access…</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#0A0F1E] text-foreground overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <MasterAdminSidebar
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -406,14 +406,14 @@ export default function MasterAdminUsers() {
             {/* ── Page Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-[#0F172A] dark:text-white">User Management</h1>
-                <p className="text-sm text-[#64748B] mt-1">
+                <h1 className="text-2xl font-bold text-foreground">User Management</h1>
+                <p className="text-sm text-muted-foreground mt-1">
                   {isLoadingUsers ? "Loading…" : `${displayUsers.length} user${displayUsers.length !== 1 ? "s" : ""} found`}
                 </p>
               </div>
               <Dialog open={addUserDialogOpen} onOpenChange={handleDialogClose}>
                 <DialogTrigger asChild>
-                  <Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-sm">
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Add User
                   </Button>
@@ -421,7 +421,7 @@ export default function MasterAdminUsers() {
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                      <UserPlus className="h-5 w-5 text-[#2563EB]" />
+                      <UserPlus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       Create User
                     </DialogTitle>
                     <DialogDescription>
@@ -517,7 +517,7 @@ export default function MasterAdminUsers() {
                     <Button
                       onClick={handleCreateUser}
                       disabled={isCreatingUser || !selectedOrgId || !userFormData.email || !userFormData.password}
-                      className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {isCreatingUser ? "Creating..." : "Create User"}
                     </Button>
@@ -528,7 +528,7 @@ export default function MasterAdminUsers() {
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                      <Edit className="h-5 w-5 text-[#2563EB]" />
+                      <Edit className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                       Edit User
                     </DialogTitle>
                     <DialogDescription>
@@ -624,7 +624,7 @@ export default function MasterAdminUsers() {
                     <Button
                       onClick={handleUpdateUser}
                       disabled={isUpdatingUser || !selectedOrgId || !userFormData.email}
-                      className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {isUpdatingUser ? "Updating..." : "Update User"}
                     </Button>
@@ -634,13 +634,13 @@ export default function MasterAdminUsers() {
             </div>
 
             {/* ── Filter + Search Bar ── */}
-            <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] p-4 shadow-sm">
+            <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="relative flex-1 max-w-sm">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     placeholder="Search by name, email or role…"
-                    className="pl-9 border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A] focus-visible:ring-[#2563EB]/30"
+                    className="pl-9 border-border bg-muted focus-visible:ring-[#2563EB]/30"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -651,7 +651,7 @@ export default function MasterAdminUsers() {
                     onValueChange={(v) => setSelectedOrgId(v === "all" ? null : parseInt(v))}
                     disabled={isLoadingOrgs}
                   >
-                    <SelectTrigger className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]">
+                    <SelectTrigger className="border-border bg-muted">
                       <SelectValue placeholder="All organizations" />
                     </SelectTrigger>
                     <SelectContent>
@@ -668,21 +668,21 @@ export default function MasterAdminUsers() {
             </div>
 
             {/* ── Users Table ── */}
-            <div className="bg-white dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155] shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-[#334155]">
-                <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white">All Users</h2>
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h2 className="text-sm font-semibold text-foreground">All Users</h2>
               </div>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#F8FAFC] dark:bg-[#0F172A] hover:bg-[#F8FAFC] dark:hover:bg-[#0F172A]">
-                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide py-3">#</TableHead>
-                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Name</TableHead>
-                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Email</TableHead>
-                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Role</TableHead>
-                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Organization</TableHead>
-                      <TableHead className="text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Status</TableHead>
-                      <TableHead className="text-right text-[#64748B] dark:text-[#94A3B8] font-semibold text-xs uppercase tracking-wide">Actions</TableHead>
+                    <TableRow className="bg-muted hover:bg-[#F8FAFC] dark:hover:bg-[#0F172A]">
+                      <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide py-3">#</TableHead>
+                      <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Name</TableHead>
+                      <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Email</TableHead>
+                      <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Role</TableHead>
+                      <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Organization</TableHead>
+                      <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Status</TableHead>
+                      <TableHead className="text-right text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -690,16 +690,16 @@ export default function MasterAdminUsers() {
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-12">
                           <div className="flex flex-col items-center gap-2">
-                            <div className="w-6 h-6 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
-                            <span className="text-sm text-[#94A3B8]">Loading users…</span>
+                            <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                            <span className="text-sm text-muted-foreground">Loading users…</span>
                           </div>
                         </TableCell>
                       </TableRow>
                     ) : displayUsers.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-12">
-                          <p className="text-sm text-[#94A3B8]">No users found</p>
-                          <p className="text-xs text-[#CBD5E1] mt-1">Try adjusting your search or filter</p>
+                          <p className="text-sm text-muted-foreground">No users found</p>
+                          <p className="text-xs text-muted-foreground/50 mt-1">Try adjusting your search or filter</p>
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -717,28 +717,28 @@ export default function MasterAdminUsers() {
                             key={user.id}
                             className={`${
                               idx % 2 === 0
-                                ? "bg-white dark:bg-[#1E293B]"
+                                ? "bg-card"
                                 : "bg-[#F8FAFC] dark:bg-[#162032]"
-                            } hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] transition-colors`}
+                            } hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors`}
                           >
-                            <TableCell className="text-[#94A3B8] text-xs font-mono py-3">{user.id}</TableCell>
-                            <TableCell className="font-medium text-[#0F172A] dark:text-white text-sm">
+                            <TableCell className="text-muted-foreground text-xs font-mono py-3">{user.id}</TableCell>
+                            <TableCell className="font-medium text-foreground text-sm">
                               {(user.name ?? user.full_name) || "—"}
                             </TableCell>
-                            <TableCell className="text-[#64748B] dark:text-[#94A3B8] text-sm">
+                            <TableCell className="text-muted-foreground dark:text-muted-foreground text-sm">
                               {user.email}
                             </TableCell>
                             <TableCell>
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#EFF6FF] dark:bg-[#1E3A5F] text-[#2563EB]">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
                                 {roleName}
                               </span>
                             </TableCell>
-                            <TableCell className="text-sm text-[#64748B] dark:text-[#94A3B8]">
+                            <TableCell className="text-sm text-muted-foreground dark:text-muted-foreground">
                               {(org?.name ?? user.organization?.name) || "—"}
                             </TableCell>
                             <TableCell>
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#F0FDF4] dark:bg-green-900/30 text-[#22C55E]">
-                                <span className="w-1.5 h-1.5 bg-[#22C55E] rounded-full" />
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 dark:bg-green-900/30 dark:bg-green-900/30 text-green-500 dark:text-green-400">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
                                 Active
                               </span>
                             </TableCell>
@@ -747,7 +747,7 @@ export default function MasterAdminUsers() {
                                 <Button
                                   variant="ghost"
                                   size="icon-sm"
-                                  className="h-8 w-8 hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A5F] hover:text-[#2563EB] transition-colors"
+                                  className="h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-[#2563EB] transition-colors"
                                   onClick={() => handleEditUser(user)}
                                   disabled={isDeletingUser}
                                   title="Edit user"
@@ -762,7 +762,7 @@ export default function MasterAdminUsers() {
                                   disabled={isDeletingUser}
                                   title="Delete user"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5 text-[#94A3B8]" />
+                                  <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
                                 </Button>
                               </div>
                             </TableCell>

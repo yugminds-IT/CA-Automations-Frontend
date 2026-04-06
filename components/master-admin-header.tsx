@@ -102,7 +102,7 @@ export function MasterAdminHeader({
             className="lg:hidden p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors"
             aria-label="Open menu"
           >
-            <Menu className="w-5 h-5 text-[#64748B] dark:text-[#94A3B8]" />
+            <Menu className="w-5 h-5 text-[#64748B] dark:text-muted-foreground" />
           </button>
         )}
 
@@ -113,15 +113,15 @@ export function MasterAdminHeader({
             className="hidden lg:flex p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors"
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <PanelLeft className="w-5 h-5 text-[#64748B] dark:text-[#94A3B8]" />
+            <PanelLeft className="w-5 h-5 text-[#64748B] dark:text-muted-foreground" />
           </button>
         )}
 
         {/* Master Admin badge + org name */}
         <div className="flex items-center gap-2 ml-1">
           <div className="hidden sm:flex items-center gap-1.5 bg-[#EFF6FF] dark:bg-[#1E3A5F] px-2.5 py-1 rounded-lg">
-            <Shield className="w-3.5 h-3.5 text-[#2563EB]" />
-            <span className="text-[11px] font-semibold text-[#2563EB] tracking-wide">
+            <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 tracking-wide">
               MASTER ADMIN
             </span>
           </div>
@@ -134,11 +134,11 @@ export function MasterAdminHeader({
       {/* ── Center: Global search ── */}
       <div className="hidden md:flex flex-1 max-w-sm mx-6">
         <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search organizations, users..."
-            className="w-full pl-9 pr-4 py-2 text-sm bg-[#F8FAFC] dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-[#334155] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] text-[#0F172A] dark:text-white placeholder:text-[#94A3B8] transition-all"
+            className="w-full pl-9 pr-4 py-2 text-sm bg-[#F8FAFC] dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-[#334155] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] text-[#0F172A] dark:text-white placeholder:text-muted-foreground transition-all"
           />
         </div>
       </div>
@@ -153,15 +153,15 @@ export function MasterAdminHeader({
           suppressHydrationWarning
         >
           {mounted && theme === "light" ? (
-            <Moon className="w-4 h-4 text-[#64748B]" />
+            <Moon className="w-4 h-4 text-muted-foreground" />
           ) : (
-            <Sun className="w-4 h-4 text-[#94A3B8]" />
+            <Sun className="w-4 h-4 text-muted-foreground" />
           )}
         </button>
 
         {/* Notification bell */}
         <button className="relative p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors">
-          <Bell className="w-4 h-4 text-[#64748B] dark:text-[#94A3B8]" />
+          <Bell className="w-4 h-4 text-[#64748B] dark:text-muted-foreground" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#2563EB] rounded-full ring-2 ring-white dark:ring-[#0F172A]" />
         </button>
 
@@ -172,18 +172,18 @@ export function MasterAdminHeader({
         {user && (
           <div className="flex items-center gap-1.5">
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors cursor-default">
-              <div className="w-7 h-7 rounded-full bg-[#2563EB] flex items-center justify-center flex-shrink-0 shadow-sm">
+              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-sm">
                 <span className="text-[11px] font-bold text-white">{userInitial}</span>
               </div>
               <div className="hidden sm:block min-w-0">
                 <p className="text-xs font-semibold text-[#0F172A] dark:text-white leading-none truncate max-w-[100px]">
                   {displayName}
                 </p>
-                <p className="text-[10px] text-[#64748B] dark:text-[#94A3B8] leading-none mt-0.5">
+                <p className="text-[10px] text-[#64748B] dark:text-muted-foreground leading-none mt-0.5">
                   Master Admin
                 </p>
               </div>
-              <ChevronDown className="w-3 h-3 text-[#CBD5E1] hidden sm:block flex-shrink-0" />
+              <ChevronDown className="w-3 h-3 text-muted-foreground hidden sm:block flex-shrink-0" />
             </div>
 
             <button
@@ -195,7 +195,7 @@ export function MasterAdminHeader({
               aria-label="Logout"
               title="Sign out"
             >
-              <LogOut className="w-4 h-4 text-[#94A3B8] group-hover:text-red-500 transition-colors" />
+              <LogOut className="w-4 h-4 text-muted-foreground group-hover:text-red-500 transition-colors" />
             </button>
           </div>
         )}

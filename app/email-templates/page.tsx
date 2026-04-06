@@ -104,6 +104,8 @@ export default function EmailTemplatesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>("all")
+  const [masterCollapsed, setMasterCollapsed] = useState(false)
+  const [orgCollapsed, setOrgCollapsed] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false)
@@ -486,84 +488,147 @@ export default function EmailTemplatesPage() {
             </div>
 
             {/* Pre-built Templates */}
-            <div>
-              <div className="mb-3">
-                <h2 className="text-sm font-semibold">Pre-built Templates</h2>
-                <p className="text-xs text-muted-foreground">Click to customize and use in your organization</p>
-              </div>
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
-              ) : filteredMasterTemplates.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <FileText className="w-10 h-10 mb-3 opacity-40" />
-                  <p className="text-sm">No pre-built templates found</p>
+            <div className="border border-border rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setMasterCollapsed((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <div className="text-left">
+                  <h2 className="text-sm font-semibold">Pre-built Templates <span className="ml-1.5 text-xs font-normal text-muted-foreground">({filteredMasterTemplates.length})</span></h2>
+                  {!masterCollapsed && <p className="text-xs text-muted-foreground">Click to customize and use in your organization</p>}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredMasterTemplates.map((template) => {
-                    const Icon = getCategoryIcon(template.category)
-                    const hasCustomVersion = orgTemplates.some((ot) => ot.type === template.type && ot.category === template.category)
-                    return (
-                      <div key={template.id} className="flex flex-col border border-border rounded-xl shadow-sm p-4 bg-card hover:shadow-md transition-all duration-150">
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="p-2 rounded-md bg-muted shrink-0"><Icon className="w-5 h-5 text-muted-foreground" /></div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm text-foreground truncate">{template.name}</p>
-                            <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>{getCategoryLabel(template.category)}</span>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${masterCollapsed ? '-rotate-90' : ''}`} />
+              </button>
+              {!masterCollapsed && (
+                <div className="p-4">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
+                  ) : filteredMasterTemplates.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <FileText className="w-10 h-10 mb-3 opacity-40" />
+                      <p className="text-sm">No pre-built templates found</p>
+                    </div>
+                  ) : filteredMasterTemplates.length > 10 ? (
+                    /* Compact view for >10 templates */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                      {filteredMasterTemplates.map((template) => {
+                        const Icon = getCategoryIcon(template.category)
+                        const hasCustomVersion = orgTemplates.some((ot) => ot.type === template.type && ot.category === template.category)
+                        return (
+                          <div key={template.id} className="flex flex-col border border-border rounded-lg p-2.5 bg-card hover:shadow-sm transition-all duration-150">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <div className="p-1.5 rounded bg-muted shrink-0"><Icon className="w-3.5 h-3.5 text-muted-foreground" /></div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-xs text-foreground truncate leading-tight">{template.name}</p>
+                                <span className={`inline-block mt-0.5 text-[10px] px-1.5 py-0 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>{getCategoryLabel(template.category)}</span>
+                              </div>
+                              {hasCustomVersion && <span className="text-[10px] text-green-600 dark:text-green-400 font-medium shrink-0">✓</span>}
+                            </div>
+                            <div className="flex items-center gap-1 mt-auto">
+                              <Button size="sm" variant="outline" className="flex-1 text-[10px] h-6 px-1" onClick={() => handleCustomize(template)}>Use</Button>
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={() => handlePreview(template)} title="Preview"><Eye className="w-3 h-3" /></Button>
+                            </div>
                           </div>
-                          {hasCustomVersion && <span className="text-xs text-green-600 dark:text-green-400 font-medium shrink-0">Customized</span>}
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-4 flex-1">Click to customize and use</p>
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => handleCustomize(template)}>Use Template</Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handlePreview(template)} title="Preview"><Eye className="w-3.5 h-3.5" /></Button>
-                        </div>
-                      </div>
-                    )
-                  })}
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    /* Normal view for ≤10 templates */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredMasterTemplates.map((template) => {
+                        const Icon = getCategoryIcon(template.category)
+                        const hasCustomVersion = orgTemplates.some((ot) => ot.type === template.type && ot.category === template.category)
+                        return (
+                          <div key={template.id} className="flex flex-col border border-border rounded-xl shadow-sm p-4 bg-card hover:shadow-md transition-all duration-150">
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="p-2 rounded-md bg-muted shrink-0"><Icon className="w-5 h-5 text-muted-foreground" /></div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm text-foreground truncate">{template.name}</p>
+                                <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>{getCategoryLabel(template.category)}</span>
+                              </div>
+                              {hasCustomVersion && <span className="text-xs text-green-600 dark:text-green-400 font-medium shrink-0">Customized</span>}
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-4 flex-1">Click to customize and use</p>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => handleCustomize(template)}>Use Template</Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handlePreview(template)} title="Preview"><Eye className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Your Templates */}
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold">Your Templates</h2>
-                  <p className="text-xs text-muted-foreground">Organization-specific customized templates</p>
+            <div className="border border-border rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOrgCollapsed((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <div className="text-left">
+                  <h2 className="text-sm font-semibold">Your Templates <span className="ml-1.5 text-xs font-normal text-muted-foreground">({filteredOrgTemplates.length})</span></h2>
+                  {!orgCollapsed && <p className="text-xs text-muted-foreground">Organization-specific customized templates</p>}
                 </div>
-                {orgTemplates.length > 0 && (
-                  <span className="text-sm text-muted-foreground">{filteredOrgTemplates.length} template{filteredOrgTemplates.length !== 1 ? 's' : ''}</span>
-                )}
-              </div>
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
-              ) : filteredOrgTemplates.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-muted-foreground">
-                  <Mail className="w-10 h-10 mb-3 opacity-40" />
-                  <p className="text-sm">No custom templates yet</p>
-                  <Button size="sm" variant="outline" className="mt-3" onClick={handleCreate}><Plus className="w-3.5 h-3.5 mr-1.5" />Create your first template</Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {filteredOrgTemplates.map((template) => (
-                    <div key={template.id} className="flex flex-col border border-border rounded-lg shadow-sm p-3 bg-card hover:shadow-md transition-all duration-150">
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <div className="min-w-0">
-                          <p className="font-medium text-xs text-foreground truncate">{template.name}</p>
-                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">{template.subject}</p>
-                        </div>
-                        <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>{getCategoryLabel(template.category)}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mb-2">{getTypeLabel(template.type)}</p>
-                      <div className="border-t border-border pt-2 flex items-center gap-0.5">
-                        <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handleEdit(template)}><Edit className="w-3 h-3 mr-1" />Edit</Button>
-                        <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handleCustomize(template)}><Copy className="w-3 h-3 mr-1" />Copy</Button>
-                        <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handlePreview(template)}><Eye className="w-3 h-3 mr-1" />Preview</Button>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(template.id)} title="Delete"><Trash2 className="w-3 h-3" /></Button>
-                      </div>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${orgCollapsed ? '-rotate-90' : ''}`} />
+              </button>
+              {!orgCollapsed && (
+                <div className="p-4">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
+                  ) : filteredOrgTemplates.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-muted-foreground">
+                      <Mail className="w-10 h-10 mb-3 opacity-40" />
+                      <p className="text-sm">No custom templates yet</p>
+                      <Button size="sm" variant="outline" className="mt-3" onClick={handleCreate}><Plus className="w-3.5 h-3.5 mr-1.5" />Create your first template</Button>
                     </div>
-                  ))}
+                  ) : filteredOrgTemplates.length > 10 ? (
+                    /* Compact view for >10 templates */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                      {filteredOrgTemplates.map((template) => (
+                        <div key={template.id} className="flex flex-col border border-border rounded-lg p-2.5 bg-card hover:shadow-sm transition-all duration-150">
+                          <div className="flex items-start justify-between gap-1.5 mb-1">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-xs text-foreground truncate leading-tight">{template.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{template.subject}</p>
+                            </div>
+                            <span className={`shrink-0 text-[9px] px-1 py-0 rounded-full font-medium leading-4 ${getCategoryBadgeClass(template.category)}`}>{getCategoryLabel(template.category)}</span>
+                          </div>
+                          <div className="flex items-center gap-0.5 mt-1.5 border-t border-border pt-1.5">
+                            <Button size="sm" variant="ghost" className="h-6 text-[10px] flex-1 px-0.5" onClick={() => handleEdit(template)}><Edit className="w-2.5 h-2.5 mr-0.5" />Edit</Button>
+                            <Button size="sm" variant="ghost" className="h-6 text-[10px] flex-1 px-0.5" onClick={() => handlePreview(template)}><Eye className="w-2.5 h-2.5 mr-0.5" />View</Button>
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive hover:text-destructive shrink-0" onClick={() => handleDelete(template.id)} title="Delete"><Trash2 className="w-2.5 h-2.5" /></Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Normal view for ≤10 templates */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {filteredOrgTemplates.map((template) => (
+                        <div key={template.id} className="flex flex-col border border-border rounded-lg shadow-sm p-3 bg-card hover:shadow-md transition-all duration-150">
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <div className="min-w-0">
+                              <p className="font-medium text-xs text-foreground truncate">{template.name}</p>
+                              <p className="text-[11px] text-muted-foreground truncate mt-0.5">{template.subject}</p>
+                            </div>
+                            <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>{getCategoryLabel(template.category)}</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mb-2">{getTypeLabel(template.type)}</p>
+                          <div className="border-t border-border pt-2 flex items-center gap-0.5">
+                            <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handleEdit(template)}><Edit className="w-3 h-3 mr-1" />Edit</Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handleCustomize(template)}><Copy className="w-3 h-3 mr-1" />Copy</Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handlePreview(template)}><Eye className="w-3 h-3 mr-1" />Preview</Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(template.id)} title="Delete"><Trash2 className="w-3 h-3" /></Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -620,7 +685,7 @@ export default function EmailTemplatesPage() {
                     value={customizeData.body}
                     onChange={(v) => setCustomizeData((prev) => ({ ...prev, body: v }))}
                     placeholder="Write your email body here. Use variables like {{client_name}} or click 'Insert Variable'."
-                    rows={14}
+                    minHeight={336}
                   />
                 ) : (
                   <div className="rounded-md border border-border overflow-hidden" style={{ height: 300 }}>
@@ -769,7 +834,7 @@ export default function EmailTemplatesPage() {
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">Email Preview:</Label>
-                <div className="border rounded-md bg-white overflow-auto" style={{ maxHeight: 'calc(90vh - 250px)' }}>
+                <div className="border rounded-md bg-card overflow-auto" style={{ maxHeight: 'calc(90vh - 250px)' }}>
                   <iframe
                     srcDoc={previewEmailTemplate(previewTemplate.body, previewTemplate.subject)}
                     title="Email preview"

@@ -778,18 +778,23 @@ export function SendMails() {
                       <ChevronDown className="h-3.5 w-3.5 shrink-0 ml-1" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-64">
+                  <DropdownMenuContent className="w-72 p-0" style={{ maxHeight: '320px', overflowY: 'auto' }}>
                     {templates.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-muted-foreground">No templates found</div>
                     ) : (
-                      templates.map((t) => (
-                        <DropdownMenuItem key={t.id} onClick={() => handleSelectTemplate(t)} className="text-xs">
-                          <div>
-                            <p className="font-medium">{t.name}</p>
-                            <p className="text-muted-foreground truncate max-w-[220px]">{t.subject}</p>
-                          </div>
-                        </DropdownMenuItem>
-                      ))
+                      <>
+                        <div className="px-3 py-1.5 border-b border-border sticky top-0 bg-popover z-10">
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
+                        </div>
+                        {templates.map((t) => (
+                          <DropdownMenuItem key={t.id} onClick={() => handleSelectTemplate(t)} className={`text-xs mx-1 my-0.5 rounded-md ${selectedTemplate?.id === t.id ? 'bg-primary/10 text-primary' : ''}`}>
+                            <div className="w-full min-w-0">
+                              <p className="font-medium truncate">{t.name}</p>
+                              <p className="text-muted-foreground truncate text-[10px] mt-0.5">{t.subject}</p>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -947,10 +952,10 @@ export function SendMails() {
                 </div>
               ) : (
                 /* Template mode: show read-only preview of template body */
-                <div className="min-h-[320px] rounded-md border border-input bg-muted/30 px-3 py-3 text-xs text-muted-foreground overflow-y-auto">
+                <div className={`rounded-md border border-input bg-muted/30 px-3 py-3 text-xs text-muted-foreground overflow-y-auto ${selectedTemplate ? 'min-h-[320px]' : 'min-h-[72px] flex items-center'}`}>
                   {selectedTemplate
                     ? <div dangerouslySetInnerHTML={{ __html: selectedTemplate.body }} />
-                    : <span>Select a template above to preview its content.</span>}
+                    : <span className="text-center w-full">Select a template above to preview its content.</span>}
                 </div>
               )}
 
@@ -990,23 +995,29 @@ export function SendMails() {
               {/* Preview */}
               {(() => {
                 const noClients = selectedIds.size === 0
-                const noContent = !subject && !body
-                const previewDisabled = noClients || noContent
-                const previewTip = noClients && noContent
-                  ? 'Select a client and add a subject'
+                const noTemplate = composeMode === 'template' && !selectedTemplate
+                const noContent = composeMode === 'custom' && !subject && !body
+                const previewDisabled = noClients || noTemplate || noContent
+                const previewTip = noClients && (noTemplate || noContent)
+                  ? 'Select at least one client and pick a template to preview'
                   : noClients
-                  ? 'Select at least one client'
+                  ? 'Select at least one client to preview'
+                  : noTemplate
+                  ? 'Pick a template above to preview'
                   : 'Add a subject to preview'
                 return (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span tabIndex={previewDisabled ? 0 : undefined}>
+                      <span
+                        tabIndex={previewDisabled ? 0 : undefined}
+                        onClick={previewDisabled ? () => toast({ title: 'Preview unavailable', description: previewTip, variant: 'default' }) : undefined}
+                      >
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="gap-1.5 text-xs h-8 rounded-lg"
-                          onClick={openPreview}
+                          onClick={previewDisabled ? undefined : openPreview}
                           disabled={previewDisabled}
                         >
                           <Eye className="h-3.5 w-3.5" />
