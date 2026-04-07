@@ -2,6 +2,7 @@
 
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { isAuthenticated, isMasterAdminUser, ApiError } from "@/lib/api/index"
@@ -103,6 +104,8 @@ export default function MasterAdminEmailTemplates() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>("all")
+  const [systemCollapsed, setSystemCollapsed] = useState(true)
+  const [orgCollapsed, setOrgCollapsed] = useState(true)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
@@ -382,11 +385,7 @@ export default function MasterAdminEmailTemplates() {
   )
 
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   return (
@@ -448,13 +447,21 @@ export default function MasterAdminEmailTemplates() {
             </div>
 
             {/* System Templates */}
-            <div>
-              <div className="mb-3">
-                <h2 className="text-sm font-semibold">System Templates</h2>
-                <p className="text-xs text-muted-foreground">Platform-wide default templates available to all organizations</p>
-              </div>
+            <div className="border border-border rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setSystemCollapsed((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <div className="text-left">
+                  <h2 className="text-sm font-semibold">System Templates <span className="ml-1.5 text-xs font-normal text-muted-foreground">({filteredSystemTemplates.length})</span></h2>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${systemCollapsed ? '-rotate-90' : ''}`} />
+              </button>
+              {!systemCollapsed && (
+              <div className="p-4">
               {isLoading ? (
-                <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
+                <div className="flex justify-center py-6"><LekvyaLoader /></div>
               ) : filteredSystemTemplates.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <FileText className="w-10 h-10 mb-3 opacity-40" />
@@ -500,21 +507,26 @@ export default function MasterAdminEmailTemplates() {
                   })}
                 </div>
               )}
+              </div>
+              )}
             </div>
 
             {/* Organization-specific Templates */}
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold">Organization Templates</h2>
-                  <p className="text-xs text-muted-foreground">Customized templates created by individual organizations</p>
+            <div className="border border-border rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOrgCollapsed((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-muted/50 hover:bg-muted transition-colors"
+              >
+                <div className="text-left">
+                  <h2 className="text-sm font-semibold">Organization Templates <span className="ml-1.5 text-xs font-normal text-muted-foreground">({filteredOrgTemplates.length})</span></h2>
                 </div>
-                {orgTemplates.length > 0 && (
-                  <span className="text-sm text-muted-foreground">{filteredOrgTemplates.length} template{filteredOrgTemplates.length !== 1 ? "s" : ""}</span>
-                )}
-              </div>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${orgCollapsed ? '-rotate-90' : ''}`} />
+              </button>
+              {!orgCollapsed && (
+              <div className="p-4">
               {isLoading ? (
-                <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
+                <div className="flex justify-center py-6"><LekvyaLoader /></div>
               ) : filteredOrgTemplates.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-muted-foreground">
                   <Mail className="w-10 h-10 mb-3 opacity-40" />
@@ -561,6 +573,8 @@ export default function MasterAdminEmailTemplates() {
                     </div>
                   ))}
                 </div>
+              )}
+              </div>
               )}
             </div>
 

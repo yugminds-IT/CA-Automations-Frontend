@@ -262,16 +262,9 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
           className="bg-sidebar text-sidebar-foreground w-[min(320px,100vw-2rem)] p-0 rounded-none border-sidebar-border shadow-xl"
         >
           <SheetHeader className="p-5 border-b border-sidebar-border/80">
-            <SheetTitle className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold text-sm shrink-0"
-                aria-hidden
-              >
-                AI
-              </div>
-              <span className="text-lg font-semibold tracking-tight">
-                AIFlow
-              </span>
+            <SheetTitle className="flex items-center">
+              <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
+              <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
             </SheetTitle>
           </SheetHeader>
           <div className="h-[calc(100vh-5.5rem)] flex flex-col px-3 py-4 overflow-hidden">
@@ -290,23 +283,21 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
           borderRight: "1px solid var(--sidebar-border)",
         }}
       >
-        {/* Brand / Header — logo always visible; when collapsed only the circle shows */}
+        {/* Brand / Header */}
         <div
           className={`shrink-0 border-b border-sidebar-border ${collapsed ? "py-4 px-2" : "py-5 px-3"}`}
         >
-          <div
-            className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}
-          >
-            <div
-              className="w-10 h-10 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold text-sm shrink-0"
-              aria-hidden
-            >
-              AI
-            </div>
-            {!collapsed && (
-              <span className="text-lg font-semibold tracking-tight truncate">
-                AIFlow
-              </span>
+          <div className="flex items-center justify-center">
+            {collapsed ? (
+              <>
+                <img src="/Light.png" className="h-10 w-10 object-contain dark:hidden" alt="Lekvya" />
+                <img src="/Dark.png" className="h-10 w-10 object-contain hidden dark:block" alt="Lekvya" />
+              </>
+            ) : (
+              <>
+                <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
+                <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
+              </>
             )}
           </div>
         </div>

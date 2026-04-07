@@ -48,8 +48,10 @@ export const API_CONFIG = {
     },
     clientFiles: {
       upload: '/client-files/upload',
+      uploadForClient: (clientId: number | string) => `/client-files/upload-for-client/${clientId}`,
       list: '/client-files',
       byClient: (clientId: number | string) => `/client-files/client/${clientId}`,
+      byId: (id: number | string) => `/client-files/${id}`,
       downloadUrl: (id: number | string) => `/client-files/${id}/download-url`,
     },
     emailTemplates: {

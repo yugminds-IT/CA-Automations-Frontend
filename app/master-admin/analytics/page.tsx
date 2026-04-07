@@ -2,6 +2,7 @@
 
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { isAuthenticated, isMasterAdminUser, getMasterAdminAnalytics, type MasterAdminAnalytics } from "@/lib/api/index"
@@ -59,11 +60,7 @@ export default function MasterAdminAnalyticsPage() {
   }, [sidebarCollapsed])
 
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   const metrics = [
@@ -186,7 +183,7 @@ export default function MasterAdminAnalyticsPage() {
 
                 {isLoading ? (
                   <div className="flex items-center justify-center h-32">
-                    <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    <LekvyaLoader />
                   </div>
                 ) : barData.length === 0 ? (
                   <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">No data available</div>
@@ -210,7 +207,7 @@ export default function MasterAdminAnalyticsPage() {
                 <h3 className="text-sm font-semibold text-foreground mb-4">User Breakdown</h3>
                 {isLoading ? (
                   <div className="flex items-center justify-center h-24">
-                    <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    <LekvyaLoader />
                   </div>
                 ) : roleBreakdown.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-8">No users yet</p>

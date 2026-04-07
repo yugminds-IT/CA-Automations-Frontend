@@ -361,7 +361,7 @@ export function ClientOnboardForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-0 overflow-x-hidden max-w-full">
+      <form id="client-onboard-form" onSubmit={form.handleSubmit(handleSubmit)} className="space-y-0 overflow-x-hidden max-w-full">
           <div className="rounded-xl border border-border bg-card divide-y divide-border">
 
               {/* Basic Information */}
@@ -965,29 +965,8 @@ export function ClientOnboardForm({
                 <div className="space-y-6">
                   {directors.map((director, index) => (
                     <div key={index} className="border border-input rounded-lg p-3 sm:p-4 space-y-4">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center justify-between">
                         <h4 className="text-sm font-medium">Director {savedDirectors.length + index + 1}</h4>
-                        <div className="flex gap-2 w-full sm:w-auto">
-                          <Button
-                            type="button"
-                            variant="default"
-                            size="sm"
-                            onClick={() => saveDirector(index)}
-                            className="flex-1 sm:flex-initial"
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeDirector(index)}
-                            className="text-destructive hover:text-destructive flex-1 sm:flex-initial"
-                          >
-                            <Trash2Icon className="h-4 w-4 sm:mr-2" />
-                            <span className="hidden sm:inline">Remove</span>
-                          </Button>
-                        </div>
                       </div>
 
                       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -1110,6 +1089,26 @@ export function ClientOnboardForm({
                           )}
                         />
 
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2 border-t border-border mt-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeDirector(index)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2Icon className="h-4 w-4 mr-2" />
+                          Remove
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          onClick={() => saveDirector(index)}
+                        >
+                          Save Director
+                        </Button>
                       </div>
                     </div>
                   ))}

@@ -2,6 +2,7 @@
 
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { isAuthenticated, isMasterAdminUser } from "@/lib/api/index"
@@ -83,11 +84,7 @@ export default function MasterAdminSettings() {
   }, [sidebarCollapsed])
 
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   return (

@@ -27,6 +27,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { login, ApiError, isAuthenticated, getUserData, getRoleFromResponse, getRoleFromUser } from '@/lib/api/index'
 import { UserRole } from '@/lib/api/types'
 import { Eye, EyeOff } from 'lucide-react'
+import { LekvyaLoader } from '@/components/ui/lekvya-loader'
 
 const loginSchema = z.object({
   email: z.string()
@@ -76,11 +77,7 @@ export default function LoginPage() {
 
   // Show loading state while checking authentication
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   const onSubmit = async (data: LoginFormValues) => {

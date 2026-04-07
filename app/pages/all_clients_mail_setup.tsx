@@ -15,6 +15,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from 'lucide-react'
+import { LekvyaLoader } from '@/components/ui/lekvya-loader'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1068,12 +1069,8 @@ export function AllClientsMailSetup() {
               )}
 
               {isLoadingClients || isLoadingTemplates ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <div className="inline-flex items-center justify-center w-12 h-12 mb-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                  <p className="text-sm font-medium">Loading data...</p>
-                  <p className="text-xs mt-1">Please wait while we fetch clients and templates</p>
+                <div className="flex justify-center py-10">
+                  <LekvyaLoader />
                 </div>
               ) : emails.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -1483,9 +1480,8 @@ export function AllClientsMailSetup() {
             </CardHeader>
             <CardContent>
               {isLoadingScheduled ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-xs md:text-sm font-medium">Loading scheduled mails...</p>
+                <div className="flex justify-center py-6">
+                  <LekvyaLoader />
                 </div>
               ) : scheduledMails.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground border border-dashed rounded-md bg-muted/30">
@@ -1667,9 +1663,8 @@ export function AllClientsMailSetup() {
             </CardHeader>
             <CardContent>
               {isLoadingHistory ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <History className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-xs md:text-sm font-medium">Loading history...</p>
+                <div className="flex justify-center py-6">
+                  <LekvyaLoader />
                 </div>
               ) : emailHistory.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground border border-dashed rounded-md bg-muted/30">

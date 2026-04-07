@@ -16,6 +16,19 @@ export async function uploadClientFiles(
   );
 }
 
+export async function uploadClientFilesForOrg(
+  files: File[],
+  clientId: number | string,
+  type?: string
+): Promise<unknown> {
+  return uploadFiles<unknown>(
+    API_CONFIG.endpoints.clientFiles.uploadForClient(clientId),
+    files,
+    type ? { type } : undefined,
+    true
+  );
+}
+
 export async function listMyFiles(): Promise<unknown> {
   return apiRequestWithRefresh(API_CONFIG.endpoints.clientFiles.list, {
     method: 'GET',
@@ -84,6 +97,13 @@ export async function downloadFile(
   document.body.removeChild(link);
   setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
   return blobUrl;
+}
+
+export async function deleteClientFile(id: number | string): Promise<void> {
+  await apiRequestWithRefresh(
+    API_CONFIG.endpoints.clientFiles.byId(id),
+    { method: 'DELETE', requiresAuth: true }
+  );
 }
 
 export async function getFilePreviewBlobUrl(id: number | string): Promise<string> {

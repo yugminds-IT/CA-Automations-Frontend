@@ -12,7 +12,7 @@ import { ClientLoginTab } from './director_info/client-login-tab'
 import { FilesTab } from './director_info/files_tab'
 import { ClientDetailsTab } from './director_info/client-details-tab'
 import { SettingsTab } from './director_info/settings-tab'
-import { getClientById, updateClientLogin, removeClientLogin } from '@/lib/api/clients'
+import { getClientById, updateClientLogin, removeClientLogin, addDirector, updateDirector, deleteDirector, listDirectors } from '@/lib/api/clients'
 import { ApiError } from '@/lib/api/client'
 import type { Client as ApiClient } from '@/lib/api/types'
 
@@ -56,6 +56,7 @@ function transformApiClientToComponent(apiClient: ApiClient & Record<string, unk
 function transformApiDirectors(apiDirectors?: Array<Record<string, unknown>>): Director[] {
   if (!apiDirectors || apiDirectors.length === 0) return []
   return apiDirectors.map((dir: any) => ({
+    id: dir.id ?? undefined,
     name: dir.directorName ?? dir.director_name ?? '',
     email: dir.email ?? '',
     phone: dir.phone ?? dir.phone_number ?? '',
@@ -189,19 +190,82 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
     loadClientData()
   }, [clientId, toast, refreshKey])
 
-  const handleRemoveDirector = (index: number) => {
+  const handleRemoveDirector = async (index: number) => {
+    const director = directors[index]
+    if (director?.id) {
+      try {
+        await deleteDirector(clientId, director.id)
+      } catch (err) {
+        console.error('Failed to delete director:', err)
+        toast({ title: 'Error', description: 'Failed to remove director', variant: 'destructive' })
+        return
+      }
+    }
     setDirectors(directors.filter((_, i) => i !== index))
-    // TODO: Call API to remove director
+    toast({ title: 'Success', description: 'Director removed', variant: 'success' })
   }
 
-  const handleAddDirector = (director: Director) => {
-    setDirectors([...directors, director])
-    // TODO: Call API to add director
+  const handleAddDirector = async (director: Director) => {
+    try {
+      const created = await addDirector(clientId, {
+        directorName: director.name,
+        email: director.email || undefined,
+        phone: director.phone || undefined,
+        designation: director.designation || undefined,
+        din: director.din || undefined,
+        pan: director.pan || undefined,
+        aadharNumber: director.aadhar || undefined,
+      })
+      const newDirector: Director = {
+        id: (created as any).id,
+        name: (created as any).directorName ?? director.name,
+        email: (created as any).email ?? director.email,
+        phone: (created as any).phone ?? director.phone,
+        designation: (created as any).designation ?? director.designation,
+        din: (created as any).din ?? director.din,
+        pan: (created as any).pan ?? director.pan,
+        aadhar: (created as any).aadharNumber ?? director.aadhar,
+      }
+      setDirectors([...directors, newDirector])
+      toast({ title: 'Success', description: 'Director added', variant: 'success' })
+    } catch (err) {
+      console.error('Failed to add director:', err)
+      toast({ title: 'Error', description: 'Failed to add director', variant: 'destructive' })
+    }
   }
 
-  const handleEditDirector = (index: number, director: Director) => {
-    setDirectors(directors.map((d, i) => (i === index ? director : d)))
-    // TODO: Call API to update director
+  const handleEditDirector = async (index: number, director: Director) => {
+    const existing = directors[index]
+    if (existing?.id) {
+      try {
+        const updated = await updateDirector(clientId, existing.id, {
+          directorName: director.name,
+          email: director.email || undefined,
+          phone: director.phone || undefined,
+          designation: director.designation || undefined,
+          din: director.din || undefined,
+          pan: director.pan || undefined,
+          aadharNumber: director.aadhar || undefined,
+        })
+        const updatedDirector: Director = {
+          id: existing.id,
+          name: (updated as any).directorName ?? director.name,
+          email: (updated as any).email ?? director.email,
+          phone: (updated as any).phone ?? director.phone,
+          designation: (updated as any).designation ?? director.designation,
+          din: (updated as any).din ?? director.din,
+          pan: (updated as any).pan ?? director.pan,
+          aadhar: (updated as any).aadharNumber ?? director.aadhar,
+        }
+        setDirectors(directors.map((d, i) => (i === index ? updatedDirector : d)))
+        toast({ title: 'Success', description: 'Director updated', variant: 'success' })
+      } catch (err) {
+        console.error('Failed to update director:', err)
+        toast({ title: 'Error', description: 'Failed to update director', variant: 'destructive' })
+      }
+    } else {
+      setDirectors(directors.map((d, i) => (i === index ? director : d)))
+    }
   }
 
   if (isLoading) {

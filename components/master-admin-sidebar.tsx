@@ -12,7 +12,6 @@ import {
   Settings,
   Bell,
   Users,
-  Shield,
   Building2,
   Activity,
   FileText,
@@ -171,19 +170,11 @@ export function MasterAdminSidebar({
         isCollapsed ? "p-3" : "px-4 py-5"
       } border-b border-[#1E293B] flex-shrink-0`}
     >
-      <div
-        className={`flex items-center ${
-          isCollapsed ? "justify-center" : "gap-3"
-        }`}
-      >
-        <div className="w-8 h-8 bg-[#2563EB] rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20">
-          <Shield className="w-4 h-4 text-white" />
-        </div>
-        {!isCollapsed && (
-          <div className="min-w-0">
-            <h1 className="text-sm font-bold text-white truncate">Master Admin</h1>
-            <p className="text-[10px] text-[#64748B] font-medium">System Control Panel</p>
-          </div>
+      <div className="flex items-center justify-center">
+        {isCollapsed ? (
+          <img src="/Dark.png" className="h-10 w-10 object-contain" alt="Lekvya" />
+        ) : (
+          <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain" alt="Lekvya" />
         )}
       </div>
     </div>
@@ -215,13 +206,6 @@ export function MasterAdminSidebar({
         {brandSection(collapsed)}
         {renderMenuItems(collapsed)}
 
-        {/* Footer */}
-        {!collapsed && (
-          <div className="px-4 py-3 border-t border-[#1E293B] flex-shrink-0">
-            <p className="text-[10px] text-[#475569] font-medium">CA Automations v1.0</p>
-            <p className="text-[10px] text-[#334155]">yugminds × navedhana</p>
-          </div>
-        )}
       </aside>
     </>
   )

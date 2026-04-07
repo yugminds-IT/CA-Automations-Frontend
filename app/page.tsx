@@ -14,6 +14,7 @@
 
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { Dashboard } from "./pages/dashboard"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -83,11 +84,7 @@ export default function Home() {
 
   // Show loading state while redirecting/checking auth
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   return (

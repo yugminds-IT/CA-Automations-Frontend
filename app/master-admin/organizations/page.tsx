@@ -2,6 +2,7 @@
 
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminCreateOrganization, masterAdminUpdateOrganization, masterAdminDeleteOrganization, masterAdminCreateUser, ApiError, type Organization, type CreateOrganizationRequest } from "@/lib/api/index"
@@ -405,14 +406,7 @@ export default function MasterAdminOrganizations() {
   }
 
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          <p className="text-sm text-muted-foreground">Verifying access…</p>
-        </div>
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   return (
@@ -726,9 +720,8 @@ export default function MasterAdminOrganizations() {
               </div>
 
               {isLoadingOrgs ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                  <span className="text-sm text-muted-foreground">Loading organizations…</span>
+                <div className="flex justify-center py-10">
+                  <LekvyaLoader />
                 </div>
               ) : (organizations ?? []).length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">

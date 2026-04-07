@@ -116,11 +116,9 @@ export function ClientSidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobil
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent side="right" className="bg-sidebar text-sidebar-foreground w-[280px] sm:w-[320px] p-0">
           <SheetHeader className="p-6 border-b border-sidebar-border">
-            <SheetTitle className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white font-bold">AI</div>
-              <div>
-                <h1 className="text-xl font-bold">AIFlow</h1>
-              </div>
+            <SheetTitle className="flex items-center">
+              <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
+              <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
             </SheetTitle>
           </SheetHeader>
           <div className="flex flex-col h-[calc(100vh-120px)] px-2">
@@ -140,9 +138,18 @@ export function ClientSidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobil
       >
         {/* Header */}
         <div className={`${collapsed ? 'p-2' : 'p-6'} border-b border-sidebar-border`}>
-          <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'}`}>
-            <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white font-bold">AI</div>
-            {!collapsed && <h1 className="text-xl font-bold">AIFlow</h1>}
+          <div className="flex items-center justify-center">
+            {collapsed ? (
+              <>
+                <img src="/Light.png" className="h-10 w-10 object-contain dark:hidden" alt="Lekvya" />
+                <img src="/Dark.png" className="h-10 w-10 object-contain hidden dark:block" alt="Lekvya" />
+              </>
+            ) : (
+              <>
+                <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
+                <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
+              </>
+            )}
           </div>
         </div>
 

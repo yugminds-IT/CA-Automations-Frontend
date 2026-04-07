@@ -137,6 +137,7 @@ export function SendMails() {
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [isLoadingClients, setIsLoadingClients] = useState(true)
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true)
+  const [templateSearch, setTemplateSearch] = useState('')
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
@@ -162,6 +163,9 @@ export function SendMails() {
   const subjectVarDropdownRef = useRef<HTMLDivElement>(null)
   const [isSending, setIsSending] = useState(false)
   const [sendConfirmOpen, setSendConfirmOpen] = useState(false)
+  const [templatePickerActive, setTemplatePickerActive] = useState(false)
+  const templateSearchInputRef = useRef<HTMLInputElement>(null)
+  const templatePickerRef = useRef<HTMLDivElement>(null)
 
   // Schedule drawer
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false)
@@ -185,11 +189,15 @@ export function SendMails() {
     }
   }, [])
 
-  // Close variable dropdowns on outside click
+  // Close variable dropdowns and template picker on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (varDropdownRef.current && !varDropdownRef.current.contains(e.target as Node)) setVarDropdownOpen(false)
       if (subjectVarDropdownRef.current && !subjectVarDropdownRef.current.contains(e.target as Node)) setSubjectVarDropdownOpen(false)
+      if (templatePickerRef.current && !templatePickerRef.current.contains(e.target as Node)) {
+        setTemplatePickerActive(false)
+        setTemplateSearch('')
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -764,40 +772,73 @@ export function SendMails() {
 
             {/* Template selector */}
             {composeMode === 'template' && (
-              <div className="mb-4">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full justify-between text-xs h-8">
-                      <span className="truncate">
-                        {isLoadingTemplates
-                          ? 'Loading templates...'
-                          : selectedTemplate
-                          ? selectedTemplate.name
-                          : 'Pick a template…'}
-                      </span>
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0 ml-1" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-72 p-0" style={{ maxHeight: '320px', overflowY: 'auto' }}>
+              <div className="mb-4 relative" ref={templatePickerRef}>
+                {templatePickerActive ? (
+                  <input
+                    ref={templateSearchInputRef}
+                    autoFocus
+                    className="w-full h-8 px-3 text-xs border border-input rounded-md bg-background outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="Search templates…"
+                    value={templateSearch}
+                    onChange={(e) => setTemplateSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setTemplatePickerActive(false)
+                        setTemplateSearch('')
+                      }
+                    }}
+                  />
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-between text-xs h-8"
+                    onClick={() => {
+                      setTemplatePickerActive(true)
+                      setTimeout(() => templateSearchInputRef.current?.focus(), 0)
+                    }}
+                    disabled={isLoadingTemplates}
+                  >
+                    <span className="truncate">
+                      {isLoadingTemplates
+                        ? 'Loading templates...'
+                        : selectedTemplate
+                        ? selectedTemplate.name
+                        : 'Pick a template…'}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 ml-1" />
+                  </Button>
+                )}
+                {templatePickerActive && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-popover border border-border rounded-md shadow-lg" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                     {templates.length === 0 ? (
                       <div className="px-3 py-2 text-xs text-muted-foreground">No templates found</div>
-                    ) : (
-                      <>
-                        <div className="px-3 py-1.5 border-b border-border sticky top-0 bg-popover z-10">
-                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
-                        </div>
-                        {templates.map((t) => (
-                          <DropdownMenuItem key={t.id} onClick={() => handleSelectTemplate(t)} className={`text-xs mx-1 my-0.5 rounded-md ${selectedTemplate?.id === t.id ? 'bg-primary/10 text-primary' : ''}`}>
-                            <div className="w-full min-w-0">
-                              <p className="font-medium truncate">{t.name}</p>
-                              <p className="text-muted-foreground truncate text-[10px] mt-0.5">{t.subject}</p>
-                            </div>
-                          </DropdownMenuItem>
-                        ))}
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    ) : (() => {
+                      const filtered = templates.filter(t =>
+                        !templateSearch ||
+                        t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
+                        t.subject.toLowerCase().includes(templateSearch.toLowerCase())
+                      )
+                      return filtered.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">No matching templates</div>
+                      ) : filtered.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className={`w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors ${selectedTemplate?.id === t.id ? 'bg-primary/10 text-primary' : ''}`}
+                          onClick={() => {
+                            handleSelectTemplate(t)
+                            setTemplatePickerActive(false)
+                            setTemplateSearch('')
+                          }}
+                        >
+                          <p className="font-medium truncate">{t.name}</p>
+                          <p className="text-muted-foreground truncate text-[10px] mt-0.5">{t.subject}</p>
+                        </button>
+                      ))
+                    })()}
+                  </div>
+                )}
               </div>
             )}
 

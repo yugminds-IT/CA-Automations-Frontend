@@ -126,7 +126,7 @@ export function MasterAdminHeader({
             </span>
           </div>
           <span className="text-sm font-semibold text-[#0F172A] dark:text-white hidden md:block truncate max-w-[160px]">
-            {organization?.name || "AIFlow"}
+            {organization?.name || ""}
           </span>
         </div>
       </div>

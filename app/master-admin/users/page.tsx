@@ -2,6 +2,7 @@
 
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminGetUsers, masterAdminCreateUser, masterAdminUpdateUser, masterAdminDeleteUser, ApiError, type Organization } from "@/lib/api/index"
@@ -372,14 +373,7 @@ export default function MasterAdminUsers() {
   }
 
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          <p className="text-sm text-muted-foreground">Verifying access…</p>
-        </div>
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   return (
@@ -688,10 +682,9 @@ export default function MasterAdminUsers() {
                   <TableBody>
                     {isLoadingUsers ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-12">
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                            <span className="text-sm text-muted-foreground">Loading users…</span>
+                        <TableCell colSpan={7} className="py-8">
+                          <div className="flex justify-center">
+                            <LekvyaLoader />
                           </div>
                         </TableCell>
                       </TableRow>

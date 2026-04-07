@@ -263,6 +263,7 @@ export { listServices, createService } from './services';
 // Client Files APIs
 export {
   uploadClientFiles,
+  uploadClientFilesForOrg,
   listMyFiles,
   listClientFiles,
   getFileDownloadUrl,
@@ -278,8 +279,9 @@ export async function getUploadedFiles(): Promise<unknown[]> {
   const result = await listMyFiles();
   return Array.isArray(result) ? result : (result as { files?: unknown[] })?.files ?? [];
 }
-export async function deleteUploadedFile(_id: number | string): Promise<void> {
-  throw new Error('Delete file not in backend - use client-files API');
+export async function deleteUploadedFile(id: number | string): Promise<void> {
+  const { deleteClientFile } = await import('./client-files');
+  return deleteClientFile(id);
 }
 
 // Email Templates APIs

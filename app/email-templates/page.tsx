@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated, ApiError } from "@/lib/api/index"
@@ -104,8 +105,8 @@ export default function EmailTemplatesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>("all")
-  const [masterCollapsed, setMasterCollapsed] = useState(false)
-  const [orgCollapsed, setOrgCollapsed] = useState(false)
+  const [masterCollapsed, setMasterCollapsed] = useState(true)
+  const [orgCollapsed, setOrgCollapsed] = useState(true)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false)
@@ -430,11 +431,7 @@ export default function EmailTemplatesPage() {
   )
 
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   return (
@@ -503,7 +500,7 @@ export default function EmailTemplatesPage() {
               {!masterCollapsed && (
                 <div className="p-4">
                   {isLoading ? (
-                    <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
+                    <div className="flex justify-center py-6"><LekvyaLoader /></div>
                   ) : filteredMasterTemplates.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                       <FileText className="w-10 h-10 mb-3 opacity-40" />
@@ -579,7 +576,7 @@ export default function EmailTemplatesPage() {
               {!orgCollapsed && (
                 <div className="p-4">
                   {isLoading ? (
-                    <div className="flex items-center justify-center py-12 text-muted-foreground">Loading templates...</div>
+                    <div className="flex justify-center py-6"><LekvyaLoader /></div>
                   ) : filteredOrgTemplates.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-muted-foreground">
                       <Mail className="w-10 h-10 mb-3 opacity-40" />

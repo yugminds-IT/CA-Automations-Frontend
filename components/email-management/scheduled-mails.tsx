@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Loader2, Trash2, RefreshCw, Clock, CheckCircle2, XCircle, AlertCircle, Repeat, Pencil } from 'lucide-react'
+import { LekvyaLoader } from '@/components/ui/lekvya-loader'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -343,9 +344,8 @@ export function ScheduledMails() {
         <Card className="rounded-xl shadow-sm">
           <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
-                <span className="text-sm text-muted-foreground">Loading...</span>
+              <div className="flex justify-center py-6">
+                <LekvyaLoader />
               </div>
             ) : displayed.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground text-sm border border-dashed rounded-lg">

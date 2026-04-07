@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { useState, useEffect } from 'react'
-import { Edit, Loader2 } from 'lucide-react'
+import { Edit } from 'lucide-react'
+import { LekvyaLoader } from '@/components/ui/lekvya-loader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
@@ -227,9 +228,8 @@ export function ClientDetailsTab({ clientId, onClientUpdated }: ClientDetailsTab
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
-          <span className="text-muted-foreground text-sm">Loading client details...</span>
+        <CardContent className="flex justify-center py-8">
+          <LekvyaLoader />
         </CardContent>
       </Card>
     )
@@ -257,6 +257,23 @@ export function ClientDetailsTab({ clientId, onClientUpdated }: ClientDetailsTab
             <div>
               <h2 className="text-base font-semibold">Update Client</h2>
               <p className="text-sm text-muted-foreground mt-0.5">Update the client details in your system</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="client-onboard-form"
+                size="sm"
+              >
+                Update Client
+              </Button>
             </div>
           </div>
           <ClientOnboardForm

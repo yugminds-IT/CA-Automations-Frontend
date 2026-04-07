@@ -6,6 +6,7 @@ import { ClientDetails } from "@/components/client/client_details"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { isAuthenticated } from "@/lib/api/index"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 
 export default function ClientDetailsPage() {
   const params = useParams()
@@ -85,7 +86,7 @@ export default function ClientDetailsPage() {
             {authChecked && clientId ? (
               <ClientDetails clientId={clientId} />
             ) : !authChecked ? (
-              <div className="flex items-center justify-center p-8 text-muted-foreground">Checking authentication...</div>
+              <div className="flex justify-center py-10"><LekvyaLoader /></div>
             ) : null}
           </div>
         </div>

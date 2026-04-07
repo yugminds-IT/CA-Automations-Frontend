@@ -10,13 +10,16 @@ import {
   Loader2,
   CheckCircle2,
   X,
+  Plus,
 } from 'lucide-react'
+import { LekvyaLoader } from '@/components/ui/lekvya-loader'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import { 
+import {
   uploadFilesToServer,
+  uploadClientFilesForOrg,
   getUploadedFiles,
   listClientFiles,
   deleteUploadedFile,
@@ -58,6 +61,8 @@ export function FilesTab({
   const [previewFile, setPreviewFile] = useState<UploadResponse | null>(null)
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
+  const [localPreviewItem, setLocalPreviewItem] = useState<UploadItem | null>(null)
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const user = getUserData()
   const role = getRoleFromUser(user) ?? ''
@@ -254,7 +259,11 @@ export function FilesTab({
     ))
 
     try {
-      await uploadFilesToServer(filesToUpload, String(clientId))
+      if (isOrgUser) {
+        await uploadClientFilesForOrg(filesToUpload, clientId)
+      } else {
+        await uploadFilesToServer(filesToUpload, String(clientId))
+      }
       setItems(prev => prev.map(item =>
         pendingItems.some(p => p.id === item.id)
           ? { ...item, status: 'success' as const, progress: 100 }
@@ -349,7 +358,7 @@ export function FilesTab({
     }
   }
 
-  // Clean up blob URL when preview closes
+  // Clean up blob URLs when preview closes
   useEffect(() => {
     return () => {
       if (previewBlobUrl) {
@@ -358,6 +367,29 @@ export function FilesTab({
       }
     }
   }, [previewBlobUrl])
+
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) {
+        window.URL.revokeObjectURL(localPreviewUrl)
+        setLocalPreviewUrl(null)
+      }
+    }
+  }, [localPreviewUrl])
+
+  const openLocalPreview = (item: UploadItem) => {
+    if (!item.file) return
+    if (localPreviewUrl) window.URL.revokeObjectURL(localPreviewUrl)
+    const url = window.URL.createObjectURL(item.file)
+    setLocalPreviewUrl(url)
+    setLocalPreviewItem(item)
+  }
+
+  const closeLocalPreview = () => {
+    if (localPreviewUrl) window.URL.revokeObjectURL(localPreviewUrl)
+    setLocalPreviewUrl(null)
+    setLocalPreviewItem(null)
+  }
 
   // Download handler
   const handleDownload = async (file: UploadResponse) => {
@@ -395,7 +427,7 @@ export function FilesTab({
             <CardDescription className="text-xs sm:text-sm mt-1">
               {clientName && `Files for ${clientName}`}
               {!isAdmin && ' - Upload and manage your files'}
-              {isAdmin && ' - View, preview, and download client files'}
+              {isAdmin && ' - View, upload, preview, and download client files'}
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -415,7 +447,7 @@ export function FilesTab({
               size="sm"
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4 mr-2" />
               Add Files
             </Button>
             <Button
@@ -432,9 +464,8 @@ export function FilesTab({
       </CardHeader>
       <CardContent className="px-4 pb-4 pt-0 sm:px-6 sm:pb-5">
         {isLoadingFiles ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Loading files...</span>
+          <div className="flex justify-center py-6">
+            <LekvyaLoader />
           </div>
         ) : items.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
@@ -515,6 +546,18 @@ export function FilesTab({
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {!item.isServerFile && item.file && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openLocalPreview(item)}
+                                className="h-8 w-8 p-0"
+                                title="Preview"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
                             {isAdmin && item.isServerFile && item.serverFile && (
                               <>
                                 <Button
@@ -649,6 +692,40 @@ export function FilesTab({
                     <Download className="h-4 w-4 mr-2" />
                     Download to view
                   </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Local File Preview Modal */}
+      {localPreviewItem && localPreviewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-background rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold">{localPreviewItem.filename} <span className="text-xs text-muted-foreground font-normal">(not yet uploaded)</span></h3>
+              <Button variant="ghost" size="sm" onClick={closeLocalPreview}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {localPreviewItem.file?.type.startsWith('image/') ? (
+                <img
+                  src={localPreviewUrl}
+                  alt={localPreviewItem.filename}
+                  className="max-w-full h-auto mx-auto"
+                />
+              ) : localPreviewItem.file?.type === 'application/pdf' ? (
+                <iframe
+                  src={localPreviewUrl}
+                  className="w-full h-full min-h-[500px] border-0"
+                  title={localPreviewItem.filename}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <FileText className="h-16 w-16 mb-4 opacity-50" />
+                  <p>Preview not available for this file type</p>
+                  <p className="text-xs mt-1">{localPreviewItem.file?.type || 'Unknown type'}</p>
                 </div>
               )}
             </div>

@@ -298,8 +298,8 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
 
       {/* Center: Company name (fixed in the middle) */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-        <h1 className="text-sm font-bold truncate max-w-[180px] sm:max-w-[240px]" title={organization?.name ?? "CAA"}>
-          {organization?.name ?? "CAA"}
+        <h1 className="text-sm font-bold truncate max-w-[180px] sm:max-w-[240px]" title={organization?.name ?? ""}>
+          {organization?.name ?? ""}
         </h1>
       </div>
 

@@ -836,6 +836,29 @@ export function ClientTab({
                 }
               </p>
             </div>
+            {!isLoadingEditData && (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsDialogOpen(false)
+                    setEditingClient(null)
+                    setEditingApiClient(null)
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  form="client-onboard-form"
+                  size="sm"
+                >
+                  {editingClient ? 'Update Client' : 'Onboard Client'}
+                </Button>
+              </div>
+            )}
           </div>
 
           {isLoadingEditData ? (

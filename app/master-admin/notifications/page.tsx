@@ -2,6 +2,7 @@
 
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -99,11 +100,7 @@ export default function MasterAdminNotificationsPage() {
   }
 
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   return (
@@ -170,9 +167,8 @@ export default function MasterAdminNotificationsPage() {
               </div>
 
               {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                  <span className="text-sm text-muted-foreground">Loading notifications…</span>
+                <div className="flex justify-center py-10">
+                  <LekvyaLoader />
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3">

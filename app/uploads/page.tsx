@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Upload, FileText, Trash2, X, CheckCircle2, Loader2, ExternalLink } from "lucide-react"
+import { Upload, FileText, Trash2, X, CheckCircle2, Loader2, Eye, Download, Plus } from "lucide-react"
+import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/components/ui/use-toast"
-import { getUserData, isAuthenticated, uploadFilesToServer, getUploadedFiles, deleteUploadedFile, type UploadResponse } from "@/lib/api/index"
+import { getUserData, isAuthenticated, uploadFilesToServer, getUploadedFiles, deleteUploadedFile, getFilePreviewBlobUrl, downloadFile, type UploadResponse } from "@/lib/api/index"
 
 type UploadItem = {
   id: string
@@ -36,6 +37,9 @@ export default function UploadsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [previewFile, setPreviewFile] = useState<UploadResponse | null>(null)
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null)
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
 
   const user = useMemo(() => getUserData(), [])
 
@@ -175,11 +179,7 @@ export default function UploadsPage() {
   }
 
   if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
+    return <LekvyaLoader className="min-h-screen" />
   }
 
   const onPickFiles = (files: FileList | null) => {
@@ -327,6 +327,41 @@ export default function UploadsPage() {
     }
   }
 
+  const handlePreview = async (file: UploadResponse) => {
+    setPreviewFile(file)
+    const directUrl = (file as any).previewUrl ?? (file as any).viewUrl ?? (file as any).downloadUrl
+    if (typeof directUrl === 'string' && directUrl) {
+      setPreviewBlobUrl(null)
+      setIsLoadingPreview(false)
+      return
+    }
+    setIsLoadingPreview(true)
+    try {
+      const blobUrl = await getFilePreviewBlobUrl(file.id)
+      setPreviewBlobUrl(blobUrl)
+    } catch (error: any) {
+      toast({ title: 'Preview Failed', description: error?.detail ?? error?.message ?? 'Could not load file for preview.', variant: 'destructive' })
+      setPreviewFile(null)
+    } finally {
+      setIsLoadingPreview(false)
+    }
+  }
+
+  const handleDownload = async (file: UploadResponse) => {
+    const name = (file as any).fileName ?? file.filename ?? 'file'
+    try {
+      await downloadFile(file.id, name)
+    } catch (error: any) {
+      toast({ title: 'Download Failed', description: error?.detail || error?.message || 'Failed to download file.', variant: 'destructive' })
+    }
+  }
+
+  const getPreviewUrl = (file: UploadResponse): string => {
+    if (previewBlobUrl && previewFile?.id === file.id) return previewBlobUrl
+    const url = (file as any).previewUrl ?? (file as any).viewUrl ?? (file as any).downloadUrl
+    return typeof url === 'string' ? url : ''
+  }
+
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} collapsed={sidebarCollapsed} />
@@ -373,7 +408,7 @@ export default function UploadsPage() {
                       variant="outline"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <Upload className="h-4 w-4 mr-2" />
+                      <Plus className="h-4 w-4 mr-2" />
                       Add files
                     </Button>
                     <Button 
@@ -418,9 +453,8 @@ export default function UploadsPage() {
                     <p className="text-xs mt-1">Click "Add files" to select files to upload</p>
                   </div>
                 ) : isLoadingFiles ? (
-                  <div className="border border-dashed rounded-md p-6 text-center text-muted-foreground">
-                    <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin opacity-50" />
-                    <p>Loading files...</p>
+                  <div className="border border-dashed rounded-md p-6 flex justify-center">
+                    <LekvyaLoader />
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -489,16 +523,16 @@ export default function UploadsPage() {
                                 <TableCell>{formatDate(item.uploadedAt)}</TableCell>
                                 <TableCell>{formatTime(item.uploadedAt)}</TableCell>
                                 <TableCell className="text-right">
-                                  {(item.serverFile?.previewUrl ?? item.serverFile?.viewUrl ?? item.serverFile?.downloadUrl) && (
+                                  {item.isServerFile && item.serverFile && (
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => window.open(item.serverFile?.previewUrl ?? item.serverFile?.viewUrl ?? item.serverFile?.downloadUrl, '_blank', 'noopener')}
+                                      onClick={() => handlePreview(item.serverFile!)}
                                       title="Preview"
-                                      className="mr-1"
+                                      className="h-8 w-8 p-0"
                                     >
-                                      <ExternalLink className="h-4 w-4" />
+                                      <Eye className="h-4 w-4" />
                                     </Button>
                                   )}
                                   <Button
@@ -526,6 +560,47 @@ export default function UploadsPage() {
           </div>
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {previewFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-background rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="font-semibold truncate">{(previewFile as any).fileName ?? previewFile.filename ?? 'File'}</h3>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleDownload(previewFile)}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => { if (previewBlobUrl) { window.URL.revokeObjectURL(previewBlobUrl); setPreviewBlobUrl(null) }; setPreviewFile(null) }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {isLoadingPreview ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">Loading preview...</p>
+                </div>
+              ) : (previewFile.file_type?.startsWith('image/') || ['jpg','jpeg','png','gif','svg','webp'].includes((previewFile as any).format ?? '')) ? (
+                <img src={getPreviewUrl(previewFile)} alt={(previewFile as any).fileName ?? previewFile.filename ?? 'Preview'} className="max-w-full h-auto mx-auto" />
+              ) : ((previewFile.file_type ?? (previewFile as any).format) === 'application/pdf' || (previewFile as any).format === 'pdf') ? (
+                <iframe src={previewBlobUrl || getPreviewUrl(previewFile)} className="w-full h-full min-h-[500px] border-0" title={(previewFile as any).fileName ?? 'Preview'} />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <FileText className="h-16 w-16 mb-4 opacity-50" />
+                  <p>Preview not available for this file type</p>
+                  <Button variant="outline" className="mt-4" onClick={() => handleDownload(previewFile)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download to view
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
