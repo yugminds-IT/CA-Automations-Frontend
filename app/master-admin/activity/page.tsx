@@ -171,7 +171,7 @@ export default function MasterAdminActivity() {
     if (!isAuthenticated()) { router.replace("/login"); return }
     if (!isMasterAdminUser()) {
       toast({ title: "Access Denied", description: "You must be a master admin.", variant: "destructive" })
-      router.replace("/"); return
+      router.replace("/dashboard"); return
     }
     setIsCheckingAuth(false)
   }, [router, toast])

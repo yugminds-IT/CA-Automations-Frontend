@@ -234,6 +234,15 @@ export async function masterAdminUpdateUser(
 }
 export { deleteUser as masterAdminDeleteUser } from './master-admin';
 
+export {
+  getPendingOrganizations,
+  approveOrganization,
+  rejectOrganization,
+  extendOrganizationAccess,
+} from './master-admin';
+
+export { submitContact, type ContactSubmitRequest } from './contact';
+
 // Client APIs
 export {
   createClient,

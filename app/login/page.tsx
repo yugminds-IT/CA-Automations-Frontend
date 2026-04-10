@@ -1,248 +1,228 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { SignInPage, SignUpPage } from "@/components/ui/sign-in";
+import { useToast } from "@/components/ui/use-toast";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { useToast } from '@/components/ui/use-toast'
-import { login, ApiError, isAuthenticated, getUserData, getRoleFromResponse, getRoleFromUser } from '@/lib/api/index'
-import { UserRole } from '@/lib/api/types'
-import { Eye, EyeOff } from 'lucide-react'
-import { LekvyaLoader } from '@/components/ui/lekvya-loader'
+  ApiError,
+  getRoleFromResponse,
+  getRoleFromUser,
+  getUserData,
+  isAuthenticated,
+  login,
+  signup,
+} from "@/lib/api/index";
 
-const loginSchema = z.object({
-  email: z.string()
-    .min(1, 'Email is required')
-    .email('Please enter a valid email address'),
-  password: z.string()
-    .min(1, 'Password is required')
-    .min(6, 'Password must be at least 6 characters'),
-})
-
-type LoginFormValues = z.infer<typeof loginSchema>
+type AuthMode = "signin" | "signup";
 
 export default function LoginPage() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const router = useRouter()
-  const { toast } = useToast()
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const router = useRouter();
+  const { toast } = useToast();
+  const [mode, setMode] = useState<AuthMode>("signin");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  })
-
-  // Redirect if already authenticated
   useEffect(() => {
-    const checkAuth = () => {
-      const authenticated = isAuthenticated()
-      if (authenticated) {
-        // User is already logged in; backend returns role as user.role.name
-        const role = getRoleFromUser(getUserData())
-        if (role != null && role.toUpperCase() === 'MASTER_ADMIN') {
-          router.push('/master-admin')
-        } else {
-          router.push('/')
-        }
-      } else {
-        setIsCheckingAuth(false)
-      }
-    }
-
-    checkAuth()
-  }, [router])
-
-  // Show loading state while checking authentication
-  if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
-  }
-
-  const onSubmit = async (data: LoginFormValues) => {
-    // Additional client-side validation
-    if (!data.email || !data.password) {
-      toast({
-        title: 'Validation Error',
-        description: 'Email and password are required',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    if (data.email.trim() === '' || data.password.trim() === '') {
-      toast({
-        title: 'Validation Error',
-        description: 'Email and password cannot be empty',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setIsLoading(true)
     try {
-      const response = await login({
-        email: data.email.trim(),
-        password: data.password,
-      })
-
-      // Verify that we have access token before allowing redirect
-      if (!response.accessToken || !response.refreshToken) {
-        throw new Error('Login failed: No access token received')
+      const blocked = sessionStorage.getItem("auth_blocked_reason");
+      if (blocked) {
+        sessionStorage.removeItem("auth_blocked_reason");
+        toast({
+          title: "Access restricted",
+          description: blocked,
+          variant: "destructive",
+        });
       }
+    } catch {
+      /* ignore */
+    }
+  }, [toast]);
 
+  useEffect(() => {
+    if (!isAuthenticated()) return;
+    const role = getRoleFromUser(getUserData());
+    if (role != null && role.toUpperCase() === "MASTER_ADMIN") {
+      router.replace("/master-admin");
+      return;
+    }
+    if (role != null && role.toUpperCase() === "CLIENT") {
+      router.replace("/uploads");
+      return;
+    }
+    router.replace("/dashboard");
+  }, [router]);
+
+  const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isLoading) return;
+
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    if (!email || !password) {
       toast({
-        title: 'Success',
-        description: 'Logged in successfully!',
-        variant: 'success',
-      })
+        title: "Validation Error",
+        description: "Email and password are required.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      // Backend returns role as response.user.role.name
-      const role = getRoleFromResponse(response)
-      if (role != null && role.toUpperCase() === 'MASTER_ADMIN') {
-        router.push('/master-admin')
+    setIsLoading(true);
+    try {
+      const response = await login({ email, password });
+      const role = getRoleFromResponse(response);
+      toast({
+        title: "Success",
+        description: "Logged in successfully.",
+        variant: "success",
+      });
+
+      if (role != null && role.toUpperCase() === "MASTER_ADMIN") {
+        router.push("/master-admin");
+      } else if (role != null && role.toUpperCase() === "CLIENT") {
+        router.push("/uploads");
       } else {
-        router.push('/')
+        router.push("/dashboard");
       }
     } catch (error: unknown) {
-      let errorMessage = 'Failed to login. Please check your credentials and try again.'
-      if (error instanceof ApiError) {
-        errorMessage = error.detail || errorMessage
-      } else if (error instanceof Error) {
-        errorMessage = error.message
-      }
-
+      const message =
+        error instanceof ApiError
+          ? error.detail || "Failed to login."
+          : error instanceof Error
+            ? error.message
+            : "Failed to login.";
       toast({
-        title: 'Login Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      })
+        title: "Login Failed",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
+
+  const handleSignUp = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isLoading) return;
+
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      organization_name: String(formData.get("organization_name") ?? "").trim(),
+      admin_email: String(formData.get("admin_email") ?? "").trim(),
+      admin_password: String(formData.get("admin_password") ?? ""),
+      admin_full_name: String(formData.get("admin_full_name") ?? "").trim(),
+      admin_phone: String(formData.get("admin_phone") ?? "").trim(),
+      city: String(formData.get("city") ?? "").trim(),
+      state: String(formData.get("state") ?? "").trim(),
+      country: String(formData.get("country") ?? "").trim(),
+      pincode: String(formData.get("pincode") ?? "").trim(),
+    };
+
+    if (
+      !payload.organization_name ||
+      !payload.admin_email ||
+      !payload.admin_password ||
+      !payload.admin_full_name
+    ) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill all required signup fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await signup(payload);
+      const apiMessage = (response as { message?: string })?.message;
+      toast({
+        title: "Pending approval",
+        description:
+          apiMessage ||
+          "Your registration is pending master admin approval. You will receive an email and can sign in only after approval.",
+        variant: "success",
+      });
+      setMode("signin");
+      router.replace("/login");
+    } catch (error: unknown) {
+      const message =
+        error instanceof ApiError
+          ? error.detail || "Failed to create account."
+          : error instanceof Error
+            ? error.message
+            : "Failed to create account.";
+      toast({
+        title: "Signup Failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Welcome back
-          </CardTitle>
-          <CardDescription className="text-center">
-            Sign in to your account to continue
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form 
-              onSubmit={form.handleSubmit(
-                (data) => {
-                  console.log('Form validation passed, submitting:', data)
-                  onSubmit(data)
-                },
-                (errors) => {
-                  console.error('Form validation errors:', errors)
-                  toast({
-                    title: 'Validation Error',
-                    description: 'Please check your email and password',
-                    variant: 'destructive',
-                  })
-                }
-              )} 
-              className="space-y-4"
-            >
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="admin@abcca.com"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                      <Input
-                          type={showPassword ? 'text' : 'password'}
-                        placeholder="Enter your password"
-                        {...field}
-                        disabled={isLoading}
-                          className="pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                          disabled={isLoading}
-                        >
-                          {showPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex justify-end">
-                <Link
-                  href="/forgot-password"
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Forgot Password?
-                </Link>
-              </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Signing in...' : 'Sign in'}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+    <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-orange-500/5 blur-[120px] pointer-events-none" />
+
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3 bg-background/80 backdrop-blur-lg border-b border-border">
+        <a
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            router.push("/");
+          }}
+        >
+          <img src="/landing-assets/lekvya-logo-new.png" alt="Lekvya" className="h-10 w-auto object-contain" />
+        </a>
+
+        <div className="flex items-center gap-1 bg-secondary rounded-xl p-1">
+          <button
+            onClick={() => setMode("signin")}
+            disabled={isLoading}
+            className={`px-5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+              mode === "signin" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            onClick={() => setMode("signup")}
+            disabled={isLoading}
+            className={`px-5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+              mode === "signup" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Create Account
+          </button>
+        </div>
+
+        <button onClick={() => router.push("/")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          ← Back to home
+        </button>
+      </header>
+
+      <div className="pt-16">
+        {mode === "signin" ? (
+          <SignInPage
+            title={
+              <span>
+                Welcome <span className="text-gradient">back</span>
+              </span>
+            }
+            description="Sign in to your Lekvya account and automate smarter."
+            onSignIn={handleSignIn}
+            onResetPassword={() => router.push("/forgot-password")}
+            onCreateAccount={() => setMode("signup")}
+          />
+        ) : (
+          <SignUpPage onSignUp={handleSignUp} onSignIn={() => setMode("signin")} />
+        )}
+      </div>
     </div>
-  )
+  );
 }

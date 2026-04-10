@@ -45,7 +45,7 @@ export default function MasterAdminDashboard() {
         description: "You must be a master admin to access this page.",
         variant: "destructive",
       })
-      router.replace("/")
+      router.replace("/dashboard")
       return
     }
     setIsCheckingAuth(false)

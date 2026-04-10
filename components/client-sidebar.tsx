@@ -42,7 +42,7 @@ export function ClientSidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobil
   const menuItems = [
     { icon: Lock, label: "Client Login", path: "/client-management" },
     { icon: Users, label: "Client Management", path: "/client-management" },
-    { icon: ArrowLeft, label: "Back to Dashboard", path: "/" },
+    { icon: ArrowLeft, label: "Back to Dashboard", path: "/dashboard" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ] as const
 
@@ -53,7 +53,7 @@ export function ClientSidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobil
     if (exactMatch) return exactMatch.label
     
     // Check for pathname that starts with menu item path (for nested routes)
-    const pathMatch = menuItems.find(item => pathname.startsWith(item.path) && item.path !== '/')
+    const pathMatch = menuItems.find(item => pathname.startsWith(item.path) && item.path !== '/dashboard')
     if (pathMatch) return pathMatch.label
     
     return "Client Login"

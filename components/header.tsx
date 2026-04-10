@@ -39,6 +39,7 @@ const EMAIL_MANAGEMENT_FLAT: Record<string, string> = {
 // Route segment to breadcrumb label
 const ROUTE_LABELS: Record<string, string> = {
   "": "Dashboard",
+  dashboard: "Dashboard",
   "client-management": "Client Management",
   "email-management": "Email Management",
   "all-clients-mail-setup": "Send Mails",
@@ -228,7 +229,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
             <BreadcrumbItem className="inline-flex items-center gap-1.5">
               <BreadcrumbLink asChild>
                 <Link
-                  href="/"
+                  href="/dashboard"
                   className="inline-flex items-center gap-1.5 text-primary hover:opacity-90 transition-colors"
                   aria-label="Home"
                 >
@@ -236,11 +237,11 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
                 </Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
-            {breadcrumbItems.length > 0 && breadcrumbItems[0].href !== "/" && (
+            {breadcrumbItems.length > 0 && breadcrumbItems[0].href !== "/dashboard" && (
               <BreadcrumbSeparator />
             )}
             {breadcrumbItems.flatMap((item, i) => {
-              const isOnlyDashboard = breadcrumbItems.length === 1 && item.href === "/"
+              const isOnlyDashboard = breadcrumbItems.length === 1 && item.href === "/dashboard"
               if (isOnlyDashboard) return []
               const isEmailManagement = item.href === '/email-management'
               return [

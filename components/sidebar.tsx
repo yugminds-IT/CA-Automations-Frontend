@@ -70,7 +70,7 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
     role === 'client'
       ? [{ type: 'item', icon: Upload, label: 'Uploads', path: '/uploads' }]
       : [
-          { type: 'item', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+          { type: 'item', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
           { type: 'item', icon: Users, label: 'Client Management', path: '/client-management' },
           {
             type: 'group',
@@ -90,7 +90,7 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
     for (const item of menuItems) {
       if (item.type === 'item') {
         if (pathname === item.path) return item.label
-        if (item.path !== '/' && pathname.startsWith(item.path)) return item.label
+        if (item.path !== '/dashboard' && pathname.startsWith(item.path)) return item.label
       } else {
         for (const child of item.children) {
           if (pathname === child.path || pathname.startsWith(child.path)) return child.label

@@ -3,6 +3,7 @@
 import { apiRequestWithRefresh } from './interceptor';
 import { API_CONFIG } from './config';
 import { getAccessToken } from './client';
+import type { Organization } from './types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -163,5 +164,36 @@ export function deleteUser(userId: number): Promise<void> {
   return apiRequestWithRefresh<void>(
     `${API_CONFIG.endpoints.users.byId(userId)}`,
     { method: 'DELETE', requiresAuth: true },
+  );
+}
+
+export function getPendingOrganizations(): Promise<Organization[]> {
+  return apiRequestWithRefresh<Organization[]>(
+    API_CONFIG.endpoints.masterAdmin.pendingOrganizations,
+    { method: 'GET', requiresAuth: true },
+  );
+}
+
+export function approveOrganization(id: number): Promise<Organization> {
+  return apiRequestWithRefresh<Organization>(
+    API_CONFIG.endpoints.masterAdmin.approveOrganization(id),
+    { method: 'POST', requiresAuth: true },
+  );
+}
+
+export function rejectOrganization(id: number): Promise<{ message: string }> {
+  return apiRequestWithRefresh<{ message: string }>(
+    API_CONFIG.endpoints.masterAdmin.rejectOrganization(id),
+    { method: 'POST', requiresAuth: true },
+  );
+}
+
+export function extendOrganizationAccess(
+  id: number,
+  accessUntilIso: string,
+): Promise<Organization> {
+  return apiRequestWithRefresh<Organization>(
+    API_CONFIG.endpoints.masterAdmin.extendOrganizationAccess(id),
+    { method: 'PATCH', body: { accessUntil: accessUntilIso }, requiresAuth: true },
   );
 }

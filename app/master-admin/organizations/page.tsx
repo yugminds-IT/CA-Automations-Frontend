@@ -3,9 +3,9 @@
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminCreateOrganization, masterAdminUpdateOrganization, masterAdminDeleteOrganization, masterAdminCreateUser, ApiError, type Organization, type CreateOrganizationRequest } from "@/lib/api/index"
+import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminCreateOrganization, masterAdminUpdateOrganization, masterAdminDeleteOrganization, masterAdminCreateUser, approveOrganization, rejectOrganization, extendOrganizationAccess, ApiError, type Organization, type CreateOrganizationRequest } from "@/lib/api/index"
 import { UserRole } from "@/lib/api/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
@@ -28,8 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Building2, Plus, Edit, Trash2, UserPlus, Shield } from "lucide-react"
+import { Building2, Plus, Edit, Trash2, UserPlus, Shield, Check, X, CalendarClock } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
 
 export default function MasterAdminOrganizations() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -61,8 +62,32 @@ export default function MasterAdminOrganizations() {
   const [isCreatingOrg, setIsCreatingOrg] = useState(false)
   const [isUpdatingOrg, setIsUpdatingOrg] = useState(false)
   const [isDeletingOrg, setIsDeletingOrg] = useState(false)
+  const [extendDialogOpen, setExtendDialogOpen] = useState(false)
+  const [extendOrg, setExtendOrg] = useState<Organization | null>(null)
+  const [extendAccessUntil, setExtendAccessUntil] = useState("")
+  const [isExtending, setIsExtending] = useState(false)
+  const [isApprovingId, setIsApprovingId] = useState<number | null>(null)
+  const [isRejectingId, setIsRejectingId] = useState<number | null>(null)
+  /** Avoid race where Dialog onOpenChange clears org before Save handler reads state */
+  const extendOrgIdRef = useRef<number | null>(null)
   const router = useRouter()
   const { toast } = useToast()
+
+  const formatAccessUntil = (iso: string | null | undefined) => {
+    if (!iso) return "—"
+    try {
+      return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+    } catch {
+      return "—"
+    }
+  }
+
+  const statusBadge = (org: Organization) => {
+    const s = org.approvalStatus ?? "approved"
+    if (s === "pending") return <Badge variant="secondary" className="font-normal">Pending</Badge>
+    if (s === "rejected") return <Badge variant="destructive" className="font-normal">Rejected</Badge>
+    return <Badge variant="default" className="font-normal bg-emerald-600 hover:bg-emerald-600">Approved</Badge>
+  }
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -77,7 +102,7 @@ export default function MasterAdminOrganizations() {
         description: "You must be a master admin to access this page.",
         variant: "destructive",
       })
-      router.replace("/")
+      router.replace("/dashboard")
       return
     }
     
@@ -363,6 +388,99 @@ export default function MasterAdminOrganizations() {
       }
     } finally {
       setIsDeletingOrg(false)
+    }
+  }
+
+  const handleApproveOrganization = async (orgId: number) => {
+    try {
+      setIsApprovingId(orgId)
+      await approveOrganization(orgId)
+      toast({
+        title: "Approved",
+        description: "The organization can sign in for the trial period. A confirmation email was sent to the admin.",
+        variant: "success",
+      })
+      fetchOrganizations()
+    } catch (error) {
+      console.error("Approve organization:", error)
+      if (error instanceof ApiError) {
+        toast({ title: "Error", description: error.detail || "Could not approve", variant: "destructive" })
+      } else {
+        toast({ title: "Error", description: "Could not approve organization.", variant: "destructive" })
+      }
+    } finally {
+      setIsApprovingId(null)
+    }
+  }
+
+  const handleRejectOrganization = async (orgId: number) => {
+    if (!confirm("Reject this organization registration? Users will not be able to sign in.")) return
+    try {
+      setIsRejectingId(orgId)
+      await rejectOrganization(orgId)
+      toast({ title: "Rejected", description: "Organization registration was rejected.", variant: "success" })
+      fetchOrganizations()
+    } catch (error) {
+      console.error("Reject organization:", error)
+      if (error instanceof ApiError) {
+        toast({ title: "Error", description: error.detail || "Could not reject", variant: "destructive" })
+      } else {
+        toast({ title: "Error", description: "Could not reject organization.", variant: "destructive" })
+      }
+    } finally {
+      setIsRejectingId(null)
+    }
+  }
+
+  const openExtendDialog = (org: Organization) => {
+    extendOrgIdRef.current = org.id
+    setExtendOrg(org)
+    let base: Date
+    if (org.accessUntil) {
+      const parsed = new Date(org.accessUntil)
+      base = Number.isNaN(parsed.getTime()) ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : parsed
+    } else {
+      base = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    }
+    const local = new Date(base.getTime() - base.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+    setExtendAccessUntil(local)
+    setExtendDialogOpen(true)
+  }
+
+  const handleExtendAccess = async () => {
+    const orgId = extendOrg?.id ?? extendOrgIdRef.current
+    const untilRaw = extendAccessUntil.trim()
+    if (!orgId || !untilRaw) {
+      toast({
+        title: "Cannot save",
+        description: "Organization or access end date is missing. Close and open Extend again.",
+        variant: "destructive",
+      })
+      return
+    }
+    const parsed = new Date(untilRaw)
+    if (Number.isNaN(parsed.getTime())) {
+      toast({ title: "Invalid date", description: "Pick a valid date and time.", variant: "destructive" })
+      return
+    }
+    try {
+      setIsExtending(true)
+      const iso = parsed.toISOString()
+      await extendOrganizationAccess(orgId, iso)
+      toast({ title: "Updated", description: "Access end date saved.", variant: "success" })
+      setExtendDialogOpen(false)
+      setExtendOrg(null)
+      extendOrgIdRef.current = null
+      fetchOrganizations()
+    } catch (error) {
+      console.error("Extend access:", error)
+      if (error instanceof ApiError) {
+        toast({ title: "Error", description: error.detail || "Could not update access", variant: "destructive" })
+      } else {
+        toast({ title: "Error", description: "Could not update access.", variant: "destructive" })
+      }
+    } finally {
+      setIsExtending(false)
     }
   }
 
@@ -709,6 +827,59 @@ export default function MasterAdminOrganizations() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+
+                <Dialog
+                  open={extendDialogOpen}
+                  onOpenChange={(open) => {
+                    setExtendDialogOpen(open)
+                    if (!open) {
+                      setExtendOrg(null)
+                      extendOrgIdRef.current = null
+                    }
+                  }}
+                >
+                  <DialogContent className="sm:max-w-[440px]">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        void handleExtendAccess()
+                      }}
+                    >
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <CalendarClock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          Extend access
+                        </DialogTitle>
+                        <DialogDescription>
+                          Set when access ends for {extendOrg?.name ?? "this organization"}. Use this to extend beyond the trial.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-3 py-2">
+                        <Label htmlFor="access-until">Access until (local time)</Label>
+                        <Input
+                          id="access-until"
+                          type="datetime-local"
+                          value={extendAccessUntil}
+                          onChange={(e) => setExtendAccessUntil(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <DialogFooter className="mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setExtendDialogOpen(false)}
+                          disabled={isExtending}
+                        >
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={isExtending || !extendAccessUntil.trim()}>
+                          {isExtending ? "Saving…" : "Save"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
 
@@ -739,6 +910,8 @@ export default function MasterAdminOrganizations() {
                         <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">City</TableHead>
                         <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">State</TableHead>
                         <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Country</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Status</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide whitespace-nowrap">Access until</TableHead>
                         <TableHead className="text-right text-muted-foreground dark:text-muted-foreground font-semibold text-xs uppercase tracking-wide">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -764,8 +937,51 @@ export default function MasterAdminOrganizations() {
                           <TableCell className="text-sm text-muted-foreground dark:text-muted-foreground">{org.city || "—"}</TableCell>
                           <TableCell className="text-sm text-muted-foreground dark:text-muted-foreground">{org.state || "—"}</TableCell>
                           <TableCell className="text-sm text-muted-foreground dark:text-muted-foreground">{org.country || "—"}</TableCell>
+                          <TableCell className="text-sm">{statusBadge(org)}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap max-w-[160px]">
+                            {formatAccessUntil(org.accessUntil ?? undefined)}
+                          </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="flex items-center justify-end gap-1 flex-wrap justify-end">
+                              {(org.approvalStatus ?? "approved") === "pending" && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleApproveOrganization(org.id)}
+                                    disabled={isApprovingId === org.id || isRejectingId === org.id || isDeletingOrg}
+                                    className="h-8 px-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                    title="Approve"
+                                  >
+                                    <Check className="w-3.5 h-3.5 mr-0.5" />
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRejectOrganization(org.id)}
+                                    disabled={isApprovingId === org.id || isRejectingId === org.id || isDeletingOrg}
+                                    className="h-8 px-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    title="Reject"
+                                  >
+                                    <X className="w-3.5 h-3.5 mr-0.5" />
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                              {(org.approvalStatus ?? "approved") === "approved" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openExtendDialog(org)}
+                                  disabled={isDeletingOrg}
+                                  className="h-8 px-2 text-[11px] font-semibold text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                                  title="Extend access"
+                                >
+                                  <CalendarClock className="w-3.5 h-3.5 mr-0.5" />
+                                  Extend
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"

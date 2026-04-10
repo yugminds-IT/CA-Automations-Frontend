@@ -96,7 +96,12 @@ export interface User {
   role?: { name?: string } | string;
   organizationId?: number;
   org_id?: number;
-  organization?: { name?: string };
+  organization?: {
+    name?: string;
+    approvalStatus?: 'pending' | 'approved' | 'rejected';
+    accessUntil?: string | null;
+    approvedAt?: string | null;
+  };
 }
 
 // ============ ORGANIZATIONS ============
@@ -109,6 +114,9 @@ export interface Organization {
   state?: string;
   country?: string;
   pincode?: string;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  accessUntil?: string | null;
+  approvedAt?: string | null;
 }
 
 export interface SmtpConfigResponse {

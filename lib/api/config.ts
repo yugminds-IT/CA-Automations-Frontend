@@ -78,6 +78,13 @@ export const API_CONFIG = {
       notifications: '/master-admin/notifications',
       exportUsers: '/master-admin/export/users',
       exportOrganizations: '/master-admin/export/organizations',
+      pendingOrganizations: '/master-admin/organizations/pending',
+      approveOrganization: (id: number | string) => `/master-admin/organizations/${id}/approve`,
+      rejectOrganization: (id: number | string) => `/master-admin/organizations/${id}/reject`,
+      extendOrganizationAccess: (id: number | string) => `/master-admin/organizations/${id}/access`,
+    },
+    contact: {
+      submit: '/contact',
     },
     notifications: {
       base: '/notifications',

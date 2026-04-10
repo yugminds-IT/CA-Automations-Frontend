@@ -71,7 +71,7 @@ export default function MasterAdminUsers() {
         description: "You must be a master admin to access this page.",
         variant: "destructive",
       })
-      router.replace("/")
+      router.replace("/dashboard")
       return
     }
     
