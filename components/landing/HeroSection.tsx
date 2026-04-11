@@ -176,10 +176,10 @@ export default function HeroSection() {
     scrollYProgress,
     [0, 0.15, 0.35, 0.7],
     isMobile
-      ? ["0%", "0%", "0%", "-150vw"]
+      ? ["0%", "-10vw", "-40vw", "-120vw"]
       : isTablet
-        ? ["0%", "0%", "0%", "-70vw"]
-        : ["0%", "0%", "0%", "-220vw"]
+        ? ["0%", "-10vw", "-30vw", "-80vw"]
+        : ["0%", "-20vw", "-60vw", "-120vw"]
   );
   const textY = useTransform(
     scrollYProgress,
