@@ -166,7 +166,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp, onSignIn }) =>
                     Full Name
                   </label>
                   <GlassInputWrapper>
-                    <input name="admin_full_name" type="text" placeholder="John Doe" className="w-full bg-transparent text-[15px] font-medium text-slate-800 placeholder:text-slate-400 p-4 rounded-2xl focus:outline-none" required />
+                    <input name="admin_full_name" type="text" placeholder="Vinayak" className="w-full bg-transparent text-[15px] font-medium text-slate-800 placeholder:text-slate-400 p-4 rounded-2xl focus:outline-none" required />
                   </GlassInputWrapper>
                 </div>
                 <div className="animate-element animate-delay-300">
@@ -174,7 +174,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp, onSignIn }) =>
                     Email ID
                   </label>
                   <GlassInputWrapper>
-                    <input name="admin_email" type="email" placeholder="john@example.com" className="w-full bg-transparent text-[15px] font-medium text-slate-800 placeholder:text-slate-400 p-4 rounded-2xl focus:outline-none" required />
+                    <input name="admin_email" type="email" placeholder="vinayak@example.com" className="w-full bg-transparent text-[15px] font-medium text-slate-800 placeholder:text-slate-400 p-4 rounded-2xl focus:outline-none" required />
                   </GlassInputWrapper>
                 </div>
                 <div className="animate-element animate-delay-400">
@@ -182,7 +182,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp, onSignIn }) =>
                     Phone No
                   </label>
                   <GlassInputWrapper>
-                    <input name="admin_phone" type="tel" placeholder="+1 (555) 000-0000" className="w-full bg-transparent text-[15px] font-medium text-slate-800 placeholder:text-slate-400 p-4 rounded-2xl focus:outline-none" required />
+                    <input name="admin_phone" type="tel" placeholder="+91 00000 00000" className="w-full bg-transparent text-[15px] font-medium text-slate-800 placeholder:text-slate-400 p-4 rounded-2xl focus:outline-none" required />
                   </GlassInputWrapper>
                 </div>
 
@@ -191,7 +191,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onSignUp, onSignIn }) =>
                     Organisation Name
                   </label>
                   <GlassInputWrapper>
-                    <input name="organization_name" type="text" placeholder="Acme Inc." className="w-full bg-transparent text-[15px] font-medium text-slate-800 placeholder:text-slate-400 p-4 rounded-2xl focus:outline-none" required />
+                    <input name="organization_name" type="text" placeholder="NewAge and Co." className="w-full bg-transparent text-[15px] font-medium text-slate-800 placeholder:text-slate-400 p-4 rounded-2xl focus:outline-none" required />
                   </GlassInputWrapper>
                 </div>
                 <div className="animate-element animate-delay-400">
