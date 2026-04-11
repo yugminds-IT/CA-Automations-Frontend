@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
-import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
+import { motion, useScroll, useTransform, useMotionValueEvent, useSpring } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Play, Zap } from "lucide-react";
@@ -165,8 +165,9 @@ export default function HeroSection() {
     if (latest <= 0.05 && isScrolledLayout) setIsScrolledLayout(false);
   });
 
+  
   const alignStyles = isTablet
-    ? "items-center text-center"
+    ? "items-center text-left"
     : isScrolledLayout
       ? "items-start text-left"
       : "items-center text-center";
@@ -181,6 +182,11 @@ export default function HeroSection() {
         ? ["0%", "-10vw", "-30vw", "-80vw"]
         : ["0%", "-20vw", "-60vw", "-120vw"]
   );
+  const smoothTextX = useSpring(textX, {
+    stiffness: 80,
+    damping: 20,
+    mass: 0.5,
+  });
   const textY = useTransform(
     scrollYProgress,
     [0, 0.15, 0.35, 0.7],
@@ -282,7 +288,7 @@ export default function HeroSection() {
         >
           {/* Text Content */}
           <motion.div
-            style={{ opacity: textOpacity, x: textX, y: textY }}
+            style={{ opacity: textOpacity, x: smoothTextX, y: textY }}
             className={`w-full mx-auto ${isTablet ? "md:max-w-2xl" : "md:w-[58%] lg:w-[48%]"} relative z-20`}
           >
             <motion.div
