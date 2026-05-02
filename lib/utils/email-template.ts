@@ -4,6 +4,29 @@
  * so the preview matches what recipients actually receive.
  */
 
+/** Same rules as EmailTemplatesService.substituteVariables — keeps preview in sync with sent mail. */
+export function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function substituteTemplatePlaceholders(
+  content: string,
+  variables: Record<string, string>,
+): string {
+  let result = content;
+  const entries = Object.entries(variables).sort((a, b) => b[0].length - a[0].length);
+  for (const [key, value] of entries) {
+    let bare = key.trim();
+    if (bare.startsWith('{{')) bare = bare.slice(2);
+    if (bare.endsWith('}}')) bare = bare.slice(0, -2);
+    bare = bare.trim();
+    if (!bare) continue;
+    const re = new RegExp(`\\{\\{\\s*${escapeRegExp(bare)}\\s*\\}\\}`, 'g');
+    result = result.replace(re, value ?? '');
+  }
+  return result;
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')

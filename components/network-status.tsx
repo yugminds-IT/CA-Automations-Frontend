@@ -3,24 +3,31 @@
 import { useEffect, useState } from 'react'
 import { WifiOff, Wifi } from 'lucide-react'
 
-type Status = 'online' | 'offline' | 'restored'
+type Status = 'online' | 'offline' | 'offlineDismissed' | 'restored'
+
+const OFFLINE_BANNER_MS = 3000
 
 export function NetworkStatus() {
   const [status, setStatus] = useState<Status>('online')
 
   useEffect(() => {
-    let restoreTimer: ReturnType<typeof setTimeout>
+    let offlineDismissTimer: ReturnType<typeof setTimeout>
 
     const goOffline = () => {
-      clearTimeout(restoreTimer)
+      clearTimeout(offlineDismissTimer)
       setStatus('offline')
+      offlineDismissTimer = setTimeout(() => {
+        setStatus((s) => (s === 'offline' ? 'offlineDismissed' : s))
+      }, OFFLINE_BANNER_MS)
     }
 
     const goOnline = () => {
-      if (status === 'offline') {
-        setStatus('restored')
-        restoreTimer = setTimeout(() => setStatus('online'), 3000)
-      }
+      clearTimeout(offlineDismissTimer)
+      setStatus((current) =>
+        current === 'offline' || current === 'offlineDismissed'
+          ? 'restored'
+          : current,
+      )
     }
 
     // Browser online/offline events
@@ -35,14 +42,20 @@ export function NetworkStatus() {
     window.addEventListener('api-network-error', handleApiNetworkError)
 
     return () => {
-      clearTimeout(restoreTimer)
+      clearTimeout(offlineDismissTimer)
       window.removeEventListener('offline', goOffline)
       window.removeEventListener('online', goOnline)
       window.removeEventListener('api-network-error', handleApiNetworkError)
     }
+  }, [])
+
+  useEffect(() => {
+    if (status !== 'restored') return
+    const t = setTimeout(() => setStatus('online'), OFFLINE_BANNER_MS)
+    return () => clearTimeout(t)
   }, [status])
 
-  if (status === 'online') return null
+  if (status === 'online' || status === 'offlineDismissed') return null
 
   if (status === 'restored') {
     return (

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Eye, EyeOff, Trash2Icon, CheckCircle2, Lock, Mail, Loader2,
   Send, Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter,
@@ -13,9 +13,12 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/lib/api/client'
+import { ApiError, getUserData, getOrganizationData } from '@/lib/api/client'
 import { listTemplates, sendEmail } from '@/lib/api/email-templates'
+import { substituteTemplatePlaceholders } from '@/lib/utils/email-template'
 import { cn } from '@/lib/utils'
+
+const DEFAULT_LOGIN_PORTAL_URL = 'https://ca.navedhana.com'
 
 /* ─────────────────────── types ─────────────────────── */
 
@@ -267,6 +270,41 @@ export function ClientLoginTab({
   const currentLogin = logins[0] ?? null
   const hasCredentials = !!currentLogin?.password?.trim()
 
+  const loginPortalUrl =
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL?.trim()) || DEFAULT_LOGIN_PORTAL_URL
+
+  const templateVariables = useMemo((): Record<string, string> => {
+    const u = getUserData()
+    const orgStore = getOrganizationData()
+    const orgName =
+      senderDetails?.company ?? u?.organization?.name ?? orgStore?.name ?? ''
+    const adminName = senderDetails?.name ?? u?.name ?? u?.full_name ?? ''
+    const adminEmail = senderDetails?.email ?? u?.email ?? ''
+    const adminPhone = senderDetails?.phone ?? u?.phone ?? ''
+
+    return {
+      client_name: clientDetails?.name ?? clientName ?? '',
+      client_email: clientDetails?.email ?? '',
+      client_phone: clientDetails?.phone ?? '',
+      company_name: clientDetails?.company ?? '',
+      org_name: orgName,
+      org_admin_name: adminName,
+      org_email: adminEmail,
+      org_phone: adminPhone,
+      login_email: currentLogin?.email ?? clientEmail ?? '',
+      login_password: currentLogin?.password ?? '',
+      login_url: loginPortalUrl,
+    }
+  }, [
+    clientDetails,
+    clientName,
+    senderDetails,
+    clientEmail,
+    currentLogin?.email,
+    currentLogin?.password,
+    loginPortalUrl,
+  ])
+
   // Sync logins when parent refreshes
   const initialLoginsKey = JSON.stringify(initialLogins)
   useEffect(() => {
@@ -346,22 +384,6 @@ export function ClientLoginTab({
     setSubjectVarOpen(false)
   }
 
-  /* ── variable replacement for preview (snake_case = backend standard) ── */
-  function resolveVars(html: string) {
-    return html
-      .replace(/\{\{client_name\}\}/g, clientDetails?.name ?? clientName ?? '')
-      .replace(/\{\{client_email\}\}/g, clientDetails?.email ?? '')
-      .replace(/\{\{client_phone\}\}/g, clientDetails?.phone ?? '')
-      .replace(/\{\{company_name\}\}/g, clientDetails?.company ?? '')
-      .replace(/\{\{org_name\}\}/g, senderDetails?.company ?? '')
-      .replace(/\{\{org_admin_name\}\}/g, senderDetails?.name ?? '')
-      .replace(/\{\{org_email\}\}/g, senderDetails?.email ?? '')
-      .replace(/\{\{org_phone\}\}/g, senderDetails?.phone ?? '')
-      .replace(/\{\{login_email\}\}/g, currentLogin?.email ?? '')
-      .replace(/\{\{login_password\}\}/g, currentLogin?.password ?? '')
-      .replace(/\{\{login_url\}\}/g, 'https://ca.navedhana.com')
-  }
-
   function insertVariable(varStr: string) {
     editorRef.current?.focus()
     const sel = window.getSelection()
@@ -390,11 +412,11 @@ export function ClientLoginTab({
   }
 
   function getPreviewHtml() {
-    return resolveVars(editorRef.current?.innerHTML ?? '')
+    return substituteTemplatePlaceholders(editorRef.current?.innerHTML ?? '', templateVariables)
   }
 
   function resolvedSubject() {
-    return resolveVars(subject)
+    return substituteTemplatePlaceholders(subject, templateVariables)
   }
 
   const handleSend = async () => {
@@ -403,20 +425,12 @@ export function ClientLoginTab({
     if (!editorRef.current?.innerHTML.trim()) { toast({ title: 'Empty message', variant: 'destructive' }); return }
     setIsSending(true)
     try {
-      const variables: Record<string, string> = {
-        client_name: clientDetails?.name ?? clientName ?? '',
-        client_email: clientDetails?.email ?? '',
-        client_phone: clientDetails?.phone ?? '',
-        company_name: clientDetails?.company ?? '',
-        org_name: senderDetails?.company ?? '',
-        org_admin_name: senderDetails?.name ?? '',
-        org_email: senderDetails?.email ?? '',
-        org_phone: senderDetails?.phone ?? '',
-        login_email: currentLogin?.email ?? '',
-        login_password: currentLogin?.password ?? '',
-        login_url: 'https://ca.navedhana.com',
-      }
-      await sendEmail({ to, subject: resolveVars(subject), body: cleanBodyForSend(editorRef.current!.innerHTML), variables })
+      await sendEmail({
+        to,
+        subject: subject.trim(),
+        body: cleanBodyForSend(editorRef.current!.innerHTML),
+        variables: templateVariables,
+      })
       toast({ title: 'Sent!', description: `Email sent to ${to}`, variant: 'success' })
       setComposeOpen(false)
     } catch {

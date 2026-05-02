@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/components/ui/use-toast'
 import { listSchedules, cancelSchedule, updateSchedule } from '@/lib/api/mail-management'
 
@@ -155,6 +156,11 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'failed', label: 'Failed' },
 ]
 
+function isScheduleCancellable(s: Schedule): boolean {
+  const status = (s.status ?? '').toLowerCase()
+  return status === 'pending' || status === 'scheduled'
+}
+
 function filterByTab(schedules: Schedule[], tab: TabKey): Schedule[] {
   if (tab === 'all') return schedules
   return schedules.filter((s) => {
@@ -188,6 +194,9 @@ export function ScheduledMails() {
   const [editBody, setEditBody] = useState('')
   const [isSavingEdit, setIsSavingEdit] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('all')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkCancelOpen, setBulkCancelOpen] = useState(false)
+  const [isBulkCancelling, setIsBulkCancelling] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = useCallback(async (silent = false) => {
@@ -211,6 +220,23 @@ export function ScheduledMails() {
   // Initial load
   useEffect(() => { load() }, [load])
 
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [activeTab])
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const valid = new Set(schedules.map((s) => String(s.id)))
+      let changed = false
+      const next = new Set<string>()
+      for (const id of prev) {
+        if (valid.has(id)) next.add(id)
+        else changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [schedules])
+
   // Auto-refresh every 30s silently (no loading spinner)
   useEffect(() => {
     pollRef.current = setInterval(() => load(true), POLL_INTERVAL_MS)
@@ -219,11 +245,17 @@ export function ScheduledMails() {
 
   const handleCancel = async () => {
     if (!cancelTarget) return
+    const removedId = String(cancelTarget.id)
     setIsCancelling(true)
     try {
       await cancelSchedule(cancelTarget.id)
       toast({ title: 'Success', description: 'Scheduled mail cancelled.', variant: 'success' })
       setCancelTarget(null)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(removedId)
+        return next
+      })
       await load()
     } catch (err) {
       console.error('Failed to cancel schedule:', err)
@@ -283,11 +315,6 @@ export function ScheduledMails() {
     }
   }
 
-  const canCancel = (s: Schedule) => {
-    const status = (s.status ?? '').toLowerCase()
-    return status === 'pending' || status === 'scheduled'
-  }
-
   const tabCounts = useMemo(() => {
     const counts: Record<TabKey, number> = { all: 0, upcoming: 0, sent: 0, recurring: 0, failed: 0 }
     for (const tab of TABS) {
@@ -297,6 +324,71 @@ export function ScheduledMails() {
   }, [schedules])
 
   const displayed = useMemo(() => filterByTab(schedules, activeTab), [schedules, activeTab])
+
+  const cancellableInView = useMemo(
+    () => displayed.filter(isScheduleCancellable).map((s) => String(s.id)),
+    [displayed],
+  )
+
+  const selectedCancellableIds = useMemo(() => {
+    const allow = new Set(cancellableInView)
+    return Array.from(selectedIds).filter((id) => allow.has(id))
+  }, [cancellableInView, selectedIds])
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAllInView = () => {
+    if (cancellableInView.length === 0) return
+    setSelectedIds((prev) => {
+      const allSelected = cancellableInView.every((id) => prev.has(id))
+      return allSelected ? new Set() : new Set(cancellableInView)
+    })
+  }
+
+  const selectAllState = useMemo((): boolean | 'indeterminate' => {
+    if (cancellableInView.length === 0) return false
+    const n = cancellableInView.filter((id) => selectedIds.has(id)).length
+    if (n === 0) return false
+    if (n === cancellableInView.length) return true
+    return 'indeterminate'
+  }, [cancellableInView, selectedIds])
+
+  const handleBulkCancel = async () => {
+    const ids = selectedCancellableIds
+    if (ids.length === 0) {
+      setBulkCancelOpen(false)
+      return
+    }
+    setIsBulkCancelling(true)
+    try {
+      const results = await Promise.allSettled(ids.map((id) => cancelSchedule(id)))
+      const failed = results.filter((r) => r.status === 'rejected').length
+      const ok = results.length - failed
+      if (failed === 0) {
+        toast({ title: 'Success', description: `Cancelled ${ok} scheduled mail${ok !== 1 ? 's' : ''}.`, variant: 'success' })
+      } else if (ok > 0) {
+        toast({
+          title: 'Partially completed',
+          description: `Cancelled ${ok}, ${failed} failed.`,
+          variant: 'destructive',
+        })
+      } else {
+        toast({ title: 'Error', description: 'Failed to cancel scheduled mails.', variant: 'destructive' })
+      }
+      setSelectedIds(new Set())
+      setBulkCancelOpen(false)
+      await load()
+    } finally {
+      setIsBulkCancelling(false)
+    }
+  }
 
   return (
     <>
@@ -340,6 +432,28 @@ export function ScheduledMails() {
           ))}
         </div>
 
+        {selectedCancellableIds.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+            <span className="text-muted-foreground">
+              <span className="font-medium text-foreground">{selectedCancellableIds.length}</span> selected
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>
+                Clear selection
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setBulkCancelOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete selected
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Table Card */}
         <Card className="rounded-xl shadow-sm">
           <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
@@ -356,6 +470,17 @@ export function ScheduledMails() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[44px] max-w-[44px] p-2">
+                        {cancellableInView.length > 0 ? (
+                          <Checkbox
+                            checked={selectAllState}
+                            onCheckedChange={() => toggleSelectAllInView()}
+                            aria-label="Select all cancellable scheduled mails in this view"
+                          />
+                        ) : (
+                          <span className="sr-only">Select</span>
+                        )}
+                      </TableHead>
                       <TableHead className="min-w-[60px]">#</TableHead>
                       <TableHead className="min-w-[160px]">Template</TableHead>
                       <TableHead className="min-w-[200px]">Recipients</TableHead>
@@ -369,6 +494,17 @@ export function ScheduledMails() {
                   <TableBody>
                     {displayed.map((s, idx) => (
                       <TableRow key={s.id}>
+                        <TableCell className="p-2 w-[44px] max-w-[44px] align-middle">
+                          {isScheduleCancellable(s) ? (
+                            <Checkbox
+                              checked={selectedIds.has(String(s.id))}
+                              onCheckedChange={() => toggleSelect(String(s.id))}
+                              aria-label={`Select schedule ${String(s.id)}`}
+                            />
+                          ) : (
+                            <span className="inline-block w-4" aria-hidden />
+                          )}
+                        </TableCell>
                         <TableCell className="text-muted-foreground text-xs">{idx + 1}</TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-0.5">
@@ -413,7 +549,7 @@ export function ScheduledMails() {
                         </TableCell>
                         <TableCell><span className="text-xs">{formatDate(s.createdAt as string)}</span></TableCell>
                         <TableCell className="text-center">
-                          {canCancel(s) ? (
+                          {isScheduleCancellable(s) ? (
                             <div className="flex items-center justify-center gap-1">
                               <Button
                                 variant="ghost"
@@ -525,6 +661,26 @@ export function ScheduledMails() {
             </Button>
             <Button variant="destructive" onClick={handleCancel} disabled={isCancelling}>
               {isCancelling ? 'Cancelling...' : 'Cancel Schedule'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkCancelOpen} onOpenChange={(open) => !open && !isBulkCancelling && setBulkCancelOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete selected scheduled mails</DialogTitle>
+            <DialogDescription>
+              Cancel {selectedCancellableIds.length} scheduled mail
+              {selectedCancellableIds.length !== 1 ? 's' : ''}? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setBulkCancelOpen(false)} disabled={isBulkCancelling}>
+              Keep them
+            </Button>
+            <Button variant="destructive" onClick={handleBulkCancel} disabled={isBulkCancelling}>
+              {isBulkCancelling ? 'Deleting…' : 'Delete selected'}
             </Button>
           </DialogFooter>
         </DialogContent>

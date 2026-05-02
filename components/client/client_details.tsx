@@ -344,6 +344,12 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
         <TabsContent value="login" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0 space-y-4">
           <ClientLoginTab 
             clientName={client?.name || ''}
+            clientDetails={{
+              name: client?.name ?? '',
+              email: client?.email ?? '',
+              phone: client?.phone ?? '',
+              company: client?.companyName ?? '',
+            }}
             initialLogins={initialLogins}
             suggestedEmails={suggestedEmails}
             organizationId={clientOrganizationId}
