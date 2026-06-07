@@ -118,7 +118,7 @@ export function ClientSidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobil
           <SheetHeader className="p-6 border-b border-sidebar-border">
             <SheetTitle className="flex items-center">
               <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
-              <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
+              <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
             </SheetTitle>
           </SheetHeader>
           <div className="flex flex-col h-[calc(100vh-120px)] px-2">
@@ -142,12 +142,12 @@ export function ClientSidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobil
             {collapsed ? (
               <>
                 <img src="/Light.png" className="h-10 w-10 object-contain dark:hidden" alt="Lekvya" />
-                <img src="/Dark.png" className="h-10 w-10 object-contain hidden dark:block" alt="Lekvya" />
+                <img src="/Light.png" className="h-10 w-10 object-contain hidden dark:block" alt="Lekvya" />
               </>
             ) : (
               <>
                 <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
-                <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
+                <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
               </>
             )}
           </div>

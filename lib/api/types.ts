@@ -398,10 +398,10 @@ export interface ScheduleWeekly {
 
 export interface ScheduleMonthly {
   type: 'monthly';
-  fromDate: string;
-  toDate: string;
-  /** Day of month 1–31. Defaults to day of fromDate. */
-  dayOfMonth?: number;
+  /** Month numbers 1–12 */
+  monthlyMonths: number[];
+  /** Day-of-month numbers 1–31 */
+  monthlyDays: number[];
   times: string[];
   timeZoneOffset?: string;
 }
@@ -421,6 +421,27 @@ export interface ScheduleEmailRequest {
   recipientEmails: string[];
   variables?: Record<string, string>;
   schedule: ScheduleConfig;
+}
+
+// ============ RECURRING SCHEDULE (Monthly) ============
+
+export interface RecurringSchedule {
+  id: number;
+  templateId?: number | null;
+  subject?: string | null;
+  body?: string | null;
+  recipientEmails: string[];
+  variables?: Record<string, string> | null;
+  months: number[];
+  days: number[];
+  times: string[];
+  timeZoneOffset?: string | null;
+  status: 'active' | 'stopped';
+  organizationId?: number | null;
+  createdBy?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  template?: { id?: number; name?: string; organizationId?: number | null; category?: string } | null;
 }
 
 // ============ SCHEDULED EMAIL (Mail Management) ============

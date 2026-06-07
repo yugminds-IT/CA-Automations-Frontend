@@ -264,7 +264,7 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
           <SheetHeader className="p-5 border-b border-sidebar-border/80">
             <SheetTitle className="flex items-center">
               <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
-              <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
+              <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
             </SheetTitle>
           </SheetHeader>
           <div className="h-[calc(100vh-5.5rem)] flex flex-col px-3 py-4 overflow-hidden">
@@ -291,12 +291,12 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
             {collapsed ? (
               <>
                 <img src="/Light.png" className="h-10 w-10 object-contain dark:hidden" alt="Lekvya" />
-                <img src="/Dark.png" className="h-10 w-10 object-contain hidden dark:block" alt="Lekvya" />
+                <img src="/Light.png" className="h-10 w-10 object-contain hidden dark:block" alt="Lekvya" />
               </>
             ) : (
               <>
                 <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
-                <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
+                <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
               </>
             )}
           </div>

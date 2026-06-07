@@ -69,6 +69,10 @@ export const API_CONFIG = {
       schedule: '/mail-management/schedule',
       schedules: '/mail-management/schedules',
       scheduleById: (id: number | string) => `/mail-management/schedules/${id}`,
+      recurring: '/mail-management/recurring',
+      recurringById: (id: number | string) => `/mail-management/recurring/${id}`,
+      recurringStop: (id: number | string) => `/mail-management/recurring/${id}/stop`,
+      recurringStart: (id: number | string) => `/mail-management/recurring/${id}/start`,
     },
     masterAdmin: {
       stats: '/master-admin/stats',

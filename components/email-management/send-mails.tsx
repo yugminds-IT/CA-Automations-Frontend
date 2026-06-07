@@ -31,8 +31,9 @@ import { useToast } from '@/components/ui/use-toast'
 import { getClients } from '@/lib/api/clients'
 import { listTemplates, sendEmail } from '@/lib/api/email-templates'
 import { scheduleEmail } from '@/lib/api/mail-management'
+import { listServices } from '@/lib/api/services'
 import { getUserData } from '@/lib/api/index'
-import type { EmailTemplate } from '@/lib/api/types'
+import type { EmailTemplate, Service } from '@/lib/api/types'
 
 type ScheduleMode = 'single_date' | 'date_range' | 'multiple_dates' | 'all_dates' | 'daily' | 'weekly' | 'monthly'
 
@@ -45,6 +46,7 @@ interface ClientItem {
   city?: string
   status?: string
   phone?: string | null
+  services?: { id: number; name: string }[]
 }
 
 function transformClient(raw: any): ClientItem {
@@ -53,6 +55,9 @@ function transformClient(raw: any): ClientItem {
     typeof bt === 'object' && bt !== null && 'name' in bt
       ? (bt as { name: string }).name
       : typeof bt === 'string' ? bt : undefined
+  const services = Array.isArray(raw.services)
+    ? raw.services.map((s: any) => ({ id: s.id, name: s.name ?? '' })).filter((s: any) => s.name)
+    : undefined
   return {
     id: raw.id,
     name: raw.name ?? raw.client_name ?? '',
@@ -62,6 +67,7 @@ function transformClient(raw: any): ClientItem {
     city: raw.city ?? undefined,
     status: raw.status ?? undefined,
     phone: raw.phone ?? raw.phone_number ?? null,
+    services,
   }
 }
 
@@ -135,6 +141,7 @@ export function SendMails() {
   // Data
   const [clients, setClients] = useState<ClientItem[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [isLoadingClients, setIsLoadingClients] = useState(true)
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true)
   const [templateSearch, setTemplateSearch] = useState('')
@@ -145,7 +152,8 @@ export function SendMails() {
 
   // Filters
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('All Categories')
+  const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set())
+  const [serviceFilters, setServiceFilters] = useState<Set<string>>(new Set())
 
   // Compose
   const [composeMode, setComposeMode] = useState<'template' | 'custom'>('template')
@@ -178,7 +186,8 @@ export function SendMails() {
   const [multipleDates, setMultipleDates] = useState<string[]>([''])
   const [times, setTimes] = useState<string[]>([''])
   const [weeklyDays, setWeeklyDays] = useState<string[]>([])
-  const [monthlyDay, setMonthlyDay] = useState('')
+  const [monthlyDays, setMonthlyDays] = useState<number[]>([])
+  const [monthlyMonths, setMonthlyMonths] = useState<number[]>([])
   const [isScheduling, setIsScheduling] = useState(false)
 
   // Set initial editor content once on mount — do NOT use dangerouslySetInnerHTML on the
@@ -206,6 +215,12 @@ export function SendMails() {
   const addTime = () => setTimes((t) => [...t, ''])
   const removeTime = (i: number) => setTimes((t) => t.filter((_, idx) => idx !== i))
   const updateTime = (i: number, val: string) => setTimes((t) => t.map((v, idx) => idx === i ? val : v))
+
+  const toggleMonthlyDay = (day: number) =>
+    setMonthlyDays((prev) => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort((a, b) => a - b))
+
+  const toggleMonthlyMonth = (month: number) =>
+    setMonthlyMonths((prev) => prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month].sort((a, b) => a - b))
 
   const addMultipleDate = () => setMultipleDates((d) => [...d, ''])
   const removeMultipleDate = (i: number) => setMultipleDates((d) => d.filter((_, idx) => idx !== i))
@@ -254,9 +269,9 @@ export function SendMails() {
       if (!rangeFrom || !rangeTo) { toast({ title: 'Incomplete range', description: 'Please set From and To dates.', variant: 'destructive' }); return }
       schedule = { type: 'weekly', fromDate: rangeFrom, toDate: rangeTo, days: weeklyDays.length ? weeklyDays : undefined, times: validTimes, timeZoneOffset }
     } else if (scheduleMode === 'monthly') {
-      if (!rangeFrom || !rangeTo) { toast({ title: 'Incomplete range', description: 'Please set From and To dates.', variant: 'destructive' }); return }
-      const dom = monthlyDay ? parseInt(monthlyDay, 10) : undefined
-      schedule = { type: 'monthly', fromDate: rangeFrom, toDate: rangeTo, dayOfMonth: dom, times: validTimes, timeZoneOffset }
+      if (monthlyMonths.length === 0) { toast({ title: 'No months selected', description: 'Please select at least one month.', variant: 'destructive' }); return }
+      if (monthlyDays.length === 0) { toast({ title: 'No days selected', description: 'Please select at least one day of month.', variant: 'destructive' }); return }
+      schedule = { type: 'monthly', monthlyMonths, monthlyDays, times: validTimes, timeZoneOffset }
     } else {
       const today = new Date()
       const nextYear = new Date(today)
@@ -316,24 +331,54 @@ export function SendMails() {
     const user = getUserData()
     listTemplates({ organizationId: user?.organizationId != null ? Number(user.organizationId) : undefined })
       .then((list) => setTemplates(Array.isArray(list) ? list : []))
-      .catch((err) => {
-        console.error('Failed to load templates:', err)
-      })
+      .catch((err) => { console.error('Failed to load templates:', err) })
       .finally(() => setIsLoadingTemplates(false))
   }, [])
 
-  // All unique categories
+  useEffect(() => {
+    const user = getUserData()
+    listServices(user?.organizationId != null ? Number(user.organizationId) : undefined)
+      .then((list) => setServices(Array.isArray(list) ? list : []))
+      .catch((err) => { console.error('Failed to load services:', err) })
+  }, [])
+
+  // All unique categories derived from clients
   const allCategories = useMemo(() => {
     const cats = new Set<string>()
     clients.forEach((c) => { if (c.businessType) cats.add(c.businessType) })
-    return ['All Categories', ...Array.from(cats).sort()]
+    return Array.from(cats).sort()
   }, [clients])
+
+  // Services list for the filter dropdown (fetched from /services)
+  const serviceOptions = useMemo(
+    () => services.filter((s) => s.name).sort((a, b) => a.name.localeCompare(b.name)),
+    [services]
+  )
+
+  const toggleCategoryFilter = (cat: string) => {
+    setCategoryFilters((prev) => {
+      const next = new Set(prev)
+      next.has(cat) ? next.delete(cat) : next.add(cat)
+      return next
+    })
+  }
+
+  const toggleServiceFilter = (svc: string) => {
+    setServiceFilters((prev) => {
+      const next = new Set(prev)
+      next.has(svc) ? next.delete(svc) : next.add(svc)
+      return next
+    })
+  }
 
   // Filtered clients
   const filteredClients = useMemo(() => {
     let list = clients
-    if (categoryFilter !== 'All Categories') {
-      list = list.filter((c) => c.businessType === categoryFilter)
+    if (categoryFilters.size > 0) {
+      list = list.filter((c) => c.businessType && categoryFilters.has(c.businessType))
+    }
+    if (serviceFilters.size > 0) {
+      list = list.filter((c) => c.services?.some((s) => serviceFilters.has(s.name)))
     }
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -345,7 +390,7 @@ export function SendMails() {
       )
     }
     return list
-  }, [clients, search, categoryFilter])
+  }, [clients, search, categoryFilters, serviceFilters])
 
   const allSelected = filteredClients.length > 0 && filteredClients.every((c) => selectedIds.has(c.id))
 
@@ -594,21 +639,78 @@ export function SendMails() {
         <div className="bg-card rounded-xl shadow-sm border border-border flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100vh - 200px)' }}>
           {/* Panel header */}
           <div className="p-4 border-b border-border">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2.5">
               <h2 className="font-semibold text-sm">Select Clients</h2>
+              {(categoryFilters.size > 0 || serviceFilters.size > 0) && (
+                <button type="button" onClick={() => { setCategoryFilters(new Set()); setServiceFilters(new Set()) }}
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">
+                  Clear filters
+                </button>
+              )}
+            </div>
+            {/* Filter row — multi-select checkboxes */}
+            <div className="flex gap-1.5 mb-2.5">
+              {/* Category multi-select */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1 px-2">
-                    <span className="max-w-[100px] truncate">{categoryFilter}</span>
-                    <ChevronDown className="h-3 w-3 shrink-0" />
+                  <Button variant="outline" size="sm" className={`flex-1 h-7 text-xs gap-1 px-2 justify-between min-w-0 ${categoryFilters.size > 0 ? 'border-primary/60 text-primary' : ''}`}>
+                    <span className="truncate">
+                      {categoryFilters.size === 0
+                        ? 'Category'
+                        : categoryFilters.size === 1
+                        ? Array.from(categoryFilters)[0]
+                        : `${categoryFilters.size} selected`}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0 ml-0.5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  {allCategories.map((cat) => (
-                    <DropdownMenuItem key={cat} onClick={() => setCategoryFilter(cat)} className={`text-xs ${categoryFilter === cat ? 'font-medium' : ''}`}>
-                      {cat}
-                    </DropdownMenuItem>
-                  ))}
+                <DropdownMenuContent align="start" className="w-48 max-h-60 overflow-y-auto">
+                  {allCategories.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No categories found</div>
+                  ) : allCategories.map((cat) => {
+                    const checked = categoryFilters.has(cat)
+                    return (
+                      <DropdownMenuItem key={cat} onSelect={(e) => e.preventDefault()} onClick={() => toggleCategoryFilter(cat)}
+                        className="flex items-center gap-2 cursor-pointer text-xs">
+                        <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-primary border-primary' : 'border-border'}`}>
+                          {checked && <span className="text-primary-foreground text-[9px] font-bold leading-none">✓</span>}
+                        </span>
+                        <span className={checked ? 'font-medium text-primary' : ''}>{cat}</span>
+                      </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Service multi-select */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className={`flex-1 h-7 text-xs gap-1 px-2 justify-between min-w-0 ${serviceFilters.size > 0 ? 'border-primary/60 text-primary' : ''}`}>
+                    <span className="truncate">
+                      {serviceFilters.size === 0
+                        ? 'Service'
+                        : serviceFilters.size === 1
+                        ? Array.from(serviceFilters)[0]
+                        : `${serviceFilters.size} selected`}
+                    </span>
+                    <ChevronDown className="h-3 w-3 shrink-0 ml-0.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 max-h-60 overflow-y-auto">
+                  {serviceOptions.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No services found</div>
+                  ) : serviceOptions.map((svc) => {
+                    const checked = serviceFilters.has(svc.name)
+                    return (
+                      <DropdownMenuItem key={svc.id} onSelect={(e) => e.preventDefault()} onClick={() => toggleServiceFilter(svc.name)}
+                        className="flex items-center gap-2 cursor-pointer text-xs">
+                        <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-primary border-primary' : 'border-border'}`}>
+                          {checked && <span className="text-primary-foreground text-[9px] font-bold leading-none">✓</span>}
+                        </span>
+                        <span className={checked ? 'font-medium text-primary' : ''}>{svc.name}</span>
+                      </DropdownMenuItem>
+                    )
+                  })}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -1311,25 +1413,57 @@ export function SendMails() {
             )}
 
             {scheduleMode === 'monthly' && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
+                {/* Month multi-select */}
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">From</label>
-                  <input type="date" value={rangeFrom} onChange={(e) => setRangeFrom(e.target.value)}
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Months</label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs text-left flex items-center justify-between gap-1 focus:outline-none focus:ring-1 focus:ring-ring">
+                        <span className="truncate text-foreground">
+                          {monthlyMonths.length === 0
+                            ? <span className="text-muted-foreground">Select months…</span>
+                            : monthlyMonths.map((m) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1]).join(', ')}
+                        </span>
+                        <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-44 p-1" align="start">
+                      {['January','February','March','April','May','June','July','August','September','October','November','December'].map((name, i) => {
+                        const m = i + 1
+                        const active = monthlyMonths.includes(m)
+                        return (
+                          <DropdownMenuItem key={m} onSelect={(e) => e.preventDefault()} onClick={() => toggleMonthlyMonth(m)}
+                            className="flex items-center gap-2 cursor-pointer">
+                            <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${active ? 'bg-primary border-primary' : 'border-border'}`}>
+                              {active && <span className="text-primary-foreground text-[10px] font-bold leading-none">✓</span>}
+                            </span>
+                            <span className="text-xs">{name}</span>
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
+                {/* Day-of-month multi-select */}
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">To</label>
-                  <input type="date" value={rangeTo} onChange={(e) => setRangeTo(e.target.value)}
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Days of month</label>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                      const active = monthlyDays.includes(day)
+                      return (
+                        <button key={day} type="button" onClick={() => toggleMonthlyDay(day)}
+                          className={`w-7 h-7 rounded text-xs font-medium border transition-colors ${
+                            active
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                          }`}
+                        >{day}</button>
+                      )
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Day of month <span className="font-normal">(1–31, optional)</span>
-                  </label>
-                  <input type="number" min={1} max={31} value={monthlyDay} onChange={(e) => setMonthlyDay(e.target.value)}
-                    placeholder="e.g. 15"
-                    className="h-8 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" />
-                </div>
+                <p className="text-[11px] text-muted-foreground">Recurs every year on the selected months &amp; days. Stop anytime from Scheduled Mails → Recurring.</p>
               </div>
             )}
           </div>

@@ -86,3 +86,42 @@ export async function cancelSchedule(id: number | string): Promise<void> {
     }
   );
 }
+
+export async function listRecurringSchedules(): Promise<unknown> {
+  return apiRequestWithRefresh(API_CONFIG.endpoints.mailManagement.recurring, {
+    method: 'GET',
+    requiresAuth: true,
+  });
+}
+
+export async function stopRecurringSchedule(id: number | string): Promise<unknown> {
+  return apiRequestWithRefresh(API_CONFIG.endpoints.mailManagement.recurringStop(id), {
+    method: 'PATCH',
+    requiresAuth: true,
+  });
+}
+
+export async function startRecurringSchedule(id: number | string): Promise<unknown> {
+  return apiRequestWithRefresh(API_CONFIG.endpoints.mailManagement.recurringStart(id), {
+    method: 'PATCH',
+    requiresAuth: true,
+  });
+}
+
+export async function updateRecurringSchedule(
+  id: number | string,
+  data: { months?: number[]; days?: number[]; times?: string[]; recipientEmails?: string[] }
+): Promise<unknown> {
+  return apiRequestWithRefresh(API_CONFIG.endpoints.mailManagement.recurringById(id), {
+    method: 'PATCH',
+    body: data,
+    requiresAuth: true,
+  });
+}
+
+export async function deleteRecurringSchedule(id: number | string): Promise<void> {
+  return apiRequestWithRefresh<void>(API_CONFIG.endpoints.mailManagement.recurringById(id), {
+    method: 'DELETE',
+    requiresAuth: true,
+  });
+}

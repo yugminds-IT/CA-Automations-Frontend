@@ -6,11 +6,11 @@ import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Bell, FileUp, CheckCheck, Clock } from "lucide-react"
-import { listNotifications, markNotificationRead, markAllNotificationsRead } from "@/lib/api/index"
+import { Bell, FileUp, CheckCheck, Clock, AlertTriangle } from "lucide-react"
+import { listNotifications, markNotificationRead, markAllNotificationsRead, getOrganizationData } from "@/lib/api/index"
 import type { AppNotification } from "@/lib/api/index"
 import { useToast } from "@/components/ui/use-toast"
-import { formatDistanceToNow } from "date-fns"
+import { formatDistanceToNow, differenceInDays, startOfDay } from "date-fns"
 
 function formatFileSize(bytes: number | null): string {
   if (!bytes) return ""
@@ -29,6 +29,15 @@ export default function NotificationsPage() {
   const [unread, setUnread] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isMarkingAll, setIsMarkingAll] = useState(false)
+  const [subscriptionDaysLeft, setSubscriptionDaysLeft] = useState<number | null>(null)
+
+  useEffect(() => {
+    const org = getOrganizationData()
+    if (org?.accessUntil) {
+      const days = differenceInDays(startOfDay(new Date(org.accessUntil)), startOfDay(new Date()))
+      if (days <= 10) setSubscriptionDaysLeft(days)
+    }
+  }, [])
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebarCollapsed")
@@ -141,6 +150,31 @@ export default function NotificationsPage() {
                 </Button>
               )}
             </div>
+
+            {/* Subscription expiry warning */}
+            {subscriptionDaysLeft !== null && (
+              <Card className={`border ${subscriptionDaysLeft <= 3 ? 'border-destructive/50 bg-destructive/5' : 'border-orange-400/50 bg-orange-50/50 dark:bg-orange-950/20'}`}>
+                <CardContent className="px-4 py-3 flex items-start gap-3">
+                  <div className={`flex-shrink-0 mt-0.5 h-9 w-9 rounded-lg flex items-center justify-center ${subscriptionDaysLeft <= 3 ? 'bg-destructive/10 text-destructive' : 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'}`}>
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold ${subscriptionDaysLeft <= 3 ? 'text-destructive' : 'text-orange-700 dark:text-orange-400'}`}>
+                      {subscriptionDaysLeft < 0
+                        ? 'Subscription Expired'
+                        : subscriptionDaysLeft === 0
+                        ? 'Subscription expires today!'
+                        : `Subscription expires in ${subscriptionDaysLeft} day${subscriptionDaysLeft !== 1 ? 's' : ''}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {subscriptionDaysLeft < 0
+                        ? 'Your subscription has expired. Please contact support to renew access.'
+                        : 'Please renew your subscription to avoid service interruption.'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Notification list */}
             {isLoading ? (

@@ -72,6 +72,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
   const [emailDropdownOpen, setEmailDropdownOpen] = useState(false)
   const emailDropdownRef = useRef<HTMLDivElement>(null)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [subscriptionExpiringSoon, setSubscriptionExpiringSoon] = useState(false)
 
   // Build breadcrumb items from current pathname
   const breadcrumbItems = (() => {
@@ -104,6 +105,11 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
     }
     if (orgData) {
       setOrganization(orgData)
+      if (orgData.accessUntil) {
+        const msLeft = new Date(orgData.accessUntil).getTime() - Date.now()
+        const daysLeft = Math.floor(msLeft / (1000 * 60 * 60 * 24))
+        setSubscriptionExpiringSoon(daysLeft <= 10)
+      }
     } else {
       setOrganization(null)
     }
@@ -316,9 +322,9 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
           title="Notifications"
         >
           <Bell className="w-4 h-4 text-foreground" />
-          {unreadNotifications > 0 && (
+          {(unreadNotifications + (subscriptionExpiringSoon ? 1 : 0)) > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground leading-none">
-              {unreadNotifications > 99 ? "99+" : unreadNotifications}
+              {unreadNotifications + (subscriptionExpiringSoon ? 1 : 0) > 99 ? "99+" : unreadNotifications + (subscriptionExpiringSoon ? 1 : 0)}
             </span>
           )}
         </Link>

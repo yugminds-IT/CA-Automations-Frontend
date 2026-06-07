@@ -292,16 +292,16 @@ export function transformApiClientToFormValues(apiClient: ApiClient & Record<str
       ? bt
       : ''
   
-  // Transform directors - support camelCase (name, phone) or snake_case (director_name, phone_number)
+  // Transform directors - backend returns directorName / aadharNumber (camelCase)
   const directorsList = Array.isArray(apiClient.directors) ? (apiClient.directors as Record<string, unknown>[]) : []
   const directors = directorsList.map((dir: Record<string, unknown>) => ({
-    name: (dir.name ?? dir.director_name ?? '') as string,
+    name: (dir.directorName ?? dir.name ?? dir.director_name ?? '') as string,
     email: (dir.email ?? '') as string,
     phone: (dir.phone ?? dir.phone_number ?? '') as string,
     designation: (dir.designation ?? '') as string,
     din: (dir.din ?? '') as string,
     pan: (dir.pan ?? '') as string,
-    aadhar: (dir.aadhaar ?? dir.aadhar ?? '') as string,
+    aadhar: (dir.aadharNumber ?? dir.aadhaar ?? dir.aadhar ?? '') as string,
   }))
 
   return {

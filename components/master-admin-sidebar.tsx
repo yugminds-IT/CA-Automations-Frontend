@@ -172,9 +172,9 @@ export function MasterAdminSidebar({
     >
       <div className="flex items-center justify-center">
         {isCollapsed ? (
-          <img src="/Dark.png" className="h-10 w-10 object-contain" alt="Lekvya" />
+          <img src="/Light.png" className="h-10 w-10 object-contain" alt="Lekvya" />
         ) : (
-          <img src="/Dark.png" className="h-12 w-auto max-w-[180px] object-contain" alt="Lekvya" />
+          <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain" alt="Lekvya" />
         )}
       </div>
     </div>
