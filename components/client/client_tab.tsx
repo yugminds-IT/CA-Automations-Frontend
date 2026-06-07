@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { PlusIcon, Edit, Trash2, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react'
 import {
   Table,
@@ -411,7 +411,6 @@ export function ClientTab({
   statusFilter,
   onFilteredClientsChange,
 }: ClientTabProps) {
-  const router = useRouter()
   const { toast } = useToast()
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
@@ -522,11 +521,6 @@ export function ClientTab({
       })
     }
   }, [useApi, clients.length, apiClients.length, isLoading, error])
-
-  const handleRowClick = (client: Client) => {
-    // Navigate to client details page
-    router.push(`/client-management/${client.id}`)
-  }
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -1052,15 +1046,19 @@ export function ClientTab({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleRowClick(client)
-                                }}
+                                asChild
                                 className="h-8 px-2 text-xs gap-1"
-                                title="View client details"
                               >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                More
+                                <Link
+                                  href={`/client-management/${client.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  title="View client details in a new tab"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  More
+                                </Link>
                               </Button>
                             </div>
                           </TableCell>

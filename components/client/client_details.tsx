@@ -12,6 +12,12 @@ import { ClientLoginTab } from './director_info/client-login-tab'
 import { FilesTab } from './director_info/files_tab'
 import { ClientDetailsTab } from './director_info/client-details-tab'
 import { SettingsTab } from './director_info/settings-tab'
+import { BankStatementTab } from './director_info/bank-statement-tab'
+import { InvoiceTab } from './director_info/invoice-tab'
+import {
+  ClientDetailsSidebar,
+  type ClientDetailsSidebarTab,
+} from './client-details-sidebar'
 import { getClientById, updateClientLogin, removeClientLogin, addDirector, updateDirector, deleteDirector, listDirectors } from '@/lib/api/clients'
 import { ApiError } from '@/lib/api/client'
 import type { Client as ApiClient } from '@/lib/api/types'
@@ -77,6 +83,21 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [activeTab, setActiveTab] = useState('details')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('clientDetailsSidebarCollapsed')
+    if (saved !== null) setSidebarCollapsed(saved === 'true')
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('clientDetailsSidebarCollapsed', String(sidebarCollapsed))
+  }, [sidebarCollapsed])
+
+  const handleSidebarNavigate = (tab: ClientDetailsSidebarTab) => {
+    setActiveTab(tab)
+  }
 
   // Auto-detect emails from client profile + directors for login credentials suggestions
   const suggestedEmails = useMemo(() => {
@@ -297,10 +318,21 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
     )
   }
 
+  const clientLabel = client?.companyName || client?.name || 'Client'
+
   return (
-    <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-      {/* Tabs */}
-      <Tabs defaultValue="details" className="w-full">
+    <div className="flex min-h-[calc(100vh-54px)] w-full">
+      <ClientDetailsSidebar
+        activeTab={activeTab}
+        onNavigate={handleSidebarNavigate}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
+        clientLabel={clientLabel}
+      />
+
+      <div className="flex-1 min-w-0 p-4 sm:p-6 space-y-3 sm:space-y-4">
+        {/* Existing top tabs — unchanged */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="w-full overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
           <TabsList className="flex w-max min-w-full h-auto p-0 gap-0 bg-transparent border-b border-border rounded-none">
             {[
@@ -394,6 +426,22 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
           />
         </TabsContent>
 
+        {/* Bank Statement — sidebar navigation; not in top tab bar */}
+        <TabsContent value="bank-statement" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <BankStatementTab
+            clientId={clientId}
+            clientName={client?.companyName || ''}
+          />
+        </TabsContent>
+
+        {/* Invoice — sidebar navigation; not in top tab bar */}
+        <TabsContent value="invoice" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <InvoiceTab
+            clientId={clientId}
+            clientName={client?.companyName || ''}
+          />
+        </TabsContent>
+
         {/* Settings Tab */}
         <TabsContent value="settings" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
           <SettingsTab
@@ -403,6 +451,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
           />
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   )
 }
