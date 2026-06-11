@@ -524,8 +524,7 @@ export function ClientTab({
   }, [useApi, clients.length, apiClients.length, isLoading, error])
 
   const handleRowClick = (client: Client) => {
-    // Navigate to client details page
-    router.push(`/client-management/${client.id}`)
+    window.open(`/client-management/${client.id}`, '_blank')
   }
 
   const handleSort = (field: SortField) => {
