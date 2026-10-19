@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import {
   SearchMd, Mail01, CheckSquare as UUICheckSquare,
@@ -32,7 +33,9 @@ import { getClients } from '@/lib/api/clients'
 import { listTemplates, sendEmail } from '@/lib/api/email-templates'
 import { scheduleEmail } from '@/lib/api/mail-management'
 import { listServices } from '@/lib/api/services'
-import { getUserData } from '@/lib/api/index'
+import { listBusinessTypes } from '@/lib/api/business-types'
+import { getUserData, getOrganizationData } from '@/lib/api/index'
+import { getIndustryMailConfig, type IndustryMailConfig } from '@/lib/industry-config'
 import type { EmailTemplate, Service } from '@/lib/api/types'
 
 type ScheduleMode = 'single_date' | 'date_range' | 'multiple_dates' | 'all_dates' | 'daily' | 'weekly' | 'monthly'
@@ -138,10 +141,48 @@ const FONT_FAMILIES_SM = ['Default', 'Arial', 'Georgia', 'Times New Roman', 'Cou
 export function SendMails() {
   const { toast } = useToast()
 
+  // Industry
+  const [industry, setIndustry] = useState<string>('financial_services')
+
+  useEffect(() => {
+    const user = getUserData()
+    const org = getOrganizationData()
+    setIndustry(org?.industry || user?.organization?.industry || 'financial_services')
+  }, [])
+
+  const industryConfig = useMemo(() => getIndustryMailConfig(industry), [industry])
+
+  const composeVarGroups = useMemo(() => [
+    {
+      label: `${industryConfig.recipientSingular} Details`,
+      vars: [
+        { label: `${industryConfig.recipientSingular} Name`, value: '{{client_name}}' },
+        { label: 'Email', value: '{{client_email}}' },
+        { label: 'Phone', value: '{{client_phone}}' },
+        { label: 'Company / Org', value: '{{company_name}}' },
+        { label: 'City', value: '{{client_city}}' },
+      ],
+    },
+    {
+      label: `${industryConfig.pageTitle} Variables`,
+      vars: industryConfig.variables,
+    },
+    {
+      label: 'Organization / Sender',
+      vars: [
+        { label: 'Org Name', value: '{{org_name}}' },
+        { label: 'Sender Name', value: '{{org_admin_name}}' },
+        { label: 'Org Email', value: '{{org_email}}' },
+        { label: 'Org Phone', value: '{{org_phone}}' },
+      ],
+    },
+  ], [industryConfig])
+
   // Data
   const [clients, setClients] = useState<ClientItem[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [services, setServices] = useState<Service[]>([])
+  const [businessTypes, setBusinessTypes] = useState<{ id: number; name: string }[]>([])
   const [isLoadingClients, setIsLoadingClients] = useState(true)
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true)
   const [templateSearch, setTemplateSearch] = useState('')
@@ -174,6 +215,12 @@ export function SendMails() {
   const [templatePickerActive, setTemplatePickerActive] = useState(false)
   const templateSearchInputRef = useRef<HTMLInputElement>(null)
   const templatePickerRef = useRef<HTMLDivElement>(null)
+
+  // Direct recipients, CC, BCC
+  const [customRecipients, setCustomRecipients] = useState('')
+  const [ccInput, setCcInput] = useState('')
+  const [bccInput, setBccInput] = useState('')
+  const [showCcBcc, setShowCcBcc] = useState(false)
 
   // Schedule drawer
   const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false)
@@ -227,8 +274,13 @@ export function SendMails() {
   const updateMultipleDate = (i: number, val: string) => setMultipleDates((d) => d.map((v, idx) => idx === i ? val : v))
 
   const handleSchedule = async () => {
-    if (selectedIds.size === 0) {
-      toast({ title: 'No recipients', description: 'Please select at least one client.', variant: 'destructive' })
+    const directEmails = customRecipients
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean)
+
+    if (selectedIds.size === 0 && directEmails.length === 0) {
+      toast({ title: 'No recipients', description: 'Please select at least one client or enter a recipient email.', variant: 'destructive' })
       return
     }
     if (composeMode === 'template' && !selectedTemplate) {
@@ -301,7 +353,15 @@ export function SendMails() {
           variables: buildVars(client),
         })
       }
-      toast({ title: 'Scheduled!', description: `Email scheduled for ${selectedIds.size} client${selectedIds.size > 1 ? 's' : ''}.`, variant: 'success' })
+      for (const email of directEmails) {
+        await scheduleEmail({
+          ...basePayload,
+          recipientEmails: [email],
+          variables: buildBaseVars(email),
+        })
+      }
+      const totalCount = selectedClients.length + directEmails.length
+      toast({ title: 'Scheduled!', description: `Email scheduled for ${totalCount} recipient${totalCount > 1 ? 's' : ''}.`, variant: 'success' })
       window.location.reload()
     } catch (err) {
       console.error('Failed to schedule email:', err)
@@ -337,17 +397,22 @@ export function SendMails() {
 
   useEffect(() => {
     const user = getUserData()
-    listServices(user?.organizationId != null ? Number(user.organizationId) : undefined)
+    const orgId = user?.organizationId != null ? Number(user.organizationId) : undefined
+    listServices(orgId)
       .then((list) => setServices(Array.isArray(list) ? list : []))
       .catch((err) => { console.error('Failed to load services:', err) })
+    listBusinessTypes(orgId)
+      .then((list) => setBusinessTypes(Array.isArray(list) ? list : []))
+      .catch((err) => { console.error('Failed to load business types:', err) })
   }, [])
 
-  // All unique categories derived from clients
+  // All unique categories derived from business types and clients
   const allCategories = useMemo(() => {
     const cats = new Set<string>()
+    businessTypes.forEach((bt) => { if (bt.name) cats.add(bt.name) })
     clients.forEach((c) => { if (c.businessType) cats.add(c.businessType) })
     return Array.from(cats).sort()
-  }, [clients])
+  }, [businessTypes, clients])
 
   // Services list for the filter dropdown (fetched from /services)
   const serviceOptions = useMemo(
@@ -436,13 +501,13 @@ export function SendMails() {
     }, 0)
   }
 
-  // Build variables for a client (includes sender info)
+  // Build variables for a client (includes sender info + industry-specific fields)
   const buildVars = (client: ClientItem): Record<string, string> => {
     const user = getUserData() as any
     const orgName = user?.organization?.name ?? user?.org_name ?? ''
     const orgEmail = user?.organization?.email ?? user?.org_email ?? user?.email ?? ''
     const orgPhone = user?.organization?.phone ?? user?.org_phone ?? user?.phone ?? ''
-    return {
+    const baseVars = {
       // client vars — snake_case (backend standard)
       client_name: client.name,
       client_email: client.email,
@@ -455,6 +520,8 @@ export function SendMails() {
       org_email: orgEmail,
       org_phone: orgPhone,
     }
+    const industryVars = industryConfig.resolveClientVars(client, user)
+    return { ...baseVars, ...industryVars }
   }
 
   // Save caret position before a variable button steals focus
@@ -565,13 +632,49 @@ export function SendMails() {
     [clients, selectedIds]
   )
 
-  const previewClient = selectedClients[previewClientIndex] ?? selectedClients[0] ?? null
+  const directEmailsList = useMemo(() => {
+    return customRecipients
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean)
+  }, [customRecipients])
+
+  const totalRecipientCount = selectedClients.length + directEmailsList.length
+
+  const buildBaseVars = (email?: string) => {
+    const user = getUserData()
+    const orgName = user?.organization?.name ?? user?.org_name ?? ''
+    const orgEmail = user?.organization?.email ?? user?.org_email ?? user?.email ?? ''
+    const orgPhone = user?.organization?.phone ?? user?.org_phone ?? user?.phone ?? ''
+    return {
+      client_name: email ? email.split('@')[0] : 'Recipient',
+      client_email: email ?? '',
+      client_phone: '',
+      company_name: '',
+      client_city: '',
+      org_name: orgName,
+      org_admin_name: user?.name ?? user?.full_name ?? '',
+      org_email: orgEmail,
+      org_phone: orgPhone,
+    }
+  }
+
+  const previewClient = selectedClients[previewClientIndex] ?? selectedClients[0] ?? (
+    directEmailsList.length > 0
+      ? ({ id: 'direct', name: directEmailsList[0].split('@')[0], email: directEmailsList[0], companyName: '' } as ClientItem)
+      : null
+  )
 
   const openPreview = () => { setPreviewClientIndex(0); setPreviewOpen(true) }
 
   const handleSend = async () => {
-    if (selectedIds.size === 0) {
-      toast({ title: 'No recipients', description: 'Please select at least one client.', variant: 'destructive' })
+    const directEmails = customRecipients
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean)
+
+    if (selectedIds.size === 0 && directEmails.length === 0) {
+      toast({ title: 'No recipients', description: 'Please select at least one client or enter a recipient email.', variant: 'destructive' })
       return
     }
     if (composeMode === 'template' && !selectedTemplate) {
@@ -587,12 +690,16 @@ export function SendMails() {
     let successCount = 0
     let errorCount = 0
 
+    const cleanCc = ccInput.trim() || undefined
+    const cleanBcc = bccInput.trim() || undefined
+
+    // 1. Send to selected clients from list
     for (const client of selectedClients) {
       try {
         const vars = buildVars(client)
-        const payload = composeMode === 'custom'
-          ? { to: client.email, subject: subject.trim(), body: stripChips(editorRef.current?.innerHTML ?? ''), variables: vars }
-          : { to: client.email, templateId: selectedTemplate!.id, variables: vars }
+        const payload: any = composeMode === 'custom'
+          ? { to: client.email, cc: cleanCc, bcc: cleanBcc, subject: subject.trim(), body: stripChips(editorRef.current?.innerHTML ?? ''), variables: vars }
+          : { to: client.email, cc: cleanCc, bcc: cleanBcc, templateId: selectedTemplate!.id, variables: vars }
         const result = await sendEmail(payload) as { sent: boolean }
         if (result?.sent === false) {
           errorCount++
@@ -605,20 +712,42 @@ export function SendMails() {
       }
     }
 
+    // 2. Send to direct entered emails
+    for (const email of directEmails) {
+      try {
+        const vars = buildBaseVars(email)
+        const payload: any = composeMode === 'custom'
+          ? { to: email, cc: cleanCc, bcc: cleanBcc, subject: subject.trim(), body: stripChips(editorRef.current?.innerHTML ?? ''), variables: vars }
+          : { to: email, cc: cleanCc, bcc: cleanBcc, templateId: selectedTemplate!.id, variables: vars }
+        const result = await sendEmail(payload) as { sent: boolean }
+        if (result?.sent === false) {
+          errorCount++
+        } else {
+          successCount++
+        }
+      } catch (err) {
+        console.error(`Failed to send to ${email}:`, err)
+        errorCount++
+      }
+    }
+
     setIsSending(false)
 
     if (errorCount === 0) {
       toast({
         title: 'Emails sent!',
-        description: `Successfully sent to ${successCount} client${successCount > 1 ? 's' : ''}.`,
+        description: `Successfully sent to ${successCount} recipient${successCount > 1 ? 's' : ''}.`,
         variant: 'success',
       })
       setSelectedIds(new Set())
+      setCustomRecipients('')
+      setCcInput('')
+      setBccInput('')
       window.location.reload()
     } else {
       toast({
-        title: 'Partial success',
-        description: `Sent: ${successCount}, Failed: ${errorCount}.`,
+        title: 'Partial delivery',
+        description: `Sent: ${successCount}, Failed: ${errorCount}. Check Delivery Logs or SMTP configuration.`,
         variant: 'destructive',
       })
     }
@@ -628,8 +757,8 @@ export function SendMails() {
     <div className="min-h-full bg-background p-4 sm:p-6">
       {/* Header */}
       <div className="mb-5">
-        <h1 className="text-xl font-semibold">Send Mails</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Select clients and compose an email to send</p>
+        <h1 className="text-xl font-semibold">{industryConfig.pageTitle}</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{industryConfig.pageSubtitle}</p>
       </div>
 
       {/* 2-column layout */}
@@ -640,13 +769,22 @@ export function SendMails() {
           {/* Panel header */}
           <div className="p-4 border-b border-border">
             <div className="flex items-center justify-between mb-2.5">
-              <h2 className="font-semibold text-sm">Select Clients</h2>
-              {(categoryFilters.size > 0 || serviceFilters.size > 0) && (
-                <button type="button" onClick={() => { setCategoryFilters(new Set()); setServiceFilters(new Set()) }}
-                  className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">
-                  Clear filters
-                </button>
-              )}
+              <h2 className="font-semibold text-sm">{industryConfig.recipientListTitle}</h2>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/client-management"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Client
+                </Link>
+                {(categoryFilters.size > 0 || serviceFilters.size > 0) && (
+                  <button type="button" onClick={() => { setCategoryFilters(new Set()); setServiceFilters(new Set()) }}
+                    className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
             {/* Filter row — multi-select checkboxes */}
             <div className="flex gap-1.5 mb-2.5">
@@ -656,7 +794,7 @@ export function SendMails() {
                   <Button variant="outline" size="sm" className={`flex-1 h-7 text-xs gap-1 px-2 justify-between min-w-0 ${categoryFilters.size > 0 ? 'border-primary/60 text-primary' : ''}`}>
                     <span className="truncate">
                       {categoryFilters.size === 0
-                        ? 'Category'
+                        ? industryConfig.categoryFilterLabel
                         : categoryFilters.size === 1
                         ? Array.from(categoryFilters)[0]
                         : `${categoryFilters.size} selected`}
@@ -666,7 +804,7 @@ export function SendMails() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48 max-h-60 overflow-y-auto">
                   {allCategories.length === 0 ? (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No categories found</div>
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No {industryConfig.categoryFilterLabel.toLowerCase()} found</div>
                   ) : allCategories.map((cat) => {
                     const checked = categoryFilters.has(cat)
                     return (
@@ -688,7 +826,7 @@ export function SendMails() {
                   <Button variant="outline" size="sm" className={`flex-1 h-7 text-xs gap-1 px-2 justify-between min-w-0 ${serviceFilters.size > 0 ? 'border-primary/60 text-primary' : ''}`}>
                     <span className="truncate">
                       {serviceFilters.size === 0
-                        ? 'Service'
+                        ? industryConfig.serviceFilterLabel
                         : serviceFilters.size === 1
                         ? Array.from(serviceFilters)[0]
                         : `${serviceFilters.size} selected`}
@@ -721,7 +859,7 @@ export function SendMails() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search clients..."
+                placeholder={industryConfig.searchPlaceholder}
                 className="pl-8 h-8 text-xs"
               />
             </div>
@@ -743,16 +881,23 @@ export function SendMails() {
             </button>
           </div>
 
-          {/* Client list */}
+          {/* Recipient list */}
           <div className="flex-1 overflow-y-auto">
             {isLoadingClients ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
-                <span className="text-xs text-muted-foreground">Loading clients...</span>
+                <span className="text-xs text-muted-foreground">Loading {industryConfig.recipientPlural.toLowerCase()}...</span>
               </div>
             ) : filteredClients.length === 0 ? (
-              <div className="py-10 text-center text-xs text-muted-foreground">
-                No clients found
+              <div className="py-10 px-4 text-center">
+                <p className="text-xs text-muted-foreground mb-2.5">No {industryConfig.recipientPlural.toLowerCase()} found</p>
+                <Link
+                  href="/client-management"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add New Client
+                </Link>
               </div>
             ) : (
               filteredClients.map((client) => {
@@ -944,6 +1089,77 @@ export function SendMails() {
               </div>
             )}
 
+            {/* Direct Recipient(s), CC, and BCC Section */}
+            <div className="mb-3 space-y-2">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <span>Recipients (To)</span>
+                    <span className="text-[10px] text-muted-foreground/70 font-normal">
+                      {selectedIds.size > 0 ? `(${selectedIds.size} selected from list)` : '(Optional if selecting clients)'}
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCcBcc((v) => !v)}
+                    className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {showCcBcc ? 'Hide CC / BCC' : '+ Add CC / BCC'}
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  {selectedIds.size > 0 && (
+                    <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-lg border border-primary/15 text-xs text-primary">
+                      <Users01 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="font-medium">
+                        {selectedIds.size} {industryConfig.recipientSingular.toLowerCase()}{selectedIds.size > 1 ? 's' : ''} selected
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">from directory</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIds(new Set())}
+                        className="ml-auto text-muted-foreground hover:text-foreground text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-muted"
+                      >
+                        <XClose className="h-3 w-3" /> Clear
+                      </button>
+                    </div>
+                  )}
+
+                  <Input
+                    value={customRecipients}
+                    onChange={(e) => setCustomRecipients(e.target.value)}
+                    placeholder="Enter email ID(s) separated by commas (e.g. client@example.com)..."
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* CC & BCC inputs */}
+              {showCcBcc && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1 block">CC (Optional)</label>
+                    <Input
+                      value={ccInput}
+                      onChange={(e) => setCcInput(e.target.value)}
+                      placeholder="cc1@example.com, cc2@example.com"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1 block">BCC (Optional)</label>
+                    <Input
+                      value={bccInput}
+                      onChange={(e) => setBccInput(e.target.value)}
+                      placeholder="bcc1@example.com, bcc2@example.com"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Subject */}
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1.5">
@@ -960,7 +1176,7 @@ export function SendMails() {
                   </button>
                   {subjectVarDropdownOpen && (
                     <div className="absolute top-full right-0 mt-1 w-52 rounded-lg border border-border bg-popover shadow-lg z-50 py-1 text-sm" style={{ maxHeight: 220, overflowY: 'auto' }}>
-                      {COMPOSE_VAR_GROUPS.map((group) => (
+                      {composeVarGroups.map((group) => (
                         <div key={group.label}>
                           <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
                           {group.vars.map((v) => (
@@ -1064,7 +1280,7 @@ export function SendMails() {
                       </button>
                       {varDropdownOpen && (
                         <div className="absolute top-full left-0 mt-1 w-52 rounded-lg border border-border bg-popover shadow-lg z-50 py-1 text-sm" style={{ maxHeight: 240, overflowY: 'auto' }}>
-                          {COMPOSE_VAR_GROUPS.map((group) => (
+                          {composeVarGroups.map((group) => (
                             <div key={group.label}>
                               <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
                               {group.vars.map((v) => (
@@ -1105,7 +1321,7 @@ export function SendMails() {
               {/* Variable reference chips (custom mode only) */}
               {composeMode === 'custom' && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {COMPOSE_VAR_GROUPS.flatMap((g) => g.vars).map((v) => (
+                  {composeVarGroups.flatMap((g) => g.vars).map((v) => (
                     <button key={v.value} type="button"
                       onMouseDown={(e) => { saveSelection(); e.preventDefault() }}
                       onClick={() => insertVarChip(v.value)}
@@ -1116,35 +1332,18 @@ export function SendMails() {
               )}
             </div>
 
-            {/* Recipient count badge */}
-            {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 mb-4 p-2.5 bg-primary/5 rounded-lg border border-primary/10">
-                <Users01 className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="text-xs text-primary font-medium">
-                  {selectedIds.size} recipient{selectedIds.size > 1 ? 's' : ''} selected
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <XClose className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-
             {/* Action buttons */}
             <div className="flex items-center gap-2 justify-end pt-1">
               {/* Preview */}
               {(() => {
-                const noClients = selectedIds.size === 0
+                const noRecipients = selectedIds.size === 0 && directEmailsList.length === 0
                 const noTemplate = composeMode === 'template' && !selectedTemplate
-                const noContent = composeMode === 'custom' && !subject && !body
-                const previewDisabled = noClients || noTemplate || noContent
-                const previewTip = noClients && (noTemplate || noContent)
-                  ? 'Select at least one client and pick a template to preview'
-                  : noClients
-                  ? 'Select at least one client to preview'
+                const noContent = composeMode === 'custom' && !subject.trim() && !stripChips(editorRef.current?.innerHTML ?? '').trim()
+                const previewDisabled = noRecipients || noTemplate || noContent
+                const previewTip = noRecipients && (noTemplate || noContent)
+                  ? 'Select a client or enter recipient email and pick a template to preview'
+                  : noRecipients
+                  ? 'Select a client or enter recipient email to preview'
                   : noTemplate
                   ? 'Pick a template above to preview'
                   : 'Add a subject to preview'
@@ -1188,14 +1387,14 @@ export function SendMails() {
 
               {/* Send Now */}
               {(() => {
-                const noClients = selectedIds.size === 0
+                const noRecipients = selectedIds.size === 0 && directEmailsList.length === 0
                 const noTemplate = composeMode === 'template' && !selectedTemplate
                 const noSubject = composeMode === 'custom' && !subject.trim()
-                const sendDisabled = isSending || noClients || noTemplate || noSubject
-                const sendTip = noClients && (noTemplate || noSubject)
-                  ? 'Select a client and add a subject'
-                  : noClients
-                  ? 'Select at least one client'
+                const sendDisabled = isSending || noRecipients || noTemplate || noSubject
+                const sendTip = noRecipients && (noTemplate || noSubject)
+                  ? 'Add a recipient and subject before sending'
+                  : noRecipients
+                  ? 'Select at least one client or enter a recipient email'
                   : noTemplate
                   ? 'Select a template to send'
                   : noSubject
@@ -1508,7 +1707,7 @@ export function SendMails() {
             size="sm"
             className="w-full gap-1.5 text-xs"
             onClick={handleSchedule}
-            disabled={isScheduling || selectedIds.size === 0 || (composeMode === 'template' && !selectedTemplate)}
+            disabled={isScheduling || (selectedIds.size === 0 && directEmailsList.length === 0) || (composeMode === 'template' && !selectedTemplate)}
           >
             {isScheduling ? (
               <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Scheduling...</>
@@ -1516,8 +1715,8 @@ export function SendMails() {
               <><Calendar className="h-3.5 w-3.5" /> Schedule Emails</>
             )}
           </Button>
-          {selectedIds.size === 0 && (
-            <p className="text-[11px] text-muted-foreground text-center mt-2">Select clients and a template to schedule</p>
+          {selectedIds.size === 0 && directEmailsList.length === 0 && (
+            <p className="text-[11px] text-muted-foreground text-center mt-2">Select clients or enter recipient email and pick a template to schedule</p>
           )}
         </div>
       </div>
@@ -1590,20 +1789,32 @@ export function SendMails() {
                 </div>
               </div>
 
-              {/* Email body */}
-              <div
-                className="px-6 py-5 text-sm min-h-[200px] max-h-[420px] overflow-y-auto bg-background leading-relaxed"
-                dangerouslySetInnerHTML={{
-                  __html: composeMode === 'custom'
-                    ? (editorRef.current ? cleanAndSubstituteVars(editorRef.current.innerHTML, buildVars(previewClient)) : substituteVars(body, buildVars(previewClient)))
-                    : substituteVars(selectedTemplate?.body ?? '', buildVars(previewClient)) || '<span class="text-muted-foreground">(no message)</span>'
-                }}
-              />
+              {/* Email body & footer preview */}
+              <div className="px-6 py-5 text-sm min-h-[220px] max-h-[440px] overflow-y-auto bg-background leading-relaxed flex flex-col justify-between">
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: composeMode === 'custom'
+                      ? (editorRef.current ? cleanAndSubstituteVars(editorRef.current.innerHTML, buildVars(previewClient)) : substituteVars(body, buildVars(previewClient)))
+                      : substituteVars(selectedTemplate?.body ?? '', buildVars(previewClient)) || '<span class="text-muted-foreground">(no message)</span>'
+                  }}
+                />
+                <div className="mt-8 pt-4 border-t border-border/60 text-center text-xs text-muted-foreground">
+                  <a
+                    href={typeof window !== 'undefined' ? window.location.origin : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span>Email sent via</span>
+                    <span className="font-semibold text-primary underline">Lekvya</span>
+                  </a>
+                </div>
+              </div>
 
               {/* Footer actions */}
               <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground">
-                  {selectedClients.length} recipient{selectedClients.length !== 1 ? 's' : ''} selected
+                  {totalRecipientCount} recipient{totalRecipientCount !== 1 ? 's' : ''}
                 </p>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" className="text-xs h-8 rounded-lg" onClick={() => setPreviewOpen(false)}>
@@ -1612,7 +1823,7 @@ export function SendMails() {
                   <Button
                     size="sm"
                     className="text-xs h-8 rounded-lg gap-1.5"
-                    disabled={isSending || selectedIds.size === 0 || (composeMode === 'template' && !selectedTemplate)}
+                    disabled={isSending || (selectedIds.size === 0 && directEmailsList.length === 0) || (composeMode === 'template' && !selectedTemplate)}
                     onClick={() => { setPreviewOpen(false); setSendConfirmOpen(true) }}
                   >
                     <Send01 className="h-3.5 w-3.5" />
@@ -1636,7 +1847,9 @@ export function SendMails() {
               <div>
                 <DialogTitle>Send Emails?</DialogTitle>
                 <DialogDescription className="mt-0.5">
-                  To <strong>{selectedIds.size} recipient{selectedIds.size > 1 ? 's' : ''}</strong>
+                  To <strong>{totalRecipientCount} recipient{totalRecipientCount !== 1 ? 's' : ''}</strong>
+                  {ccInput.trim() && <span className="block text-[11px] text-muted-foreground mt-0.5 truncate max-w-[260px]">CC: {ccInput.trim()}</span>}
+                  {bccInput.trim() && <span className="block text-[11px] text-muted-foreground mt-0.5 truncate max-w-[260px]">BCC: {bccInput.trim()}</span>}
                 </DialogDescription>
               </div>
             </div>

@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -223,11 +228,6 @@
   --shadow-elevated: 0 12px 40px -8px hsl(25 90% 58% / 0.15);
   background-color: var(--background);
   color: var(--foreground);
-}
-
-.landing-page,
-.landing-page * {
-  font-family: var(--font-landing), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif !important;
 }
 
 @layer utilities {

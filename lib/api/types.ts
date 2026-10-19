@@ -54,16 +54,18 @@ export interface RegisterRequest {
 export interface SignupOrganizationRequest {
   organization: {
     name: string;
-    city: string;
-    state: string;
-    country: string;
-    pincode: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    pincode?: string;
+    industry?: string;
+    allowedOrigins?: string[];
   };
   admin: {
     name: string;
     email: string;
     password: string;
-    phone: string;
+    phone?: string;
   };
 }
 
@@ -334,6 +336,8 @@ export interface UpdateEmailTemplateRequest {
 
 export interface SendEmailRequest {
   to: string;
+  cc?: string;
+  bcc?: string;
   templateId?: number;
   variables?: Record<string, string>;
   subject?: string;

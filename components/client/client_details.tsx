@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { User, Users, KeyRound, FolderOpen, Settings as SettingsIcon, Building2, ChevronLeft, ChevronRight, ReceiptText, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import type { Client } from './client_tab'
@@ -10,11 +10,30 @@ import { DirectorsTab, type Director } from './director_info/directors_tab'
 import { EmailSetup } from './director_info/email-setup'
 import { ClientLoginTab } from './director_info/client-login-tab'
 import { FilesTab } from './director_info/files_tab'
+import { TdsTab } from './director_info/tds_tab'
+import { GstTab } from './director_info/gst_tab'
 import { ClientDetailsTab } from './director_info/client-details-tab'
 import { SettingsTab } from './director_info/settings-tab'
 import { getClientById, updateClientLogin, removeClientLogin, addDirector, updateDirector, deleteDirector, listDirectors } from '@/lib/api/clients'
 import { ApiError } from '@/lib/api/client'
 import type { Client as ApiClient } from '@/lib/api/types'
+
+type SidebarSection = 'dashboard' | 'files' | 'tds' | 'gst'
+type DashboardTab = 'details' | 'directors' | 'login' | 'settings'
+
+const SIDEBAR_ITEMS: { value: SidebarSection; label: string; icon: React.ElementType }[] = [
+  { value: 'dashboard', label: 'Client Dashboard', icon: User },
+  { value: 'files',     label: 'Files',            icon: FolderOpen },
+  { value: 'tds',       label: 'TDS',              icon: ReceiptText },
+  { value: 'gst',       label: 'GST',              icon: Receipt },
+]
+
+const DASHBOARD_TABS: { value: DashboardTab; label: string; icon: React.ElementType }[] = [
+  { value: 'details',   label: 'Client Details', icon: User },
+  { value: 'directors', label: 'Directors',       icon: Users },
+  { value: 'login',     label: 'Client Login',    icon: KeyRound },
+  { value: 'settings',  label: 'Settings',        icon: SettingsIcon },
+]
 
 interface ClientDetailsProps {
   clientId: string
@@ -70,6 +89,9 @@ function transformApiDirectors(apiDirectors?: Array<Record<string, unknown>>): D
 export function ClientDetails({ clientId }: ClientDetailsProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const [activeSidebar, setActiveSidebar] = useState<SidebarSection>('dashboard')
+  const [activeTab, setActiveTab] = useState<DashboardTab>('details')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [client, setClient] = useState<Client | null>(null)
   const [clientOrganizationId, setClientOrganizationId] = useState<number | undefined>(undefined)
   const [directors, setDirectors] = useState<Director[]>([])
@@ -209,8 +231,8 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
     try {
       const created = await addDirector(clientId, {
         directorName: director.name,
-        email: director.email || undefined,
-        phone: director.phone || undefined,
+        email: director.email || '',
+        phone: director.phone || '',
         designation: director.designation || undefined,
         din: director.din || undefined,
         pan: director.pan || undefined,
@@ -298,111 +320,200 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-      {/* Tabs */}
-      <Tabs defaultValue="details" className="w-full">
-        <div className="w-full overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <TabsList className="flex w-max min-w-full h-auto p-0 gap-0 bg-transparent border-b border-border rounded-none">
-            {[
-              { value: 'details',   label: 'Client Details' },
-              { value: 'directors', label: 'Directors List' },
-              { value: 'login',     label: 'Client Login' },
-              { value: 'files',     label: 'Files' },
-              { value: 'settings',  label: 'Settings' },
-            ].map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                className="relative flex-1 min-w-fit whitespace-nowrap rounded-none border-b-2 border-transparent bg-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:bg-transparent"
-              >
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+    <div className="flex h-[calc(100vh-54px)]">
+      {/* ── Left sidebar ───────────────────────────────────────────────── */}
+      <aside
+        className={`hidden sm:flex shrink-0 flex-col border-r border-border bg-muted/20 transition-all duration-300 relative ${
+          sidebarCollapsed ? 'w-[52px]' : 'w-52'
+        }`}
+      >
+        {/* Client identity header */}
+        <div className={`border-b border-border ${sidebarCollapsed ? 'px-2 py-4 flex justify-center' : 'px-4 py-4'}`}>
+          {sidebarCollapsed ? (
+            <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Building2 className="h-4 w-4 text-primary" />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Building2 className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate leading-tight">{client?.name || '—'}</p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">{client?.companyName || '—'}</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Client Details Tab */}
-        <TabsContent value="details" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
-          <ClientDetailsTab
-            clientId={clientId}
-            onClientUpdated={() => setRefreshKey((k) => k + 1)}
-          />
-        </TabsContent>
+        {/* Sidebar nav */}
+        <nav className="flex-1 py-2 overflow-y-auto">
+          {SIDEBAR_ITEMS.map((item) => {
+            const isActive = activeSidebar === item.value
+            return (
+              <button
+                key={item.value}
+                onClick={() => setActiveSidebar(item.value)}
+                title={sidebarCollapsed ? item.label : undefined}
+                className={`w-full flex items-center py-2.5 text-sm font-medium transition-colors text-left border-l-2 ${
+                  sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-4'
+                } ${
+                  isActive
+                    ? 'border-primary bg-primary/5 text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                {!sidebarCollapsed && item.label}
+              </button>
+            )
+          })}
+        </nav>
 
-        {/* Director List Tab */}
-        <TabsContent value="directors" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
-          <DirectorsTab
-            directors={directors}
-            onRemoveDirector={handleRemoveDirector}
-            onAddDirector={handleAddDirector}
-            onEditDirector={handleEditDirector}
-            clientName={client?.companyName}
-          />
-        </TabsContent>
+        {/* Collapse toggle */}
+        <button
+          onClick={() => setSidebarCollapsed((c) => !c)}
+          className="absolute -right-3 top-[58px] z-10 h-6 w-6 rounded-full border border-border bg-background flex items-center justify-center shadow-sm hover:bg-muted transition-colors"
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {sidebarCollapsed
+            ? <ChevronRight className="h-3 w-3" />
+            : <ChevronLeft className="h-3 w-3" />
+          }
+        </button>
+      </aside>
 
-        {/* Client Login Tab */}
-        <TabsContent value="login" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0 space-y-4">
-          <ClientLoginTab 
-            clientName={client?.name || ''}
-            clientDetails={{
-              name: client?.name ?? '',
-              email: client?.email ?? '',
-              phone: client?.phone ?? '',
-              company: client?.companyName ?? '',
-            }}
-            initialLogins={initialLogins}
-            suggestedEmails={suggestedEmails}
-            organizationId={clientOrganizationId}
-            onRemoveLogin={client ? async () => {
-              await removeClientLogin(client.id)
-              setRefreshKey((k) => k + 1)
-            } : undefined}
-            onSave={async (logins) => {
-              if (!client) {
-                throw new Error('Client not loaded')
-              }
-              try {
-              // Backend supports a single login credential set (login_email/login_password).
-              // Send only email; backend generates password and returns it in response.generatedPassword.
-              const latest = logins[logins.length - 1]
-                const response = await updateClientLogin(client.id, latest.email, '')
-                // Use generated password from PATCH response (one-time; GET never returns password)
-                const passwordValue = response?.generatedPassword?.trim() ?? ''
-                setInitialLogins([{
-                  email: latest.email,
-                  password: passwordValue,
-                }])
-              } catch (error) {
-                console.error('Error in onSave callback:', error)
-                throw error // Re-throw to let ClientLoginTab handle the error display
-              }
-            }}
-          />
-          
-          {/* Email Setup below Client Login */}
-          <EmailSetup 
-            clientId={clientId}
-            clientName={client?.companyName || ''}
-          />
-        </TabsContent>
+      {/* Mobile bottom nav */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-10 bg-background border-t border-border flex overflow-x-auto scrollbar-none">
+        {SIDEBAR_ITEMS.map((item) => {
+          const isActive = activeSidebar === item.value
+          return (
+            <button
+              key={item.value}
+              onClick={() => setActiveSidebar(item.value)}
+              className={`flex-1 min-w-[60px] flex flex-col items-center gap-1 py-2 text-[10px] font-medium transition-colors ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              <item.icon className="h-4 w-4" />
+              <span className="truncate px-1">{item.label.split(' ')[0]}</span>
+            </button>
+          )
+        })}
+      </div>
 
-        {/* Files Tab */}
-        <TabsContent value="files" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
-          <FilesTab
-            clientId={clientId}
-            clientName={client?.companyName || ''}
-          />
-        </TabsContent>
+      {/* ── Main content ───────────────────────────────────────────────── */}
+      <div className="flex-1 min-w-0 overflow-y-auto pb-14 sm:pb-0">
 
-        {/* Settings Tab */}
-        <TabsContent value="settings" className="mt-2 -mx-4 sm:mx-0 px-4 sm:px-0">
-          <SettingsTab
-            clientId={clientId}
-            clientName={client?.name || client?.companyName || ''}
-            onDeleted={() => router.push('/client-management')}
-          />
-        </TabsContent>
-      </Tabs>
+        {/* Files view */}
+        {activeSidebar === 'files' && (
+          <div className="p-4 sm:p-6">
+            <FilesTab clientId={clientId} clientName={client?.companyName || ''} />
+          </div>
+        )}
+
+        {/* TDS view */}
+        {activeSidebar === 'tds' && (
+          <div className="p-4 sm:p-6">
+            <TdsTab clientId={clientId} clientName={client?.companyName || ''} />
+          </div>
+        )}
+
+        {/* GST view */}
+        {activeSidebar === 'gst' && (
+          <div className="p-4 sm:p-6">
+            <GstTab clientId={clientId} clientName={client?.companyName || ''} />
+          </div>
+        )}
+
+        {/* Dashboard view — horizontal tabs */}
+        {activeSidebar === 'dashboard' && (
+          <div className="flex flex-col h-full">
+            {/* Horizontal tab list */}
+            <div className="flex border-b border-border overflow-x-auto scrollbar-none shrink-0 px-4 sm:px-6 gap-1">
+              {DASHBOARD_TABS.map((tab) => {
+                const isActive = activeTab === tab.value
+                return (
+                  <button
+                    key={tab.value}
+                    onClick={() => setActiveTab(tab.value)}
+                    className={`flex items-center gap-2 px-3 py-3 text-sm font-semibold whitespace-nowrap transition-all border-b-[3px] -mb-px ${
+                      isActive
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                    }`}
+                  >
+                    <tab.icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? 'text-primary' : ''}`} />
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Tab content */}
+            <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6">
+              {activeTab === 'details' && (
+                <ClientDetailsTab
+                  clientId={clientId}
+                  onClientUpdated={() => setRefreshKey((k) => k + 1)}
+                />
+              )}
+
+              {activeTab === 'directors' && (
+                <DirectorsTab
+                  directors={directors}
+                  onRemoveDirector={handleRemoveDirector}
+                  onAddDirector={handleAddDirector}
+                  onEditDirector={handleEditDirector}
+                  clientName={client?.companyName}
+                />
+              )}
+
+              {activeTab === 'login' && (
+                <div className="space-y-4">
+                  <ClientLoginTab
+                    clientName={client?.name || ''}
+                    clientDetails={{
+                      name: client?.name ?? '',
+                      email: client?.email ?? '',
+                      phone: client?.phone ?? '',
+                      company: client?.companyName ?? '',
+                    }}
+                    initialLogins={initialLogins}
+                    suggestedEmails={suggestedEmails}
+                    organizationId={clientOrganizationId}
+                    onRemoveLogin={client ? async () => {
+                      await removeClientLogin(client.id)
+                      setRefreshKey((k) => k + 1)
+                    } : undefined}
+                    onSave={async (logins) => {
+                      if (!client) throw new Error('Client not loaded')
+                      try {
+                        const latest = logins[logins.length - 1]
+                        const response = await updateClientLogin(client.id, latest.email, '')
+                        const passwordValue = response?.generatedPassword?.trim() ?? ''
+                        setInitialLogins([{ email: latest.email, password: passwordValue }])
+                      } catch (error) {
+                        console.error('Error in onSave callback:', error)
+                        throw error
+                      }
+                    }}
+                  />
+                  <EmailSetup clientId={clientId} clientName={client?.companyName || ''} />
+                </div>
+              )}
+
+              {activeTab === 'settings' && (
+                <SettingsTab
+                  clientId={clientId}
+                  clientName={client?.name || client?.companyName || ''}
+                  onDeleted={() => router.push('/client-management')}
+                />
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

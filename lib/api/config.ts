@@ -90,6 +90,27 @@ export const API_CONFIG = {
     contact: {
       submit: '/contact',
     },
+    tdsFiling: {
+      forms: '/tds-filing/forms',
+      sessions: '/tds-filing/sessions',
+      byId: (id: string) => `/tds-filing/sessions/${id}`,
+      challan: (id: string) => `/tds-filing/sessions/${id}/challan`,
+      excel: (id: string) => `/tds-filing/sessions/${id}/excel`,
+      compare: (id: string) => `/tds-filing/sessions/${id}/compare`,
+      form: (id: string) => `/tds-filing/sessions/${id}/form`,
+      generate: (id: string) => `/tds-filing/sessions/${id}/generate`,
+      status: (id: string) => `/tds-filing/sessions/${id}/status`,
+      download: (id: string, type: string) => `/tds-filing/sessions/${id}/download/${type}`,
+      delete: (id: string) => `/tds-filing/sessions/${id}`,
+    },
+    gstFiling: {
+      sessions: '/gst-filing/sessions',
+      byId: (id: string) => `/gst-filing/sessions/${id}`,
+      upload: (id: string) => `/gst-filing/sessions/${id}/upload`,
+      compare: (id: string) => `/gst-filing/sessions/${id}/compare`,
+      download: (id: string) => `/gst-filing/sessions/${id}/download/excel`,
+      delete: (id: string) => `/gst-filing/sessions/${id}`,
+    },
     notifications: {
       base: '/notifications',
       readAll: '/notifications/read-all',

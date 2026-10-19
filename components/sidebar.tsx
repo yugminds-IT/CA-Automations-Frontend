@@ -24,9 +24,20 @@ import {
   Clock,
   ChevronDown,
   ChevronRight,
+  GraduationCap,
+  KeyRound,
+  Inbox,
+  Code2,
+  ListOrdered,
+  ShoppingCart,
+  HeartPulse,
+  Rocket,
+  Globe,
+  Webhook,
+  ShieldCheck,
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import {
   Sheet,
@@ -34,7 +45,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { getUserData, getRoleFromUser } from "@/lib/api/index"
+import { getUserData, getRoleFromUser, getOrganizationData } from "@/lib/api/index"
 
 interface SidebarProps {
   mobileMenuOpen?: boolean
@@ -46,13 +57,235 @@ type NavItem =
   | { type: 'item'; icon: React.ElementType; label: string; path: string }
   | { type: 'group'; icon: React.ElementType; label: string; children: { icon: React.ElementType; label: string; path: string }[] }
 
+function getMenuItemsForIndustry(industry: string, role?: string): NavItem[] {
+  if (role === 'client') {
+    return [{ type: 'item', icon: Upload, label: 'Uploads', path: '/uploads' }]
+  }
+
+  const dashboardItem: NavItem = { type: 'item', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' }
+  const notificationsItem: NavItem = { type: 'item', icon: Bell, label: 'Notifications', path: '/notifications' }
+  const settingsItem: NavItem = {
+    type: 'group',
+    icon: Settings,
+    label: 'Settings',
+    children: [
+      { icon: Settings, label: 'General & SMTP', path: '/settings' },
+      { icon: Globe, label: 'Sending Domains', path: '/settings/domains' },
+    ],
+  }
+
+  switch (industry) {
+    case 'school':
+    case 'education':
+      return [
+        dashboardItem,
+        {
+          type: 'group',
+          icon: GraduationCap,
+          label: 'Students & Parents',
+          children: [
+            { icon: Users, label: 'Student Directory & Batches', path: '/client-management' },
+            { icon: Send, label: 'Send Fees & Exam Notices', path: '/all-clients-mail-setup' },
+            { icon: FileText, label: 'Student Notice Templates', path: '/email-templates' },
+            { icon: Clock, label: 'Scheduled Notices', path: '/email-management/scheduled-mails' },
+          ],
+        },
+        {
+          type: 'group',
+          icon: Globe,
+          label: 'Faculty & Administration',
+          children: [
+            { icon: Users, label: 'Lecturers, Teachers & Staff', path: '/client-management' },
+            { icon: Send, label: 'Director & HOD Circulars', path: '/all-clients-mail-setup' },
+            { icon: FileText, label: 'Faculty Council Templates', path: '/email-templates' },
+          ],
+        },
+        notificationsItem,
+        settingsItem,
+      ]
+
+    case 'website_developer':
+      return [
+        dashboardItem,
+        { type: 'item', icon: Users, label: 'Clients & Contacts', path: '/client-management' },
+        {
+          type: 'group',
+          icon: KeyRound,
+          label: 'Developer API',
+          children: [
+            { icon: KeyRound, label: 'API Keys', path: '/developer/keys' },
+            { icon: Inbox, label: 'Form Inquiries', path: '/developer/inbox' },
+            { icon: Code2, label: 'HTML Form Code', path: '/developer/quickstart' },
+            { icon: Webhook, label: 'Webhooks', path: '/developer/webhooks' },
+            { icon: ListOrdered, label: 'Delivery Logs', path: '/developer/logs' },
+          ],
+        },
+        {
+          type: 'group',
+          icon: Mail,
+          label: 'Email & Templates',
+          children: [
+            { icon: FileText, label: 'Auto-Responders', path: '/email-templates' },
+            { icon: Send, label: 'Broadcast Mailer', path: '/all-clients-mail-setup' },
+            { icon: Clock, label: 'Scheduled Mails', path: '/email-management/scheduled-mails' },
+          ],
+        },
+        notificationsItem,
+        settingsItem,
+      ]
+
+    case 'ecommerce':
+      return [
+        dashboardItem,
+        {
+          type: 'group',
+          icon: ShoppingCart,
+          label: 'Commerce & Orders',
+          children: [
+            { icon: Users, label: 'Customer Directory', path: '/client-management' },
+            { icon: Send, label: 'Order Notifications', path: '/all-clients-mail-setup' },
+            { icon: FileText, label: 'Store Templates', path: '/email-templates' },
+            { icon: Clock, label: 'Scheduled Drips', path: '/email-management/scheduled-mails' },
+          ],
+        },
+        {
+          type: 'group',
+          icon: KeyRound,
+          label: 'Developer API',
+          children: [
+            { icon: KeyRound, label: 'Store API Keys', path: '/developer/keys' },
+            { icon: ListOrdered, label: 'Order Email Logs', path: '/developer/logs' },
+          ],
+        },
+        notificationsItem,
+        settingsItem,
+      ]
+
+    case 'healthcare':
+      return [
+        dashboardItem,
+        {
+          type: 'group',
+          icon: HeartPulse,
+          label: 'Clinic & Patients',
+          children: [
+            { icon: Users, label: 'Patient Directory', path: '/client-management' },
+            { icon: Send, label: 'Appointment Reminders', path: '/all-clients-mail-setup' },
+            { icon: FileText, label: 'Clinical Templates', path: '/email-templates' },
+            { icon: Clock, label: 'Scheduled Reminders', path: '/email-management/scheduled-mails' },
+          ],
+        },
+        notificationsItem,
+        settingsItem,
+      ]
+
+    case 'saas':
+      return [
+        dashboardItem,
+        {
+          type: 'group',
+          icon: Rocket,
+          label: 'App & Users',
+          children: [
+            { icon: Users, label: 'User Base', path: '/client-management' },
+            { icon: KeyRound, label: 'Developer API Keys', path: '/developer/keys' },
+            { icon: Webhook, label: 'Webhooks', path: '/developer/webhooks' },
+            { icon: Code2, label: 'API Quickstart', path: '/developer/quickstart' },
+            { icon: ListOrdered, label: 'Event Logs', path: '/developer/logs' },
+          ],
+        },
+        {
+          type: 'group',
+          icon: Mail,
+          label: 'Email Campaigns',
+          children: [
+            { icon: FileText, label: 'Lifecycle Templates', path: '/email-templates' },
+            { icon: Send, label: 'Broadcast Mailer', path: '/all-clients-mail-setup' },
+            { icon: Clock, label: 'Scheduled Drips', path: '/email-management/scheduled-mails' },
+          ],
+        },
+        notificationsItem,
+        settingsItem,
+      ]
+
+    case 'financial_services':
+    default:
+      return [
+        dashboardItem,
+        { type: 'item', icon: Users, label: 'Client Management', path: '/client-management' },
+        {
+          type: 'group',
+          icon: Mail,
+          label: 'Email Management',
+          children: [
+            { icon: Send, label: 'Send Mails', path: '/all-clients-mail-setup' },
+            { icon: FileText, label: 'Templates', path: '/email-templates' },
+            { icon: Clock, label: 'Scheduled Mails', path: '/email-management/scheduled-mails' },
+          ],
+        },
+        {
+          type: 'group',
+          icon: KeyRound,
+          label: 'Developer API',
+          children: [
+            { icon: KeyRound, label: 'API Keys', path: '/developer/keys' },
+            { icon: Inbox, label: 'Form Inquiries', path: '/developer/inbox' },
+            { icon: Webhook, label: 'Webhooks', path: '/developer/webhooks' },
+            { icon: ListOrdered, label: 'Delivery Logs', path: '/developer/logs' },
+          ],
+        },
+        notificationsItem,
+        settingsItem,
+      ]
+  }
+}
+
 export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuOpen: setExternalMobileMenuOpen, collapsed = false }: SidebarProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
+  const DEFAULT_EXPANDED_GROUPS = [
+    'Email & Templates',
+    'Email Management',
+    'Email Campaigns',
+    'Developer API',
+    'Students & Parents',
+    'Faculty & Administration',
+    'Commerce & Orders',
+    'Clinic & Patients',
+    'App & Users',
+    'School & Notices',
+    'Settings',
+  ]
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(DEFAULT_EXPANDED_GROUPS))
   const [internalMobileMenuOpen, setInternalMobileMenuOpen] = useState(false)
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Email Management']))
-  const user = getUserData()
-  const role = getRoleFromUser(user)?.toLowerCase()
+  const [industry, setIndustry] = useState<string>('financial_services')
+  const [userRole, setUserRole] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sidebar_expanded_groups')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          setExpandedGroups(new Set([...parsed, 'Email & Templates']))
+        }
+      }
+    } catch (e) {}
+  }, [])
+
+  useEffect(() => {
+    const refreshData = () => {
+      const user = getUserData()
+      const org = getOrganizationData()
+      const role = getRoleFromUser(user)?.toLowerCase()
+      setUserRole(role)
+      setIndustry(org?.industry || user?.organization?.industry || 'financial_services')
+    }
+    refreshData()
+    window.addEventListener('userDataUpdated', refreshData)
+    return () => window.removeEventListener('userDataUpdated', refreshData)
+  }, [])
 
   const mobileMenuOpen = externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen
   const setMobileMenuOpen = setExternalMobileMenuOpen || setInternalMobileMenuOpen
@@ -62,48 +295,76 @@ export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuO
       const next = new Set(prev)
       if (next.has(label)) next.delete(label)
       else next.add(label)
+      try {
+        localStorage.setItem('sidebar_expanded_groups', JSON.stringify(Array.from(next)))
+      } catch (e) {}
       return next
     })
   }
 
-  const menuItems: NavItem[] =
-    role === 'client'
-      ? [{ type: 'item', icon: Upload, label: 'Uploads', path: '/uploads' }]
-      : [
-          { type: 'item', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-          { type: 'item', icon: Users, label: 'Client Management', path: '/client-management' },
-          {
-            type: 'group',
-            icon: Mail,
-            label: 'Email Management',
-            children: [
-              { icon: Send, label: 'Send Mails', path: '/all-clients-mail-setup' },
-              { icon: FileText, label: 'Templates', path: '/email-templates' },
-              { icon: Clock, label: 'Scheduled Mails', path: '/email-management/scheduled-mails' },
-            ],
-          },
-          { type: 'item', icon: Bell, label: 'Notifications', path: '/notifications' },
-          { type: 'item', icon: Settings, label: 'Settings', path: '/settings' },
-        ]
+  const menuItems: NavItem[] = getMenuItemsForIndustry(industry, userRole)
 
-  const getActivePage = () => {
+  useEffect(() => {
     for (const item of menuItems) {
-      if (item.type === 'item') {
-        if (pathname === item.path) return item.label
-        if (item.path !== '/dashboard' && pathname.startsWith(item.path)) return item.label
-      } else {
-        for (const child of item.children) {
-          if (pathname === child.path || pathname.startsWith(child.path)) return child.label
+      if (item.type === 'group') {
+        const hasActiveChild = item.children.some(
+          (c) => pathname === c.path || (c.path !== '/dashboard' && pathname.startsWith(c.path + '/'))
+        )
+        if (hasActiveChild) {
+          setExpandedGroups((prev) => {
+            if (prev.has(item.label)) return prev
+            const next = new Set(prev)
+            next.add(item.label)
+            try {
+              localStorage.setItem('sidebar_expanded_groups', JSON.stringify(Array.from(next)))
+            } catch (e) {}
+            return next
+          })
         }
       }
     }
+  }, [pathname, menuItems])
+
+  const getActivePage = () => {
+    // 1. Exact match takes highest priority
+    for (const item of menuItems) {
+      if (item.type === 'item') {
+        if (pathname === item.path) return item.label
+      } else {
+        for (const child of item.children) {
+          if (pathname === child.path) return child.label
+        }
+      }
+    }
+
+    // 2. Prefix match for nested sub-routes (e.g. /settings/sub-page)
+    let bestMatch: { label: string; path: string } | null = null
+    for (const item of menuItems) {
+      if (item.type === 'item') {
+        if (item.path !== '/dashboard' && pathname.startsWith(item.path + '/')) {
+          if (!bestMatch || item.path.length > bestMatch.path.length) {
+            bestMatch = { label: item.label, path: item.path }
+          }
+        }
+      } else {
+        for (const child of item.children) {
+          if (pathname.startsWith(child.path + '/')) {
+            if (!bestMatch || child.path.length > bestMatch.path.length) {
+              bestMatch = { label: child.label, path: child.path }
+            }
+          }
+        }
+      }
+    }
+
+    if (bestMatch) return bestMatch.label
     return 'Dashboard'
   }
 
   const activePage = getActivePage()
 
   const isGroupActive = (item: NavItem) =>
-    item.type === 'group' && item.children.some((c) => pathname === c.path || pathname.startsWith(c.path))
+    item.type === 'group' && item.children.some((c) => pathname === c.path || (c.path !== '/dashboard' && pathname.startsWith(c.path + '/')))
 
   const renderMenuItems = (isCollapsed: boolean = false) => (
     <nav className="flex-1 py-4 overflow-y-auto" aria-label="Main navigation">

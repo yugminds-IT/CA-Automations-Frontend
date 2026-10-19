@@ -432,3 +432,7 @@ export {
   DEFAULT_EMAIL_TEMPLATES,
   getDefaultTemplateByType,
 } from './default-email-templates';
+
+// Developer & Universal Platform APIs
+export * from './developer';
+

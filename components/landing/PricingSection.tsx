@@ -147,6 +147,13 @@ export default function PricingSection() {
                     : "bg-gradient-primary text-primary-foreground"
                 }`}
                 size="lg"
+                onClick={() => {
+                  if (plan.popular) {
+                    window.location.href = "/login";
+                  } else {
+                    window.location.href = "/plan";
+                  }
+                }}
               >
                 {plan.buttonText}
               </Button>
@@ -162,6 +169,15 @@ export default function PricingSection() {
               </ul>
             </motion.div>
           ))}
+        </div>
+
+        <div className="text-center mt-12">
+          <a
+            href="/plan"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+          >
+            Looking for multi-industry presets & deep feature comparison? View Full Plans & Pricing Details →
+          </a>
         </div>
       </div>
     </section>

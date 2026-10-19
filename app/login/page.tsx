@@ -191,7 +191,7 @@ export default function LoginPage() {
             Sign In
           </button>
           <button
-            onClick={() => setMode("signup")}
+            onClick={() => router.push("/signup")}
             disabled={isLoading}
             className={`px-5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
               mode === "signup" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
@@ -217,7 +217,7 @@ export default function LoginPage() {
             description="Sign in to your Lekvya account and automate smarter."
             onSignIn={handleSignIn}
             onResetPassword={() => router.push("/forgot-password")}
-            onCreateAccount={() => setMode("signup")}
+            onCreateAccount={() => router.push("/signup")}
           />
         ) : (
           <SignUpPage onSignUp={handleSignUp} onSignIn={() => setMode("signin")} />
