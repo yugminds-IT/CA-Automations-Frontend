@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { ClientOnboardForm } from './client_onboardform'
+import { getIndustryClientConfig } from '@/lib/industry-config'
 import {
   onboardClient,
   getClients,
@@ -413,6 +414,18 @@ export function ClientTab({
 }: ClientTabProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const [industry, setIndustry] = useState<string | null>(null)
+
+  useEffect(() => {
+    const user = getUserData() as any
+    if (user?.organization?.industry) {
+      setIndustry(user.organization.industry)
+    }
+  }, [])
+
+  const currentIndustry = industry || 'financial_services'
+  const clientConfig = React.useMemo(() => getIndustryClientConfig(industry), [industry])
+
   const [internalDialogOpen, setInternalDialogOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [sortField, setSortField] = useState<SortField>(null)
@@ -826,12 +839,12 @@ export function ClientTab({
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
             <div>
               <h2 className="text-base font-semibold">
-                {editingClient ? 'Update Client' : 'Onboard New Client'}
+                {editingClient ? clientConfig.editTitle : clientConfig.onboardTitle}
               </h2>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {editingClient
-                  ? 'Update the client details in your system'
-                  : 'Fill in the client details to add them to your system'
+                  ? clientConfig.editSubtitle
+                  : clientConfig.onboardSubtitle
                 }
               </p>
             </div>
@@ -854,7 +867,7 @@ export function ClientTab({
                   form="client-onboard-form"
                   size="sm"
                 >
-                  {editingClient ? 'Update Client' : 'Onboard Client'}
+                  {editingClient ? clientConfig.editTitle : clientConfig.onboardButtonLabel}
                 </Button>
               </div>
             )}
@@ -900,6 +913,7 @@ export function ClientTab({
               services={services}
               businessTypes={businessTypes}
               clientStatuses={clientStatuses}
+              industry={currentIndustry}
             />
           )}
         </CardContent>
@@ -927,7 +941,7 @@ export function ClientTab({
                       sortDirection={sortField === 'name' ? sortDirection : null}
                       onSort={() => handleSort('name')}
                     >
-                      Client Name
+                      {clientConfig.nameLabel}
                     </SortableTableHead>
                     <SortableTableHead
                       className="min-w-[150px]"
@@ -935,7 +949,7 @@ export function ClientTab({
                       sortDirection={sortField === 'companyName' ? sortDirection : null}
                       onSort={() => handleSort('companyName')}
                     >
-                      Company
+                      {clientConfig.companyLabel}
                     </SortableTableHead>
                     <SortableTableHead
                       className="min-w-[180px]"
@@ -953,7 +967,7 @@ export function ClientTab({
                     >
                       Phone
                     </SortableTableHead>
-                    <TableHead className="min-w-[120px]">Category</TableHead>
+                    <TableHead className="min-w-[120px]">{clientConfig.businessTypeLabel}</TableHead>
                     <SortableTableHead
                       className="min-w-[100px]"
                       sortable
@@ -968,7 +982,7 @@ export function ClientTab({
                       sortDirection={sortField === 'followUpDate' ? sortDirection : null}
                       onSort={() => handleSort('followUpDate')}
                     >
-                      Follow Up Date
+                      {clientConfig.followUpDateLabel}
                     </SortableTableHead>
                     <TableHead className="min-w-[100px] text-center">Actions</TableHead>
                   </TableRow>
@@ -1077,7 +1091,7 @@ export function ClientTab({
                                   <p>{client.phone || '—'}</p>
                                 </div>
                                 <div>
-                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Category</p>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">{clientConfig.businessTypeLabel}</p>
                                   <p>{client.businessType || '—'}</p>
                                 </div>
                                 <div>
@@ -1085,11 +1099,11 @@ export function ClientTab({
                                   <p>{client.status || '—'}</p>
                                 </div>
                                 <div>
-                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Follow Up Date</p>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">{clientConfig.followUpDateLabel}</p>
                                   <p>{formatDate(client.followUpDate)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Onboard Date</p>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">{clientConfig.onboardDateLabel}</p>
                                   <p>{formatDate(client.onboardDate)}</p>
                                 </div>
                                 <div>
@@ -1097,18 +1111,18 @@ export function ClientTab({
                                   <p>{formatDate(client.lastContactedDate)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">Services</p>
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">{clientConfig.servicesSectionTitle}</p>
                                   <p>{Array.isArray(client.directories) ? client.directories.join(', ') || '—' : client.directories || '—'}</p>
                                 </div>
                                 {client.panNumber && (
                                   <div>
-                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">PAN</p>
+                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">{clientConfig.panLabel}</p>
                                     <p>{client.panNumber}</p>
                                   </div>
                                 )}
                                 {client.gstNumber && (
                                   <div>
-                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">GST</p>
+                                    <p className="text-xs text-muted-foreground font-medium mb-0.5">{clientConfig.gstLabel}</p>
                                     <p>{client.gstNumber}</p>
                                   </div>
                                 )}

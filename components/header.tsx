@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { getUserData, getOrganizationData, logout, listNotifications } from "@/lib/api/index"
+import { getIndustryMailConfig } from "@/lib/industry-config"
 import type { User, Organization } from "@/lib/api/index"
 import { useTheme } from "./theme-provider"
 import { useToast } from "@/components/ui/use-toast"
@@ -74,6 +75,11 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [subscriptionExpiringSoon, setSubscriptionExpiringSoon] = useState(false)
 
+  // Industry Mail Config
+  const currentOrgData = organization ?? getOrganizationData() ?? (user as any)?.organization ?? null
+  const currentIndustry = currentOrgData?.industry || (user as any)?.organization?.industry || 'financial_services'
+  const industryConfig = getIndustryMailConfig(currentIndustry)
+
   // Build breadcrumb items from current pathname
   const breadcrumbItems = (() => {
     const segments = pathname.split("/").filter(Boolean)
@@ -81,17 +87,20 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
     let acc = ""
     segments.forEach((segment, i) => {
       acc += `/${segment}`
-      const label = pathSegmentToLabel(segment, acc.slice(0, -segment.length - 1))
+      let label = pathSegmentToLabel(segment, acc.slice(0, -segment.length - 1))
+      if (acc === '/all-clients-mail-setup') {
+        label = industryConfig.breadcrumbLabel
+      }
       items.push({ href: acc, label, isLast: i === segments.length - 1 })
     })
     if (items.length === 0) {
       items.push({ href: "/", label: "Dashboard", isLast: true })
     }
-    // Inject virtual "Email Management" parent for flat email routes
+    // Inject virtual parent for flat email routes with industry-specific group name
     const flatLabel = EMAIL_MANAGEMENT_FLAT[pathname]
     if (flatLabel && items.length === 1) {
       items[0].isLast = true
-      items.unshift({ href: '/email-management', label: 'Email Management', isLast: false })
+      items.unshift({ href: '#', label: industryConfig.groupLabel, isLast: false })
     }
     return items
   })()

@@ -20,6 +20,7 @@ import { getDashboardStats } from "@/lib/api/index"
 import type { DashboardStats } from "@/lib/api/index"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
+import { SmtpAlertBanner } from "@/components/dashboard/smtp-alert-banner"
 
 type RecentItem = DashboardStats["recentActivity"][number]
 
@@ -115,6 +116,9 @@ export function Dashboard() {
       </div>
 
       <div className="p-4 sm:p-5 space-y-4">
+        {/* Outgoing Email SMTP Setup Alert */}
+        <SmtpAlertBanner />
+
         {/* KPI cards */}
         <section>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

@@ -9,19 +9,24 @@ import { Button } from "@/components/ui/button";
 const LOGO_SRC = "/landing-assets/lekvya-logo-new.png";
 
 const navLinks = [
-  { label: "Home", href: "#" },
-  { label: "Features", href: "#features" },
-  { label: "How It Works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Use Cases", href: "#use-cases" },
-  { label: "Contact Us", href: "#contact" },
+  { label: "Home", href: "/" },
+  { label: "Features", href: "/#features" },
+  { label: "How It Works", href: "/#how-it-works" },
+  { label: "Pricing & Plans", href: "/plan" },
+  { label: "Use Cases", href: "/#use-cases" },
+  { label: "Contact Us", href: "/#contact" },
 ];
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
   const goToContact = () => {
-    document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
+    const el = document.getElementById("contact");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    } else {
+      router.push("/#contact");
+    }
   };
 
   return (

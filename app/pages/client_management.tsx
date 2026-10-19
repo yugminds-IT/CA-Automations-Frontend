@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { Search, Download, PlusIcon, Upload, FileSpreadsheet, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,7 @@ import { ClientTab, type Client } from "@/components/client/client_tab"
 import { useToast } from "@/components/ui/use-toast"
 import { onboardClient } from "@/lib/api/clients"
 import { getUserData } from "@/lib/api/index"
+import { getIndustryClientConfig } from "@/lib/industry-config"
 
 // ── Static template columns (services appended dynamically) ──────────────────
 const STATIC_HEADERS = [
@@ -86,6 +87,17 @@ export function ClientManagement({
   servicesWithIds = []
 }: ClientManagementProps) {
   const { toast } = useToast()
+  const [industry, setIndustry] = useState<string | null>(null)
+
+  useEffect(() => {
+    const user = getUserData() as any
+    if (user?.organization?.industry) {
+      setIndustry(user.organization.industry)
+    }
+  }, [])
+
+  const clientConfig = getIndustryClientConfig(industry)
+
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -436,14 +448,14 @@ export function ClientManagement({
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Client Management</h1>
-          <p className="text-muted-foreground mt-1">Manage your clients and their information</p>
+          <h1 className="text-2xl font-bold" suppressHydrationWarning>{clientConfig.clientPlural} Management</h1>
+          <p className="text-muted-foreground mt-1" suppressHydrationWarning>Manage your {clientConfig.clientPlural.toLowerCase()} and their information</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
           <div className="relative flex-1 sm:flex-initial sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search clients..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 border border-input" />
+            <Input placeholder={`Search ${clientConfig.clientPlural.toLowerCase()}...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 border border-input" suppressHydrationWarning />
           </div>
           {/* Status filter */}
           <Select value={statusFilter} onValueChange={setStatusFilter} disabled={statusOptions.length === 0}>
@@ -469,8 +481,8 @@ export function ClientManagement({
           {/* Hidden file input */}
           <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
           {/* Onboard Client */}
-          <Button onClick={() => setIsDialogOpen(true)} size="sm">
-            <PlusIcon className="h-4 w-4 mr-2" />Onboard Client
+          <Button onClick={() => setIsDialogOpen(true)} size="sm" suppressHydrationWarning>
+            <PlusIcon className="h-4 w-4 mr-2" />{clientConfig.onboardButtonLabel}
           </Button>
         </div>
       </div>

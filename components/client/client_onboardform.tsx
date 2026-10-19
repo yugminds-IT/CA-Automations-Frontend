@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -44,31 +44,21 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
+import { getIndustryClientConfig } from '@/lib/industry-config'
+import { getUserData } from '@/lib/api/index'
 import type { Client } from './client_tab'
 
 const clientOnboardSchema = z.object({
-  name: z.string().min(2, 'Client name must be at least 2 characters'),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
   phone: z.string().optional().or(z.literal('')).refine(
     (val) => !val || val === '' || val.length >= 10,
     'Please enter a valid phone number (at least 10 digits)'
   ),
-  companyName: z.string().min(2, 'Company name must be at least 2 characters'),
-  panNumber: z
-    .string()
-    .optional()
-    .refine(
-      (val) => !val || val === '' || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(val),
-      'Please enter a valid PAN number (e.g., ABCDE1234F)'
-    ),
-  gstNumber: z
-    .string()
-    .optional()
-    .refine(
-      (val) => !val || val === '' || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(val),
-      'Please enter a valid GST number (e.g., 22ABCDE1234F1Z5)'
-    ),
-  businessType: z.string().min(1, 'Please select a business type'),
+  companyName: z.string().optional().or(z.literal('')),
+  panNumber: z.string().max(50).optional().or(z.literal('')),
+  gstNumber: z.string().max(50).optional().or(z.literal('')),
+  businessType: z.string().min(1, 'Please select an option'),
   customBusinessType: z.string().optional(),
   status: z.string().optional(),
   addressLine1: z.string().optional().or(z.literal('')),
@@ -84,7 +74,7 @@ const clientOnboardSchema = z.object({
   followUpDate: z.date().optional().nullable(),
   notes: z.string().optional(),
   directors: z.array(z.object({
-    name: z.string().min(2, 'Director name must be at least 2 characters'),
+    name: z.string().min(2, 'Name must be at least 2 characters'),
     email: z.string().email('Please enter a valid email address').optional().or(z.literal('')),
     phone: z.string().optional().or(z.literal('')),
     designation: z.string().optional().or(z.literal('')),
@@ -123,6 +113,7 @@ interface ClientOnboardFormProps {
   businessTypes?: string[]
   clientStatuses?: string[]
   isEditing?: boolean
+  industry?: string
 }
 
 export function ClientOnboardForm({
@@ -133,6 +124,7 @@ export function ClientOnboardForm({
   businessTypes = [],
   clientStatuses = [],
   isEditing = false,
+  industry: propIndustry,
 }: ClientOnboardFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [customServiceInput, setCustomServiceInput] = useState('')
@@ -145,6 +137,21 @@ export function ClientOnboardForm({
     defaultValues?.directories?.some((val: string) => val.startsWith('Other:')) || false
   )
   const { toast } = useToast()
+
+  const [industry, setIndustry] = useState<string | null>(propIndustry || null)
+
+  useEffect(() => {
+    if (!propIndustry) {
+      const user = getUserData() as any
+      if (user?.organization?.industry) {
+        setIndustry(user.organization.industry)
+      }
+    }
+  }, [propIndustry])
+
+  const currentIndustry = propIndustry || industry || 'financial_services'
+  const clientConfig = React.useMemo(() => getIndustryClientConfig(propIndustry || industry), [propIndustry, industry])
+  const isFinancial = clientConfig.key === 'financial_services'
 
   const form = useForm<ClientOnboardFormValues>({
     resolver: zodResolver(clientOnboardSchema),
@@ -173,6 +180,55 @@ export function ClientOnboardForm({
 
   const handleSubmit = async (data: ClientOnboardFormValues) => {
     setIsLoading(true)
+
+    // Validate company name only if required by industry
+    if (clientConfig.companyRequired && (!data.companyName || data.companyName.trim().length < 2)) {
+      setIsLoading(false)
+      form.setError('companyName', {
+        type: 'manual',
+        message: `${clientConfig.companyLabel} must be at least 2 characters`,
+      })
+      toast({
+        title: 'Validation Error',
+        description: `${clientConfig.companyLabel} is required`,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Strict PAN validation for financial services
+    if (isFinancial && data.panNumber && data.panNumber.trim() !== '') {
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(data.panNumber.trim())) {
+        setIsLoading(false)
+        form.setError('panNumber', {
+          type: 'manual',
+          message: 'Please enter a valid PAN number (e.g., ABCDE1234F)',
+        })
+        toast({
+          title: 'Validation Error',
+          description: 'Please enter a valid PAN number (e.g., ABCDE1234F)',
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+
+    // Strict GST validation for financial services
+    if (isFinancial && data.gstNumber && data.gstNumber.trim() !== '') {
+      if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(data.gstNumber.trim())) {
+        setIsLoading(false)
+        form.setError('gstNumber', {
+          type: 'manual',
+          message: 'Please enter a valid GST number (e.g., 22ABCDE1234F1Z5)',
+        })
+        toast({
+          title: 'Validation Error',
+          description: 'Please enter a valid GST number (e.g., 22ABCDE1234F1Z5)',
+          variant: 'destructive',
+        })
+        return
+      }
+    }
     
     // Validate custom business type if "Other" is selected
     if (data.businessType === 'Other' && (!data.customBusinessType || data.customBusinessType.trim().length < 2)) {
@@ -200,6 +256,11 @@ export function ClientOnboardForm({
         ? data.customBusinessType.trim()
         : data.businessType
       
+      // Safe fallback for company name for non-corporate industries
+      const finalCompanyName = (data.companyName && data.companyName.trim() !== '')
+        ? data.companyName.trim()
+        : data.name.trim()
+      
       // Transform form data to Client format with all fields
       const clientData: Omit<Client, 'id' | 'lastContactedDate'> & {
         panNumber?: string
@@ -224,7 +285,7 @@ export function ClientOnboardForm({
         name: data.name,
         email: data.email,
         phone: (data.phone && data.phone.trim() !== '') ? data.phone : null,
-        companyName: data.companyName,
+        companyName: finalCompanyName,
         directories: data.directories || [],
         followUpDate: data.followUpDate ? format(data.followUpDate, 'yyyy-MM-dd') : null,
         status: (data.status && data.status.trim() !== '') ? data.status : undefined,
@@ -318,7 +379,7 @@ export function ClientOnboardForm({
     if (!directorToSave.name || directorToSave.name.trim().length < 2) {
       toast({
         title: 'Validation Error',
-        description: 'Director name is required and must be at least 2 characters',
+        description: `${clientConfig.stakeholdersSingular} name is required and must be at least 2 characters`,
         variant: 'destructive',
       })
       return
@@ -345,7 +406,7 @@ export function ClientOnboardForm({
     
     toast({
       title: 'Success',
-      description: 'Director saved successfully',
+      description: `${clientConfig.stakeholdersSingular} saved successfully`,
       variant: 'success',
     })
   }
@@ -373,9 +434,9 @@ export function ClientOnboardForm({
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Client Name <span className="text-destructive">*</span></FormLabel>
+                        <FormLabel>{clientConfig.nameLabel} <span className="text-destructive">*</span></FormLabel>
                         <FormControl>
-                          <Input placeholder="John Doe" {...field} />
+                          <Input placeholder={clientConfig.namePlaceholder} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -386,9 +447,16 @@ export function ClientOnboardForm({
                     name="companyName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Company Name <span className="text-destructive">*</span></FormLabel>
+                        <FormLabel>
+                          {clientConfig.companyLabel}{' '}
+                          {clientConfig.companyRequired ? (
+                            <span className="text-destructive">*</span>
+                          ) : (
+                            <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                          )}
+                        </FormLabel>
                         <FormControl>
-                          <Input placeholder="Acme Corporation" {...field} />
+                          <Input placeholder={clientConfig.companyPlaceholder} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -425,7 +493,7 @@ export function ClientOnboardForm({
                     name="businessType"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Business Type <span className="text-destructive">*</span></FormLabel>
+                        <FormLabel>{clientConfig.businessTypeLabel} <span className="text-destructive">*</span></FormLabel>
                         <Select
                           onValueChange={(value) => {
                             field.onChange(value)
@@ -439,7 +507,7 @@ export function ClientOnboardForm({
                         >
                           <FormControl>
                             <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select business type" />
+                              <SelectValue placeholder={clientConfig.businessTypePlaceholder} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -493,7 +561,7 @@ export function ClientOnboardForm({
                   <div className="space-y-3 pt-1">
                     <div className="flex gap-2 items-center">
                       <Input
-                        placeholder="Enter custom business type"
+                        placeholder={`Enter custom ${clientConfig.businessTypeLabel.toLowerCase()}`}
                         value={customBusinessTypeInput}
                         onChange={(e) => setCustomBusinessTypeInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -579,7 +647,10 @@ export function ClientOnboardForm({
 
               {/* Services */}
               <div className="p-5 space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Services</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {clientConfig.servicesSectionTitle}{' '}
+                  <span className="normal-case font-normal text-muted-foreground/70">({clientConfig.servicesHelpText})</span>
+                </p>
                 <FormField
                   control={form.control}
                   name="directories"
@@ -674,7 +745,7 @@ export function ClientOnboardForm({
                       {isOtherServiceChecked && (
                         <div className="flex gap-2 items-center mt-3">
                           <Input
-                            placeholder="Enter custom service"
+                            placeholder={clientConfig.otherServicePlaceholder}
                             value={customServiceInput}
                             onChange={(e) => setCustomServiceInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -732,49 +803,51 @@ export function ClientOnboardForm({
               </div>
 
               {/* Tax Information */}
-              <div className="p-5 space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tax Information <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="panNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>PAN Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="ABCDE1234F"
-                            maxLength={10}
-                            className="uppercase"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="gstNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>GST Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="22ABCDE1234F1Z5"
-                            maxLength={15}
-                            className="uppercase"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              {clientConfig.showTaxSection && (
+                <div className="p-5 space-y-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{clientConfig.taxSectionTitle} <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                      control={form.control}
+                      name="panNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{clientConfig.panLabel}</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={clientConfig.panPlaceholder}
+                              maxLength={10}
+                              className="uppercase"
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="gstNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{clientConfig.gstLabel}</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={clientConfig.gstPlaceholder}
+                              maxLength={15}
+                              className="uppercase"
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Address */}
               <div className="p-5 space-y-4">
@@ -856,7 +929,7 @@ export function ClientOnboardForm({
                     name="onboardDate"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Onboard Date</FormLabel>
+                        <FormLabel>{clientConfig.onboardDateLabel}</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -888,7 +961,7 @@ export function ClientOnboardForm({
                     name="followUpDate"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Follow-up Date</FormLabel>
+                        <FormLabel>{clientConfig.followUpDateLabel}</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -920,7 +993,7 @@ export function ClientOnboardForm({
 
               {/* Notes */}
               <div className="p-5 space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{clientConfig.notesLabel} <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
                 <FormField
                   control={form.control}
                   name="notes"
@@ -928,7 +1001,7 @@ export function ClientOnboardForm({
                     <FormItem>
                       <FormControl>
                         <Textarea
-                          placeholder="Any additional information about this client..."
+                          placeholder={clientConfig.notesPlaceholder}
                           className="min-h-[80px] resize-none"
                           {...field}
                         />
@@ -939,11 +1012,14 @@ export function ClientOnboardForm({
                 />
               </div>
 
-              {/* Directors */}
+              {/* Directors / Stakeholders */}
               <div className="p-5 space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Directors <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {clientConfig.stakeholdersSectionTitle}{' '}
+                    <span className="normal-case font-normal text-muted-foreground/70">(optional)</span>
+                  </p>
                 </div>
                 <Button
                   type="button"
@@ -953,20 +1029,20 @@ export function ClientOnboardForm({
                   className="w-full sm:w-auto shrink-0"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
-                  Add Director
+                  {clientConfig.stakeholdersAddButtonLabel}
                 </Button>
               </div>
 
               {directors.length === 0 && savedDirectors.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground border border-dashed rounded-md">
-                  No directors added. Click "Add Director" to add director details.
+                  No {clientConfig.stakeholdersSectionTitle.toLowerCase()} added. Click "{clientConfig.stakeholdersAddButtonLabel}" to add details.
                 </div>
               ) : directors.length > 0 ? (
                 <div className="space-y-6">
                   {directors.map((director, index) => (
                     <div key={index} className="border border-input rounded-lg p-3 sm:p-4 space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium">Director {savedDirectors.length + index + 1}</h4>
+                        <h4 className="text-sm font-medium">{clientConfig.stakeholdersSingular} {savedDirectors.length + index + 1}</h4>
                       </div>
 
                       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -975,7 +1051,7 @@ export function ClientOnboardForm({
                           name={`directors.${index}.name`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Director Name *</FormLabel>
+                              <FormLabel>{clientConfig.stakeholdersSingular} Name *</FormLabel>
                               <FormControl>
                                 <Input placeholder="John Doe" {...field} />
                               </FormControl>
@@ -1017,77 +1093,83 @@ export function ClientOnboardForm({
                           name={`directors.${index}.designation`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Designation</FormLabel>
+                              <FormLabel>{clientConfig.designationLabel}</FormLabel>
                               <FormControl>
-                                <Input placeholder="Managing Director" {...field} />
+                                <Input placeholder={clientConfig.designationPlaceholder} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
 
-                        <FormField
-                          control={form.control}
-                          name={`directors.${index}.din`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>DIN</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Director Identification Number" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {clientConfig.showDinField && (
+                          <FormField
+                            control={form.control}
+                            name={`directors.${index}.din`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>DIN</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Director Identification Number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
 
-                        <FormField
-                          control={form.control}
-                          name={`directors.${index}.pan`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>PAN</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="ABCDE1234F" 
-                                  maxLength={10}
-                                  className="uppercase"
-                                  {...field}
-                                  onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                                />
-                              </FormControl>
-                              <FormDescription className="invisible">
-                                Placeholder for alignment
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {clientConfig.showPanAadharFields && (
+                          <>
+                            <FormField
+                              control={form.control}
+                              name={`directors.${index}.pan`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>PAN</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="ABCDE1234F" 
+                                      maxLength={10}
+                                      className="uppercase"
+                                      {...field}
+                                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                    />
+                                  </FormControl>
+                                  <FormDescription className="invisible">
+                                    Placeholder for alignment
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                        <FormField
-                          control={form.control}
-                          name={`directors.${index}.aadhar`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Aadhar Number</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="1234 5678 9012" 
-                                  maxLength={14}
-                                  {...field}
-                                  onChange={(e) => {
-                                    const value = e.target.value.replace(/\D/g, '')
-                                    const formatted = value.replace(/(\d{4})(?=\d)/g, '$1 ')
-                                    field.onChange(formatted.trim())
-                                  }}
-                                />
-                              </FormControl>
-                              <FormDescription>
-                                Format: 1234 5678 9012
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                            <FormField
+                              control={form.control}
+                              name={`directors.${index}.aadhar`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Aadhar Number</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="1234 5678 9012" 
+                                      maxLength={14}
+                                      {...field}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/\D/g, '')
+                                        const formatted = value.replace(/(\d{4})(?=\d)/g, '$1 ')
+                                        field.onChange(formatted.trim())
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Format: 1234 5678 9012
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </>
+                        )}
 
                       </div>
                       <div className="flex justify-end gap-2 pt-2 border-t border-border mt-2">
@@ -1107,7 +1189,7 @@ export function ClientOnboardForm({
                           size="sm"
                           onClick={() => saveDirector(index)}
                         >
-                          Save Director
+                          Save {clientConfig.stakeholdersSingular}
                         </Button>
                       </div>
                     </div>
@@ -1115,10 +1197,10 @@ export function ClientOnboardForm({
                 </div>
               ) : null}
 
-              {/* Directors Table - Shows saved directors */}
+              {/* Directors Table - Shows saved directors / stakeholders */}
               {savedDirectors.length > 0 && (
                 <div className="space-y-4 overflow-x-hidden max-w-full">
-                  <h3 className="text-sm font-semibold">Saved Directors</h3>
+                  <h3 className="text-sm font-semibold">Saved {clientConfig.stakeholdersSectionTitle}</h3>
                   
                   {/* Mobile Card Layout */}
                   <div className="block md:hidden space-y-3">
@@ -1143,21 +1225,27 @@ export function ClientOnboardForm({
                                 <span className="flex-1">{director.phone || '—'}</span>
                               </div>
                               <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">Designation:</span>
+                                <span className="text-muted-foreground min-w-[80px]">{clientConfig.designationLabel}:</span>
                                 <span className="flex-1">{director.designation || '—'}</span>
                               </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">DIN:</span>
-                                <span className="flex-1">{director.din || '—'}</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">PAN:</span>
-                                <span className="flex-1">{director.pan || '—'}</span>
-                              </div>
-                              <div className="flex items-start gap-2">
-                                <span className="text-muted-foreground min-w-[80px]">Aadhar:</span>
-                                <span className="flex-1">{director.aadhar || '—'}</span>
-                              </div>
+                              {clientConfig.showDinField && (
+                                <div className="flex items-start gap-2">
+                                  <span className="text-muted-foreground min-w-[80px]">DIN:</span>
+                                  <span className="flex-1">{director.din || '—'}</span>
+                                </div>
+                              )}
+                              {clientConfig.showPanAadharFields && (
+                                <>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-muted-foreground min-w-[80px]">PAN:</span>
+                                    <span className="flex-1">{director.pan || '—'}</span>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-muted-foreground min-w-[80px]">Aadhar:</span>
+                                    <span className="flex-1">{director.aadhar || '—'}</span>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </div>
                           <Button
@@ -1184,10 +1272,16 @@ export function ClientOnboardForm({
                             <TableHead className="min-w-[120px] bg-background whitespace-nowrap">Name</TableHead>
                             <TableHead className="min-w-[180px] bg-background whitespace-nowrap">Email</TableHead>
                             <TableHead className="min-w-[140px] bg-background whitespace-nowrap">Phone</TableHead>
-                            <TableHead className="min-w-[150px] bg-background whitespace-nowrap">Designation</TableHead>
-                            <TableHead className="min-w-[120px] bg-background whitespace-nowrap">DIN</TableHead>
-                            <TableHead className="min-w-[120px] bg-background whitespace-nowrap">PAN</TableHead>
-                            <TableHead className="min-w-[140px] bg-background whitespace-nowrap">Aadhar</TableHead>
+                            <TableHead className="min-w-[150px] bg-background whitespace-nowrap">{clientConfig.designationLabel}</TableHead>
+                            {clientConfig.showDinField && (
+                              <TableHead className="min-w-[120px] bg-background whitespace-nowrap">DIN</TableHead>
+                            )}
+                            {clientConfig.showPanAadharFields && (
+                              <>
+                                <TableHead className="min-w-[120px] bg-background whitespace-nowrap">PAN</TableHead>
+                                <TableHead className="min-w-[140px] bg-background whitespace-nowrap">Aadhar</TableHead>
+                              </>
+                            )}
                             <TableHead className="text-right min-w-[100px] bg-background whitespace-nowrap">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1215,15 +1309,21 @@ export function ClientOnboardForm({
                                   {director.designation || '—'}
                                 </span>
                               </TableCell>
-                              <TableCell className="whitespace-nowrap">
-                                {director.din || '—'}
-                              </TableCell>
-                              <TableCell className="whitespace-nowrap">
-                                {director.pan || '—'}
-                              </TableCell>
-                              <TableCell className="whitespace-nowrap">
-                                {director.aadhar || '—'}
-                              </TableCell>
+                              {clientConfig.showDinField && (
+                                <TableCell className="whitespace-nowrap">
+                                  {director.din || '—'}
+                                </TableCell>
+                              )}
+                              {clientConfig.showPanAadharFields && (
+                                <>
+                                  <TableCell className="whitespace-nowrap">
+                                    {director.pan || '—'}
+                                  </TableCell>
+                                  <TableCell className="whitespace-nowrap">
+                                    {director.aadhar || '—'}
+                                  </TableCell>
+                                </>
+                              )}
                               <TableCell className="text-right whitespace-nowrap">
                                 <Button
                                   type="button"
@@ -1263,7 +1363,7 @@ export function ClientOnboardForm({
           <Button type="submit" disabled={isLoading} className="sm:min-w-[140px]">
             {isLoading
               ? (isEditing ? 'Updating...' : 'Onboarding...')
-              : (isEditing ? 'Update Client' : 'Onboard Client')
+              : (isEditing ? clientConfig.editTitle : clientConfig.onboardButtonLabel)
             }
           </Button>
         </div>

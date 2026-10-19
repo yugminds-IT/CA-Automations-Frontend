@@ -1,0 +1,81 @@
+# Lekvya AI Automation & Transactional Email Platform
+
+> Lekvya (developed by Navedhana) is a unified AI automation, transactional email infrastructure, and client communication platform serving Educational Institutions, Website Developers, Healthcare Clinics, E-Commerce, SaaS, and Chartered Accountants (CAs).
+
+Website: https://lekvya.navedhana.com
+Plans & Pricing: https://lekvya.navedhana.com/plan
+Documentation: https://lekvya.navedhana.com/docs
+Support: support@navedhana.com
+
+## Core Value Proposition
+Lekvya eliminates manual communication bottlenecks through automated client onboarding, intelligent bulk email scheduling, developer contact form APIs (EmailJS/Resend alternative), and pre-built multi-industry compliance workflows.
+
+## Supported Industry Verticals & Presets
+
+1. Educational Institutions & Academies (Schools, Colleges, Universities, Coaching)
+   - Tuition & semester fee payment reminders (fee amount, due date, portal link)
+   - Term & semester examination schedules, hall ticket release alerts
+   - Faculty & Lecturer Council meeting notices
+   - Invigilation & examination duty allocation rosters
+   - Campus recruitment drives & placement alerts
+
+2. Websites, Developers & APIs (EmailJS / Resend Alternative)
+   - Public contact form submission API (`POST /api/v1/send-form` with `x-public-key`)
+   - Instant visitor auto-responders & admin notifications
+   - Transactional email API with Bearer token authentication
+   - Real-time developer webhooks for delivery, bounces, and opens
+   - 1x1 transparent GIF open-tracking pixel and click analytics
+
+3. Healthcare Clinics & Medical Centers
+   - 24-hour advance patient consultation and appointment reminders
+   - Doctor schedule updates and clinic visit preparations
+   - Secure laboratory test report readiness and portal download links
+
+4. E-Commerce & Retail
+   - Automated order confirmation receipts
+   - Live shipment tracking alerts and courier status
+   - Abandoned cart re-engagement sequences
+
+5. SaaS & Technology Startups
+   - Automated user onboarding drips
+   - Passwordless magic login links
+   - Trial ending warnings and subscription renewal invoices
+
+6. Chartered Accountants (CAs) & Financial Firms
+   - Statutory GST filing deadline alerts and GSTR reconciliation reminders
+   - TDS return filing reminders and deductee sheet collection requests
+   - Income Tax Return (ITR) filing deadlines and tax audit notifications
+   - Client document submission portals
+
+## Subscription Plans & Pricing (INR)
+
+- Basic Plan (₹499 / month):
+  - 7-Day Free Trial (No credit card required)
+  - All 6 industry starter presets and merge variables
+  - Client onboarding system & intake forms
+  - Bulk email scheduler (Daily, Weekly, Monthly)
+  - Developer contact form API & auto-responders
+  - Client document submission portal
+  - Centralized analytics dashboard
+
+- Pro Plan (₹699 / month) [Coming Soon / Waitlist]:
+  - Everything in Basic
+  - Unlimited custom templates & dynamic merge tags
+  - Developer webhooks & event triggers
+  - Real-time open & click tracking analytics
+  - Priority email delivery queues
+  - Client portal logins & team collaboration
+
+- Premium Plan (₹999 / month) [Coming Soon / Waitlist]:
+  - Everything in Pro
+  - Custom sending domain verification (SPF, DKIM, DMARC)
+  - 100% White-label portal & custom branding
+  - Dedicated account manager & 24/7 SLA
+  - Custom ERP / CRM / SIS integrations
+  - Unlimited organization users & workspaces
+
+## Security & Compliance
+- AES-256 encryption at rest
+- TLS 1.3 encryption in transit
+- Multi-tenant organization isolation
+- Strict anti-spam protections & suppression list management

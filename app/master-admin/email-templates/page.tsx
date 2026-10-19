@@ -17,7 +17,7 @@ import {
   type EmailTemplateTypeValue,
 } from "@/lib/api/index"
 import type { TemplateCategory } from "@/lib/api/index"
-import { DEFAULT_EMAIL_TEMPLATES } from "@/lib/api/default-email-templates"
+import { getTypesByCategory } from "@/lib/api/email-templates"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -125,6 +125,25 @@ export default function MasterAdminEmailTemplates() {
     body: "",
   })
   const [bodyTab, setBodyTab] = useState<"edit" | "preview">("edit")
+  const [availableTypes, setAvailableTypes] = useState<{ value: string; label: string }[]>([])
+
+  useEffect(() => {
+    if (!formData.category) return
+    let active = true
+    getTypesByCategory(formData.category)
+      .then((res: any) => {
+        if (!active) return
+        const list = Array.isArray(res) ? res : []
+        setAvailableTypes(list)
+        if (list.length > 0 && (!formData.type || !list.some((item) => item.value === formData.type))) {
+          setFormData((prev) => ({ ...prev, type: list[0].value }))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [formData.category])
 
   // Refs for variable insertion
   const editorRef = useRef<RichTextareaRef | null>(null)
@@ -483,7 +502,7 @@ export default function MasterAdminEmailTemplates() {
                               {getCategoryLabel(template.category)}
                             </span>
                           </div>
-                          {template.is_default && (
+                          {Boolean((template as any).is_default) && (
                             <span className="text-xs text-blue-600 dark:text-blue-400 font-medium shrink-0">Default</span>
                           )}
                         </div>
@@ -621,12 +640,13 @@ export default function MasterAdminEmailTemplates() {
                     <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as EmailTemplateTypeValue })}>
                       <SelectTrigger id="template-type" className="h-9 w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.values(EmailTemplateType).filter((type) => {
-                          const defaultTemplate = DEFAULT_EMAIL_TEMPLATES.find((t) => t.type === type)
-                          return defaultTemplate?.category === formData.category
-                        }).map((type) => (
-                          <SelectItem key={type} value={type}>{getTypeLabel(type)}</SelectItem>
-                        ))}
+                        {availableTypes.length > 0 ? (
+                          availableTypes.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value={formData.type || "custom"}>{formData.type || "Default"}</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -684,7 +704,7 @@ export default function MasterAdminEmailTemplates() {
                   value={formData.body}
                   onChange={(v) => setFormData((prev) => ({ ...prev, body: v }))}
                   placeholder="Write your email body here. Use variables like {{client_name}} or click 'Insert Variable'."
-                  rows={14}
+                  minHeight={280}
                 />
               ) : (
                 <div className="rounded-md border border-border overflow-hidden" style={{ height: 300 }}>

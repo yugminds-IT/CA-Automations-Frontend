@@ -18,6 +18,7 @@ import {
   BarChart3,
   Mail,
   ChevronRight,
+  Layers,
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState } from "react"
@@ -47,6 +48,7 @@ const menuGroups = [
     items: [
       { icon: Users, label: "User Management", path: "/master-admin/users" },
       { icon: Building2, label: "Organizations", path: "/master-admin/organizations" },
+      { icon: Layers, label: "Workspace Features", path: "/master-admin/workspace-features" },
       { icon: Mail, label: "Email Templates", path: "/master-admin/email-templates" },
     ],
   },

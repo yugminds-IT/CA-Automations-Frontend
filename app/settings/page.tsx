@@ -26,11 +26,18 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Sparkles,
+  BookOpen,
+  HelpCircle,
+  Info,
+  ExternalLink,
+  Server,
 } from "lucide-react"
 import { getMe, updateProfile, isAuthenticated } from "@/lib/api/index"
 import { getSmtpConfig, saveSmtpConfig, clearSmtpConfig, testSmtpConfig } from "@/lib/api/organizations"
 import { useToast } from "@/components/ui/use-toast"
 import type { SmtpConfigResponse } from "@/lib/api/types"
+import { SmtpSetupGuideDialog, SMTP_PRESETS, type SmtpPreset } from "@/components/smtp/smtp-setup-guide-dialog"
 
 interface UserProfile {
   id: number
@@ -115,6 +122,7 @@ export default function SettingsPage() {
   const [smtpEditMode, setSmtpEditMode] = useState(false)
   const [testEmail, setTestEmail] = useState("")
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [guideOpen, setGuideOpen] = useState(false)
 
   const [smtpForm, setSmtpForm] = useState({
     smtpHost: "",
@@ -133,8 +141,47 @@ export default function SettingsPage() {
       typeof profile.role === "object"
         ? profile.role?.name
         : (profile as unknown as { roleName?: string }).roleName ?? (profile.role as unknown as string)
-    return rn === "ORG_ADMIN"
+    return rn === "ORG_ADMIN" || rn === "MASTER_ADMIN"
   })()
+
+  // Handle URL query parameters (?section=email, ?preset=gmail, ?guide=true)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      const section = params.get("section") || params.get("tab")
+      if (section && ["general", "security", "notifications", "email"].includes(section)) {
+        setActiveSection(section)
+      }
+      const presetId = params.get("preset")
+      if (presetId && SMTP_PRESETS[presetId]) {
+        const p = SMTP_PRESETS[presetId]
+        setSmtpForm((prev) => ({
+          ...prev,
+          smtpHost: p.host,
+          smtpPort: p.port.toString(),
+          smtpSecure: p.secure,
+        }))
+        setSmtpEditMode(true)
+      }
+      if (params.get("guide") === "true") {
+        setGuideOpen(true)
+      }
+    }
+  }, [])
+
+  const applyPreset = (preset: SmtpPreset) => {
+    setSmtpForm((f) => ({
+      ...f,
+      smtpHost: preset.host,
+      smtpPort: preset.port.toString(),
+      smtpSecure: preset.secure,
+    }))
+    setSmtpEditMode(true)
+    toast({
+      title: `${preset.name} Preset Selected`,
+      description: `Host set to ${preset.host}:${preset.port}. Enter your email & App Password.`,
+    })
+  }
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -496,6 +543,60 @@ export default function SettingsPage() {
                           {/* SMTP form */}
                           {(smtpEditMode || !smtpConfig?.configured) && isOrgAdmin && (
                             <div className="space-y-4 pt-1">
+                              {/* Guide launcher banner */}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-primary/20 bg-primary/5">
+                                <div className="flex items-center gap-2.5">
+                                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                                    <BookOpen className="h-4 w-4" />
+                                  </span>
+                                  <div>
+                                    <p className="text-xs font-semibold text-foreground">Need help finding your SMTP credentials?</p>
+                                    <p className="text-[11px] text-muted-foreground">Detailed steps for Google App Passwords, Microsoft 365, Zoho & cPanel.</p>
+                                  </div>
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setGuideOpen(true)}
+                                  className="gap-1.5 text-xs h-8 bg-background border-primary/30 text-primary hover:bg-primary/10 shrink-0 font-medium"
+                                >
+                                  <Sparkles className="h-3 w-3" />
+                                  Open Setup Guide
+                                </Button>
+                              </div>
+
+                              {/* Quick fill presets */}
+                              <div className="space-y-2 p-3 rounded-xl bg-muted/40 border border-border">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Quick-Fill Provider Presets
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">Auto-configures host, port & security</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {[
+                                    { id: "gmail", label: "Gmail / Google", icon: Sparkles },
+                                    { id: "outlook", label: "Microsoft 365", icon: Server },
+                                    { id: "hostinger", label: "Hostinger", icon: Server },
+                                    { id: "godaddy", label: "GoDaddy", icon: Globe },
+                                    { id: "zoho_in", label: "Zoho (India .in)", icon: Globe },
+                                    { id: "zoho_global", label: "Zoho (Global .com)", icon: Globe },
+                                    { id: "custom", label: "Custom cPanel", icon: Mail },
+                                  ].map((preset) => (
+                                    <button
+                                      key={preset.id}
+                                      type="button"
+                                      onClick={() => applyPreset(SMTP_PRESETS[preset.id])}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-card hover:bg-accent hover:border-primary/40 text-foreground transition-all shadow-2xs"
+                                    >
+                                      <preset.icon className="h-3 w-3 text-primary" />
+                                      {preset.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                   <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">SMTP Host</Label>
@@ -521,7 +622,7 @@ export default function SettingsPage() {
                               <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-[#F8FAFC] dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-[#334155]">
                                 <div>
                                   <p className="text-[13px] font-medium text-[#0F172A] dark:text-white">SSL/TLS (Secure)</p>
-                                  <p className="text-[11px] text-[#94A3B8]">Enable for port 465, disable for 587 (STARTTLS)</p>
+                                  <p className="text-[11px] text-[#94A3B8]">Enable for port 465 (SSL), disable for port 587 (STARTTLS)</p>
                                 </div>
                                 <Switch
                                   checked={smtpForm.smtpSecure}
@@ -540,16 +641,28 @@ export default function SettingsPage() {
                               </div>
 
                               <div className="space-y-1.5">
-                                <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">
-                                  Password {smtpConfig?.configured && <span className="text-[11px] text-[#94A3B8] font-normal">(leave blank to keep current)</span>}
-                                </Label>
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">
+                                    Password {smtpConfig?.configured && <span className="text-[11px] text-[#94A3B8] font-normal">(leave blank to keep current)</span>}
+                                  </Label>
+                                  <button
+                                    type="button"
+                                    onClick={() => setGuideOpen(true)}
+                                    className="text-[11px] text-primary hover:underline font-medium inline-flex items-center gap-1"
+                                  >
+                                    <HelpCircle className="h-3 w-3" /> How to get App Password
+                                  </button>
+                                </div>
                                 <Input
-                                  type="text"
-                                  placeholder={smtpConfig?.configured ? "••••••••" : "SMTP password or app password"}
+                                  type="password"
+                                  placeholder={smtpConfig?.configured ? "••••••••" : "SMTP password or 16-character App Password"}
                                   value={smtpForm.smtpPass}
                                   onChange={(e) => setSmtpForm((f) => ({ ...f, smtpPass: e.target.value }))}
                                   className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]"
                                 />
+                                <p className="text-[11px] text-muted-foreground">
+                                  Note: Gmail, Outlook, and Zoho require an <strong>App Password</strong> instead of your regular account password.
+                                </p>
                               </div>
 
                               <div className="space-y-1.5">
@@ -764,6 +877,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      <SmtpSetupGuideDialog open={guideOpen} onOpenChange={setGuideOpen} onSelectPreset={applyPreset} />
     </div>
   )
 }

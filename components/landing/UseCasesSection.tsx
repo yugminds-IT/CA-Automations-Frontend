@@ -41,7 +41,7 @@ const industries = [
     images: [
       { id: 1, title: "Transaction Alerts", imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800&auto=format&fit=crop" },
       { id: 2, title: "Financial Statements", imageUrl: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=800&auto=format&fit=crop" },
-      { id: 3, title: "Fraud Detection", imageUrl: "https://images.unsplash.com/photo-1563986768609-322da13575f2?q=80&w=800&auto=format&fit=crop" },
+      { id: 3, title: "Fraud Detection", imageUrl: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop" },
       { id: 4, title: "Credit Offers", imageUrl: "https://images.unsplash.com/photo-1559526324-593bc073d938?q=80&w=800&auto=format&fit=crop" },
     ],
   },
@@ -101,7 +101,7 @@ const industries = [
     images: [
       { id: 1, title: "Booking Alerts", imageUrl: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=800&auto=format&fit=crop" },
       { id: 2, title: "Travel Deals", imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop" },
-      { id: 3, title: "Itinerary Updates", imageUrl: "https://images.unsplash.com/photo-1436491865332-7a61a109db05?q=80&w=800&auto=format&fit=crop" },
+      { id: 3, title: "Itinerary Updates", imageUrl: "https://images.unsplash.com/photo-1506015391300-4802dc74de2e?q=80&w=800&auto=format&fit=crop" },
       { id: 4, title: "Hospitality", imageUrl: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=800&auto=format&fit=crop" },
     ],
   },
@@ -114,7 +114,7 @@ const industries = [
       "Subscription content",
     ],
     images: [
-      { id: 1, title: "Newsletters", imageUrl: "https://images.unsplash.com/photo-1504711434969-e33886168d0c?q=80&w=800&auto=format&fit=crop" },
+      { id: 1, title: "Newsletters", imageUrl: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?q=80&w=800&auto=format&fit=crop" },
       { id: 2, title: "Daily Updates", imageUrl: "https://images.unsplash.com/photo-1495020689067-958852a7765e?q=80&w=800&auto=format&fit=crop" },
       { id: 3, title: "Subscriptions", imageUrl: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?q=80&w=800&auto=format&fit=crop" },
       { id: 4, title: "Publishing", imageUrl: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=800&auto=format&fit=crop" },
