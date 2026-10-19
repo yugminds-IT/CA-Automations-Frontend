@@ -1,0 +1,70 @@
+# Lekvya Platform Full Technical & Product Context for LLMs
+
+## Overview
+Lekvya (https://lekvya.navedhana.com) is an enterprise-grade AI automation, transactional email infrastructure, and client communication platform developed by Navedhana. The platform bridges the gap between specialized business processes and automated communication workflows.
+
+## System Architecture
+- Frontend: Next.js (App Router), Tailwind CSS, Framer Motion, Radix UI.
+- Backend: NestJS, TypeORM, PostgreSQL, Redis BullMQ, S3 Storage.
+- AI Engine: Python Fastify/FastAPI orchestration for smart classification and schedule generation.
+- Hosting: Coolify private cloud infrastructure.
+
+## Detailed Industry Workflows & Starter Presets
+
+### 1. Educational Institutions & Academies (Key: `school` / `education`)
+- Target Audience: Universities, Engineering Colleges, Private Schools, Coaching Academies, Deans, HODs, Lecturers, and Placement Officers.
+- Variables: `recipient_name`, `recipient_role`, `institution_name`, `department`, `designation`, `student_name`, `parent_name`, `grade_class`, `roll_number`, `fee_amount`, `due_date`, `meeting_datetime`, `meeting_venue`, `portal_url`.
+- Workflows:
+  - Tuition & Semester Fee Payment Due Reminder
+  - Examination Schedule & Hall Ticket Distribution Notice
+  - Academic & Faculty Council Review Meeting Notice
+  - Examination Duty & Invigilation Roster Allocation
+  - Institutional Circular from Director's Office
+  - Campus Placement & Internship Recruitment Alerts
+
+### 2. Websites, Developers & Startups (Key: `website_developer`)
+- Model: Serves as an open, high-performance alternative to EmailJS and Resend.
+- Endpoints:
+  - `POST /api/v1/send-form` (Headers: `x-public-key` or `x-api-key`)
+  - `POST /developer/send-form`
+  - `POST /api/v1/email/send`
+- Features:
+  - Frictionless frontend form integration without backend code
+  - Immediate dual-dispatch: Admin alert + Visitor auto-responder
+  - Webhooks for `email.delivered`, `email.opened`, `email.clicked`, `email.bounced`
+  - 1x1 transparent GIF tracking pixel (`/developer/track/open/:id.gif`)
+  - Suppression lists and bounce handling
+
+### 3. Healthcare & Clinics (Key: `healthcare`)
+- Target Audience: Diagnostic labs, multi-specialty clinics, dental practices, and individual doctors.
+- Variables: `patient_name`, `doctor_name`, `appointment_date`, `appointment_time`, `clinic_address`, `report_link`.
+- Workflows:
+  - 24-Hour Automated Consultation Reminder
+  - Lab Report Readiness & Secure Portal Download Notice
+
+### 4. E-Commerce & Retail (Key: `ecommerce`)
+- Variables: `customer_name`, `order_id`, `order_total`, `tracking_url`, `items_summary`.
+- Workflows:
+  - Instant Order Confirmation & Tax Receipt
+  - Dispatch & Shipment Tracking Updates
+  - Cart Abandonment Re-engagement
+
+### 5. SaaS & Technology Platforms (Key: `saas`)
+- Variables: `user_name`, `app_name`, `trial_days_left`, `login_url`, `plan_name`.
+- Workflows:
+  - 3-Step Product Onboarding Drips
+  - Trial Expiration Notices & Upgrade Calls-to-Action
+
+### 6. Chartered Accountants (CAs) & Financial Services (Key: `financial_services`)
+- Target Audience: Chartered Accountants, Tax Consultants, Audit Firms, and Company Secretaries.
+- Variables: `client_name`, `service_name`, `deadline_date`, `financial_year`, `firm_name`.
+- Workflows:
+  - Monthly/Quarterly GST Filing Deadline Warnings
+  - TDS Return ITNS 281 Challan & Deductee Sheet Requests
+  - Advance Tax, ITR Filing, and Tax Audit Alerts
+
+## Plans, Pricing & Commercial Terms
+URL: https://lekvya.navedhana.com/plan
+- Basic Tier: ₹499/month. Includes full 7-day free trial with no credit card required. Supports all 6 industry starters, client onboarding, bulk email scheduler, 5 custom templates, document submission portal, and contact form API.
+- Pro Tier: ₹699/month. Waitlist open. Adds unlimited custom templates, webhooks, open/click analytics, priority queues, and client portal logins.
+- Premium Tier: ₹999/month. Waitlist open. Adds custom sending domain (SPF/DKIM/DMARC), 100% white-label branding, dedicated SLA, and unlimited organization users.

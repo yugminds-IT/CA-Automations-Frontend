@@ -1,0 +1,71 @@
+name: Deploy to Coolify
+
+on:
+  push:
+    branches:
+      - server
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild (bypass build cache)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    name: Trigger Coolify Deployment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Deployment via Coolify API
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
+          FORCE_REBUILD: ${{ inputs.force_rebuild || false }}
+        run: |
+          # Validate required secrets
+          if [ -z "$COOLIFY_BASE_URL" ]; then
+            echo "::error::Secret COOLIFY_BASE_URL is not set. Please add it to repository secrets (e.g., https://coolify.yourdomain.com)."
+            exit 1
+          fi
+
+          if [ -z "$COOLIFY_TOKEN" ]; then
+            echo "::error::Secret COOLIFY_TOKEN is not set. Please add your Coolify API Bearer Token to repository secrets."
+            exit 1
+          fi
+
+          if [ -z "$COOLIFY_APP_UUID" ]; then
+            echo "::error::Secret COOLIFY_APP_UUID is not set. Please add the Coolify application UUID to repository secrets."
+            exit 1
+          fi
+
+          # Strip trailing slash from base URL if present
+          CLEAN_BASE_URL="${COOLIFY_BASE_URL%/}"
+          DEPLOY_URL="${CLEAN_BASE_URL}/api/v1/deploy?uuid=${COOLIFY_APP_UUID}&force=${FORCE_REBUILD}"
+
+          echo "Initiating deployment to Coolify..."
+          echo "Target Base URL: ${CLEAN_BASE_URL}"
+          echo "Application UUID: ${COOLIFY_APP_UUID}"
+          echo "Force Rebuild: ${FORCE_REBUILD}"
+
+          # Make API request to Coolify
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${DEPLOY_URL}" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Coolify API HTTP Status: ${HTTP_CODE}"
+          echo "Response: ${BODY}"
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Coolify deployment successfully triggered!"
+          else
+            echo "::error::Failed to trigger Coolify deployment. HTTP status code: ${HTTP_CODE}"
+            exit 1
+          fi

@@ -10,8 +10,8 @@ export default function Footer() {
           <div className="md:col-span-2">
             <img src={LOGO_SRC} alt="Lekvya" className="h-14 w-auto object-contain mb-6" style={{ mixBlendMode: 'screen' }} />
             <p className="text-background/60 text-sm leading-relaxed max-w-md">
-              Automate your client communication and onboarding with AI-powered
-              workflows. Built for CAs, financial firms, and marketing teams.
+              AI-powered multi-industry automation & transactional email platform.
+              Built for Educational Institutions, Healthcare Clinics, E-Commerce, Developers, and CA/Tax Firms.
             </p>
             <div className="flex gap-4 mt-6">
               <a href="#" className="w-9 h-9 rounded-full bg-background/10 flex items-center justify-center hover:bg-background/20 transition-colors text-background/60 hover:text-background text-sm">in</a>
@@ -23,10 +23,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-background mb-4">Product</h4>
             <ul className="space-y-2 text-sm text-background/60">
-              <li><a href="#features" className="hover:text-background transition-colors">Features</a></li>
-              <li><a href="#pricing" className="hover:text-background transition-colors">Pricing</a></li>
-              <li><a href="#use-cases" className="hover:text-background transition-colors">Use Cases</a></li>
-              <li><a href="#faq" className="hover:text-background transition-colors">FAQ</a></li>
+              <li><a href="/#features" className="hover:text-background transition-colors">Features</a></li>
+              <li><a href="/plan" className="hover:text-background transition-colors font-medium text-orange-400">Plans & Pricing</a></li>
+              <li><a href="/#use-cases" className="hover:text-background transition-colors">Use Cases</a></li>
+              <li><a href="/docs" className="hover:text-background transition-colors">Developer Docs</a></li>
+              <li><a href="/#faq" className="hover:text-background transition-colors">FAQ</a></li>
             </ul>
           </div>
 
