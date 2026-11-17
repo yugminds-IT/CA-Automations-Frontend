@@ -7,10 +7,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Bell, FileUp, CheckCheck, Clock, AlertTriangle } from "lucide-react"
+import { EmptyState } from "@/components/ui/empty-state"
 import { listNotifications, markNotificationRead, markAllNotificationsRead, getOrganizationData } from "@/lib/api/index"
 import type { AppNotification } from "@/lib/api/index"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDistanceToNow, differenceInDays, startOfDay } from "date-fns"
+import { useRealtimeEvent } from "@/lib/realtime"
 
 function formatFileSize(bytes: number | null): string {
   if (!bytes) return ""
@@ -55,9 +57,9 @@ export default function NotificationsPage() {
     localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
   }, [sidebarCollapsed])
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(async (silent = false) => {
     try {
-      setIsLoading(true)
+      if (!silent) setIsLoading(true)
       const res = await listNotifications({ limit: 50 })
       setNotifications(res.notifications)
       setTotal(res.total)
@@ -65,13 +67,18 @@ export default function NotificationsPage() {
     } catch {
       // silently fail
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }, [])
 
   useEffect(() => {
     fetchNotifications()
   }, [fetchNotifications])
+
+  // Live refresh as soon as a new notification is created
+  useRealtimeEvent('notification.created', () => {
+    fetchNotifications(true)
+  })
 
   const handleMarkRead = async (id: number) => {
     try {
@@ -185,14 +192,12 @@ export default function NotificationsPage() {
               </div>
             ) : notifications.length === 0 ? (
               <Card className="border-2 border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="mx-auto w-14 h-14 bg-muted rounded-full flex items-center justify-center mb-4">
-                    <Bell className="h-7 w-7 text-muted-foreground" />
-                  </div>
-                  <p className="font-medium text-foreground">No notifications yet</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    You'll see alerts here when clients upload documents.
-                  </p>
+                <CardContent>
+                  <EmptyState
+                    icon={Bell}
+                    title="No notifications yet"
+                    description="You'll see alerts here when clients upload documents"
+                  />
                 </CardContent>
               </Card>
             ) : (

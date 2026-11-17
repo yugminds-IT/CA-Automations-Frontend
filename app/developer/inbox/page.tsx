@@ -21,7 +21,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
@@ -32,6 +34,7 @@ import {
   deleteFormSubmission,
   FormSubmissionItem,
 } from "@/lib/api/developer";
+import { useRealtimeEvent } from "@/lib/realtime";
 
 export default function FormInboxPage() {
   const router = useRouter();
@@ -42,26 +45,39 @@ export default function FormInboxPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [selectedItem, setSelectedItem] = useState<FormSubmissionItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [payloadView, setPayloadView] = useState<"table" | "json">("table");
 
-  const fetchSubmissions = async () => {
-    setLoading(true);
+  useEffect(() => {
+    setPayloadView("table");
+  }, [selectedItem?.id]);
+
+  const fetchSubmissions = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await getFormSubmissions(statusFilter === "all" ? undefined : statusFilter);
       setSubmissions(data);
     } catch (err: any) {
+      if (silent) return;
       toast({
         title: "Failed to load submissions",
         description: err?.message || "Could not fetch form inquiries",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchSubmissions();
   }, [statusFilter]);
+
+  // Live refresh as soon as a new form submission arrives
+  useRealtimeEvent('developer.submission.created', () => {
+    fetchSubmissions(true);
+  });
 
   const handleUpdateStatus = async (id: number, status: "new" | "read" | "replied" | "converted" | "spam") => {
     try {
@@ -154,6 +170,14 @@ export default function FormInboxPage() {
     );
   });
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, search]);
+
+  const totalItems = filtered.length;
+  const startIndex = (currentPage - 1) * pageSize;
+  const displayedSubmissions = filtered.slice(startIndex, startIndex + pageSize);
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
@@ -176,7 +200,7 @@ export default function FormInboxPage() {
             <UserCheck className="w-4 h-4 mr-1.5 text-zinc-600" />
             Clients & Contacts
           </Button>
-          <Button variant="outline" size="sm" onClick={fetchSubmissions}>
+          <Button variant="outline" size="sm" onClick={() => fetchSubmissions()}>
             <RefreshCw className="w-4 h-4 mr-1.5" /> Refresh
           </Button>
         </div>
@@ -213,13 +237,15 @@ export default function FormInboxPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading inquiries…
-            </div>
+            <Table>
+              <TableSkeleton rows={6} columns={7} />
+            </Table>
           ) : filtered.length === 0 ? (
-            <div className="text-center p-12 text-sm text-muted-foreground">
-              No submissions found for the current filter.
-            </div>
+            <EmptyState
+              icon={Inbox}
+              title="No submissions found"
+              description="No submissions match the current filter"
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -234,7 +260,7 @@ export default function FormInboxPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((item) => (
+                {displayedSubmissions.map((item) => (
                   <TableRow
                     key={item.id}
                     onClick={() => {
@@ -343,32 +369,41 @@ export default function FormInboxPage() {
               </TableBody>
             </Table>
           )}
+          {totalItems > 0 && (
+            <TablePagination
+              totalItems={totalItems}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
 
       {/* Inquiry Detail Modal */}
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
         {selectedItem && (
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
-              <div className="flex items-center justify-between gap-2">
-                <DialogTitle className="text-lg font-bold">
+          <DialogContent className="sm:max-w-xl max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col gap-0 p-0">
+            <DialogHeader className="shrink-0 px-6 pt-6 pb-3 border-b space-y-2">
+              <div className="flex items-start justify-between gap-3 pr-8">
+                <DialogTitle className="text-lg font-bold min-w-0 truncate">
                   {selectedItem.senderName || "Website Visitor"}
                 </DialogTitle>
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                   {selectedItem.status === "converted" || selectedItem.convertedClientId ? (
                     <Button
                       size="sm"
-                      className="bg-black hover:bg-zinc-800 text-white text-xs h-7"
+                      className="bg-zinc-900 hover:bg-zinc-800 text-white text-xs h-7 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
                       onClick={() => router.push("/client-management")}
                     >
-                      <UserCheck className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+                      <UserCheck className="w-3.5 h-3.5 mr-1.5 text-emerald-400 dark:text-emerald-600" />
                       View in Clients
                     </Button>
                   ) : (
                     <Button
                       size="sm"
-                      className="bg-black hover:bg-zinc-800 text-white text-xs h-7"
+                      className="bg-zinc-900 hover:bg-zinc-800 text-white text-xs h-7 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
                       disabled={convertingId === selectedItem.id}
                       onClick={() => handleConvertToClient(selectedItem)}
                     >
@@ -383,7 +418,7 @@ export default function FormInboxPage() {
                   <Button
                     size="sm"
                     variant={selectedItem.status === "replied" ? "default" : "outline"}
-                    className="text-xs h-7"
+                    className="text-xs h-7 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                     onClick={() => handleUpdateStatus(selectedItem.id, "replied")}
                   >
                     Mark Replied
@@ -391,7 +426,7 @@ export default function FormInboxPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="text-xs h-7 text-red-500"
+                    className="text-xs h-7 text-red-500 hover:text-red-600 hover:bg-red-500/10 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/20"
                     onClick={() => handleDelete(selectedItem.id)}
                   >
                     Delete
@@ -404,7 +439,7 @@ export default function FormInboxPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 pt-2">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
               {/* Client duplicate / status banner */}
               {(selectedItem.status === "converted" || selectedItem.isExistingClient) && (
                 <div className="p-3 rounded-lg border bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-xs flex items-center justify-between gap-2">
@@ -428,8 +463,8 @@ export default function FormInboxPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3 text-xs bg-muted/40 p-3 rounded-lg border">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-muted/40 p-3 rounded-lg border">
+                <div className="min-w-0 break-words">
                   <span className="text-muted-foreground font-medium">Email:</span>{" "}
                   {selectedItem.senderEmail ? (
                     <a
@@ -442,15 +477,15 @@ export default function FormInboxPage() {
                     "—"
                   )}
                 </div>
-                <div>
+                <div className="min-w-0 break-words">
                   <span className="text-muted-foreground font-medium">Phone:</span>{" "}
                   {selectedItem.senderPhone || "—"}
                 </div>
-                <div>
+                <div className="min-w-0 break-words">
                   <span className="text-muted-foreground font-medium">Form:</span>{" "}
                   {selectedItem.formName || "Contact"}
                 </div>
-                <div>
+                <div className="min-w-0 break-words">
                   <span className="text-muted-foreground font-medium">Source IP:</span>{" "}
                   <code className="text-[11px] font-mono">{selectedItem.ipAddress || "—"}</code>
                 </div>
@@ -458,7 +493,7 @@ export default function FormInboxPage() {
 
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-1">Message Content:</p>
-                <div className="p-3 bg-muted/60 rounded-lg text-sm whitespace-pre-wrap leading-relaxed border">
+                <div className="p-3 bg-muted/60 rounded-lg text-sm whitespace-pre-wrap leading-relaxed border max-h-48 overflow-y-auto">
                   {selectedItem.message || <span className="text-muted-foreground italic">No message text</span>}
                 </div>
               </div>
@@ -538,14 +573,85 @@ export default function FormInboxPage() {
                 );
               })()}
 
-              {selectedItem.data && Object.keys(selectedItem.data).length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1">Raw Payload JSON:</p>
-                  <pre className="p-2.5 bg-slate-950 text-slate-200 rounded-lg text-[11px] font-mono overflow-auto max-h-36">
-                    {JSON.stringify(selectedItem.data, null, 2)}
-                  </pre>
-                </div>
-              )}
+              {(() => {
+                const hiddenPayloadKeys = new Set([
+                  "publicKey",
+                  "apiKey",
+                  "secretKey",
+                  "turnstileToken",
+                  "recaptchaToken",
+                  "_honey",
+                  "_gotcha",
+                  "_notify",
+                  "notificationEmail",
+                  "notifyEmail",
+                  "convertedClientId",
+                  "duplicateDetected",
+                  "convertedAt",
+                  "customFields",
+                ]);
+                const visibleData = selectedItem.data
+                  ? Object.fromEntries(
+                      Object.entries(selectedItem.data).filter(([key]) => !hiddenPayloadKeys.has(key))
+                    )
+                  : {};
+                const visibleEntries = Object.entries(visibleData);
+                if (visibleEntries.length === 0) return null;
+
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs font-semibold text-muted-foreground">Form Data:</p>
+                      <div className="flex items-center gap-0.5 rounded-md border p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setPayloadView("table")}
+                          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                            payloadView === "table"
+                              ? "bg-foreground text-background"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          Table
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPayloadView("json")}
+                          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                            payloadView === "json"
+                              ? "bg-foreground text-background"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          JSON
+                        </button>
+                      </div>
+                    </div>
+                    {payloadView === "table" ? (
+                      <div className="rounded-lg border overflow-auto max-h-48">
+                        <table className="w-full text-xs">
+                          <tbody>
+                            {visibleEntries.map(([key, value], idx) => (
+                              <tr key={key} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
+                                <td className="px-2.5 py-1.5 font-medium text-muted-foreground align-top whitespace-nowrap w-1/3">
+                                  {key}
+                                </td>
+                                <td className="px-2.5 py-1.5 break-words">
+                                  {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <pre className="p-2.5 bg-slate-950 text-slate-200 rounded-lg text-[11px] font-mono overflow-auto max-h-48">
+                        {JSON.stringify(visibleData, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </DialogContent>
         )}

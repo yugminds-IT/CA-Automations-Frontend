@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select"
 import { Building2, Plus, Edit, Trash2, UserPlus, Shield, Check, X, CalendarClock } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Badge } from "@/components/ui/badge"
 
 export default function MasterAdminOrganizations() {
@@ -895,11 +896,13 @@ export default function MasterAdminOrganizations() {
                   <LekvyaLoader />
                 </div>
               ) : (organizations ?? []).length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Building2 className="h-10 w-10 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">No organizations found</p>
-                  <p className="text-xs text-muted-foreground/50">Create your first organization to get started</p>
-                </div>
+                <EmptyState
+                  icon={Building2}
+                  title="No organizations found"
+                  description="Create your first organization to get started"
+                  actionLabel="Add Organization"
+                  onAction={() => setAddOrgDialogOpen(true)}
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <Table>

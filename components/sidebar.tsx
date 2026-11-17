@@ -108,13 +108,13 @@ function getMenuItemsForIndustry(industry: string, role?: string): NavItem[] {
       return [
         dashboardItem,
         { type: 'item', icon: Users, label: 'Clients & Contacts', path: '/client-management' },
+        { type: 'item', icon: Inbox, label: 'Form Inquiries', path: '/developer/inbox' },
         {
           type: 'group',
           icon: KeyRound,
           label: 'Developer API',
           children: [
             { icon: KeyRound, label: 'API Keys', path: '/developer/keys' },
-            { icon: Inbox, label: 'Form Inquiries', path: '/developer/inbox' },
             { icon: Code2, label: 'HTML Form Code', path: '/developer/quickstart' },
             { icon: Webhook, label: 'Webhooks', path: '/developer/webhooks' },
             { icon: ListOrdered, label: 'Delivery Logs', path: '/developer/logs' },
@@ -213,6 +213,7 @@ function getMenuItemsForIndustry(industry: string, role?: string): NavItem[] {
       return [
         dashboardItem,
         { type: 'item', icon: Users, label: 'Client Management', path: '/client-management' },
+        { type: 'item', icon: Inbox, label: 'Form Inquiries', path: '/developer/inbox' },
         {
           type: 'group',
           icon: Mail,
@@ -229,7 +230,6 @@ function getMenuItemsForIndustry(industry: string, role?: string): NavItem[] {
           label: 'Developer API',
           children: [
             { icon: KeyRound, label: 'API Keys', path: '/developer/keys' },
-            { icon: Inbox, label: 'Form Inquiries', path: '/developer/inbox' },
             { icon: Webhook, label: 'Webhooks', path: '/developer/webhooks' },
             { icon: ListOrdered, label: 'Delivery Logs', path: '/developer/logs' },
           ],

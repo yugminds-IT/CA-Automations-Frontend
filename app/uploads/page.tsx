@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Upload, FileText, Trash2, X, CheckCircle2, Loader2, Eye, Download, Plus } from "lucide-react"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
@@ -447,11 +448,11 @@ export default function UploadsPage() {
                 </div>
 
                 {items.length === 0 && !isLoadingFiles ? (
-                  <div className="border border-dashed rounded-md p-6 text-center text-muted-foreground">
-                    <Upload className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No files found.</p>
-                    <p className="text-xs mt-1">Click "Add files" to select files to upload</p>
-                  </div>
+                  <EmptyState
+                    icon={Upload}
+                    title="No files found"
+                    description='Click "Add files" to select files to upload'
+                  />
                 ) : isLoadingFiles ? (
                   <div className="border border-dashed rounded-md p-6 flex justify-center">
                     <LekvyaLoader />

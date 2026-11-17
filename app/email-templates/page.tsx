@@ -3,6 +3,7 @@
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
+import { EmptyState } from "@/components/ui/empty-state"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated, ApiError } from "@/lib/api/index"
@@ -521,10 +522,7 @@ export default function EmailTemplatesPage() {
                   {isLoading ? (
                     <div className="flex justify-center py-6"><LekvyaLoader /></div>
                   ) : filteredMasterTemplates.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                      <FileText className="w-10 h-10 mb-3 opacity-40" />
-                      <p className="text-sm">No pre-built templates found</p>
-                    </div>
+                    <EmptyState icon={FileText} title="No pre-built templates found" />
                   ) : filteredMasterTemplates.length > 10 ? (
                     /* Compact view for >10 templates */
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -597,11 +595,12 @@ export default function EmailTemplatesPage() {
                   {isLoading ? (
                     <div className="flex justify-center py-6"><LekvyaLoader /></div>
                   ) : filteredOrgTemplates.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-muted-foreground">
-                      <Mail className="w-10 h-10 mb-3 opacity-40" />
-                      <p className="text-sm">No custom templates yet</p>
-                      <Button size="sm" variant="outline" className="mt-3" onClick={handleCreate}><Plus className="w-3.5 h-3.5 mr-1.5" />Create your first template</Button>
-                    </div>
+                    <EmptyState
+                      icon={Mail}
+                      title="No custom templates yet"
+                      actionLabel="Create your first template"
+                      onAction={handleCreate}
+                    />
                   ) : filteredOrgTemplates.length > 10 ? (
                     /* Compact view for >10 templates */
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">

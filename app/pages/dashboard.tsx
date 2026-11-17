@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
 import {
   Users,
   Clock,
@@ -21,6 +22,8 @@ import type { DashboardStats } from "@/lib/api/index"
 import { useToast } from "@/components/ui/use-toast"
 import { format } from "date-fns"
 import { SmtpAlertBanner } from "@/components/dashboard/smtp-alert-banner"
+import { EmptyState } from "@/components/ui/empty-state"
+import { useRealtimeEvent } from "@/lib/realtime"
 
 type RecentItem = DashboardStats["recentActivity"][number]
 
@@ -41,13 +44,19 @@ export function Dashboard() {
     fetchDashboardData()
   }, [])
 
-  const fetchDashboardData = async () => {
+  // Live refresh recent activity as soon as a scheduled mail's status changes
+  useRealtimeEvent('mail.status', () => {
+    fetchDashboardData(true)
+  })
+
+  const fetchDashboardData = async (silent = false) => {
     try {
-      setIsLoading(true)
+      if (!silent) setIsLoading(true)
       const data = await getDashboardStats()
       setStats(data)
     } catch (error) {
       console.error("Error fetching dashboard data:", error)
+      if (silent) return
       toast({
         title: "Error",
         description: "Failed to load dashboard statistics",
@@ -170,12 +179,17 @@ export function Dashboard() {
                       ? "warning"
                       : "destructive",
               },
-            ].map((item) => {
+            ].map((item, index) => {
               const Icon = item.icon
               return (
-                <Card
+                <motion.div
                   key={item.label}
-                  className="overflow-hidden border-border bg-card transition-shadow hover:shadow-md py-0 gap-0"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: index * 0.04 }}
+                >
+                <Card
+                  className="overflow-hidden border-border bg-card transition-shadow hover:shadow-md hover:-translate-y-0.5 py-0 gap-0"
                 >
                   <CardContent className="px-3 py-3">
                     {isLoading ? (
@@ -216,6 +230,7 @@ export function Dashboard() {
                     )}
                   </CardContent>
                 </Card>
+                </motion.div>
               )
             })}
           </div>
@@ -258,8 +273,11 @@ export function Dashboard() {
               ) : stats.recentActivity.length > 0 ? (
                 <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
                   {stats.recentActivity.map((item, index) => (
-                    <div
+                    <motion.div
                       key={index}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.03 }}
                       className="flex flex-col gap-2 bg-card px-4 py-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                     >
                       <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
@@ -301,19 +319,15 @@ export function Dashboard() {
                         </div>
                       </div>
                       <div className="shrink-0 sm:pl-2">{getStatusBadge(item.status)}</div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-12 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <Mail className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="mt-3 text-sm font-medium text-foreground">No recent activity</p>
-                  <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-                    Email sends will show here once deliveries are made
-                  </p>
-                </div>
+                <EmptyState
+                  icon={Mail}
+                  title="No recent activity"
+                  description="Email sends will show here once deliveries are made"
+                />
               )}
             </CardContent>
           </Card>

@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -177,6 +176,32 @@ export function ClientOnboardForm({
       directors: defaultValues?.directors || [],
     },
   })
+
+  type OnboardPhase = 'basics' | 'details' | 'stakeholders' | 'review'
+  const PHASE_ORDER: OnboardPhase[] = ['basics', 'details', 'stakeholders', 'review']
+  const PHASE_LABELS: Record<OnboardPhase, string> = {
+    basics: 'Basics',
+    details: 'Details',
+    stakeholders: clientConfig.stakeholdersSectionTitle,
+    review: 'Review',
+  }
+  const BASICS_FIELDS = ['name', 'companyName', 'email', 'phone', 'businessType', 'customBusinessType', 'status', 'directories'] as const
+  const DETAILS_FIELDS = ['panNumber', 'gstNumber', 'addressLine1', 'city', 'state', 'country', 'pincode', 'onboardDate', 'followUpDate', 'notes'] as const
+
+  const [phase, setPhase] = useState<OnboardPhase>('basics')
+  const phaseIndex = PHASE_ORDER.indexOf(phase)
+
+  const goToNextPhase = async () => {
+    const fieldsToValidate = phase === 'basics' ? BASICS_FIELDS : phase === 'details' ? DETAILS_FIELDS : undefined
+    if (fieldsToValidate) {
+      const valid = await form.trigger(fieldsToValidate as any)
+      if (!valid) return
+    }
+    if (phaseIndex < PHASE_ORDER.length - 1) setPhase(PHASE_ORDER[phaseIndex + 1])
+  }
+  const goToPrevPhase = () => {
+    if (phaseIndex > 0) setPhase(PHASE_ORDER[phaseIndex - 1])
+  }
 
   const handleSubmit = async (data: ClientOnboardFormValues) => {
     setIsLoading(true)
@@ -423,8 +448,33 @@ export function ClientOnboardForm({
   return (
     <Form {...form}>
       <form id="client-onboard-form" onSubmit={form.handleSubmit(handleSubmit)} className="space-y-0 overflow-x-hidden max-w-full">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-3 flex-wrap">
+            {PHASE_ORDER.map((p, i, arr) => {
+              const pIndex = PHASE_ORDER.indexOf(p)
+              const isPast = pIndex < phaseIndex
+              const isCurrent = p === phase
+              return (
+                <span key={p} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={!isPast && !isCurrent}
+                    onClick={() => isPast && setPhase(p)}
+                    className={cn(
+                      isCurrent ? 'text-primary font-semibold' : isPast ? 'hover:underline cursor-pointer' : 'cursor-default opacity-60',
+                    )}
+                  >
+                    {PHASE_LABELS[p]}
+                  </button>
+                  {i < arr.length - 1 && <span className="mx-0.5">›</span>}
+                </span>
+              )
+            })}
+          </div>
+
           <div className="rounded-xl border border-border bg-card divide-y divide-border">
 
+            {phase === 'basics' && (
+            <>
               {/* Basic Information */}
               <div className="p-5 space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Basic Information</p>
@@ -517,6 +567,7 @@ export function ClientOnboardForm({
                             {customBusinessTypes.map((type) => (
                               <SelectItem key={type} value={type}>{type}</SelectItem>
                             ))}
+                            <SelectItem value="Other">+ Add new {clientConfig.businessTypeLabel.toLowerCase()}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -801,7 +852,11 @@ export function ClientOnboardForm({
                   )}
                 />
               </div>
+            </>
+            )}
 
+            {phase === 'details' && (
+            <>
               {/* Tax Information */}
               {clientConfig.showTaxSection && (
                 <div className="p-5 space-y-4">
@@ -1011,7 +1066,11 @@ export function ClientOnboardForm({
                   )}
                 />
               </div>
+            </>
+            )}
 
+            {phase === 'stakeholders' && (
+            <>
               {/* Directors / Stakeholders */}
               <div className="p-5 space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -1344,28 +1403,94 @@ export function ClientOnboardForm({
                 </div>
               )}
             </div>
+            </>
+            )}
+
+            {phase === 'review' && (
+              <div className="p-5 space-y-5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Review &amp; Confirm
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">{clientConfig.nameLabel}</p>
+                    <p className="text-sm font-medium">{form.watch('name') || '—'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">{clientConfig.companyLabel}</p>
+                    <p className="text-sm font-medium">{form.watch('companyName') || '—'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p className="text-sm font-medium">{form.watch('email') || '—'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <p className="text-sm font-medium">{form.watch('phone') || '—'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Address</p>
+                    <p className="text-sm font-medium">
+                      {[form.watch('addressLine1'), form.watch('city'), form.watch('state'), form.watch('country'), form.watch('pincode')]
+                        .filter(Boolean)
+                        .join(', ') || '—'}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">{clientConfig.stakeholdersSectionTitle}</p>
+                    <p className="text-sm font-medium">
+                      {savedDirectors.length > 0 ? `${savedDirectors.length} saved` : 'None added'}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Use the steps above to go back and make changes, or submit below to {isEditing ? 'update' : 'onboard'} this {clientConfig.nameLabel.toLowerCase()}.
+                </p>
+              </div>
+            )}
 
           </div>
 
         {/* Form Actions */}
-        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-4 border-t border-border">
-          {onCancel && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel}
-              disabled={isLoading}
-              className="sm:min-w-[100px]"
-            >
-              Cancel
-            </Button>
-          )}
-          <Button type="submit" disabled={isLoading} className="sm:min-w-[140px]">
-            {isLoading
-              ? (isEditing ? 'Updating...' : 'Onboarding...')
-              : (isEditing ? clientConfig.editTitle : clientConfig.onboardButtonLabel)
-            }
-          </Button>
+        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-between pt-4 border-t border-border">
+          <div>
+            {phase !== 'basics' && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={goToPrevPhase}
+                disabled={isLoading}
+                className="sm:min-w-[100px]"
+              >
+                Back
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
+            {onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                disabled={isLoading}
+                className="sm:min-w-[100px]"
+              >
+                Cancel
+              </Button>
+            )}
+            {phase !== 'review' ? (
+              <Button type="button" onClick={goToNextPhase} className="sm:min-w-[140px]">
+                Next
+              </Button>
+            ) : (
+              <Button type="submit" disabled={isLoading} className="sm:min-w-[140px]">
+                {isLoading
+                  ? (isEditing ? 'Updating...' : 'Onboarding...')
+                  : (isEditing ? clientConfig.editTitle : clientConfig.onboardButtonLabel)
+                }
+              </Button>
+            )}
+          </div>
         </div>
       </form>
     </Form>

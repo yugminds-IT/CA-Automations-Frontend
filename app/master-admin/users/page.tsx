@@ -28,7 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Plus, Edit, Trash2, UserPlus } from "lucide-react"
+import { Search, Plus, Edit, Trash2, UserPlus, Users } from "lucide-react"
+import { EmptyState } from "@/components/ui/empty-state"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function MasterAdminUsers() {
@@ -690,9 +691,12 @@ export default function MasterAdminUsers() {
                       </TableRow>
                     ) : displayUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-12">
-                          <p className="text-sm text-muted-foreground">No users found</p>
-                          <p className="text-xs text-muted-foreground/50 mt-1">Try adjusting your search or filter</p>
+                        <TableCell colSpan={7}>
+                          <EmptyState
+                            icon={Users}
+                            title="No users found"
+                            description="Try adjusting your search or filter"
+                          />
                         </TableCell>
                       </TableRow>
                     ) : (
