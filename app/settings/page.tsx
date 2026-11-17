@@ -34,8 +34,9 @@ import {
   Server,
 } from "lucide-react"
 import { getMe, updateProfile, isAuthenticated } from "@/lib/api/index"
-import { getSmtpConfig, saveSmtpConfig, clearSmtpConfig, testSmtpConfig } from "@/lib/api/organizations"
+import { getSmtpConfig, saveSmtpConfig, clearSmtpConfig, testSmtpConfig, updateOrganization, getOrganizationById } from "@/lib/api/organizations"
 import { useToast } from "@/components/ui/use-toast"
+import { ApiError } from "@/lib/api/client"
 import type { SmtpConfigResponse } from "@/lib/api/types"
 import { SmtpSetupGuideDialog, SMTP_PRESETS, type SmtpPreset } from "@/components/smtp/smtp-setup-guide-dialog"
 
@@ -112,6 +113,10 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [editName, setEditName] = useState("")
   const [editPhone, setEditPhone] = useState("")
+  const [editEmail, setEditEmail] = useState("")
+  const [editOrgName, setEditOrgName] = useState("")
+  const [editOrgCity, setEditOrgCity] = useState("")
+  const [editOrgState, setEditOrgState] = useState("")
 
   // SMTP state
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfigResponse | null>(null)
@@ -123,6 +128,9 @@ export default function SettingsPage() {
   const [testEmail, setTestEmail] = useState("")
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [notificationEmail, setNotificationEmail] = useState("")
+  const [notificationEmailInput, setNotificationEmailInput] = useState("")
+  const [notificationEmailSaving, setNotificationEmailSaving] = useState(false)
 
   const [smtpForm, setSmtpForm] = useState({
     smtpHost: "",
@@ -242,16 +250,32 @@ export default function SettingsPage() {
     }
   }, [toast])
 
+  const loadNotificationEmail = useCallback(async (id: number) => {
+    try {
+      const org = await getOrganizationById(id)
+      const current = org.industrySettings?.notificationEmail ?? ""
+      setNotificationEmail(current)
+      setNotificationEmailInput(current)
+    } catch {
+      // non-critical — leave blank
+    }
+  }, [])
+
   useEffect(() => {
     if (activeSection === "email" && orgId) {
       loadSmtpConfig(orgId)
+      loadNotificationEmail(orgId)
     }
-  }, [activeSection, orgId, loadSmtpConfig])
+  }, [activeSection, orgId, loadSmtpConfig, loadNotificationEmail])
 
   // ─── Profile handlers ──────────────────────────────────────────────────────
   const startEdit = () => {
     setEditName(profile?.name ?? "")
     setEditPhone(profile?.phone ?? "")
+    setEditEmail(profile?.email ?? "")
+    setEditOrgName(profile?.organization?.name ?? "")
+    setEditOrgCity(profile?.organization?.city ?? "")
+    setEditOrgState(profile?.organization?.state ?? "")
     setIsEditing(true)
   }
 
@@ -260,14 +284,44 @@ export default function SettingsPage() {
   const saveEdit = async () => {
     try {
       setIsSaving(true)
-      const updated = await updateProfile({ name: editName, phone: editPhone })
-      setProfile((prev) => (prev ? { ...prev, ...(updated as Partial<UserProfile>) } : prev))
+      const updated = await updateProfile({ name: editName, phone: editPhone, email: editEmail })
+      let nextOrg = profile?.organization
+
+      if (isOrgAdmin && orgId) {
+        const org = await updateOrganization(orgId, {
+          name: editOrgName,
+          city: editOrgCity,
+          state: editOrgState,
+        })
+        nextOrg = { name: org.name, city: org.city, state: org.state, country: org.country }
+      }
+
+      setProfile((prev) =>
+        prev ? { ...prev, ...(updated as Partial<UserProfile>), organization: nextOrg } : prev,
+      )
       setIsEditing(false)
       toast({ title: "Saved", description: "Profile updated successfully" })
-    } catch {
-      toast({ title: "Error", description: "Failed to save profile", variant: "destructive" })
+    } catch (err) {
+      const message = err instanceof ApiError ? err.detail : "Failed to save profile"
+      toast({ title: "Error", description: message, variant: "destructive" })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // ─── Notification email handler ───────────────────────────────────────────
+  const handleNotificationEmailSave = async () => {
+    if (!orgId) return
+    setNotificationEmailSaving(true)
+    try {
+      await updateOrganization(orgId, { notificationEmail: notificationEmailInput.trim() })
+      setNotificationEmail(notificationEmailInput.trim())
+      toast({ title: "Saved", description: "Notification email updated", variant: "success" })
+    } catch (err) {
+      const message = err instanceof ApiError ? err.detail : "Failed to update notification email"
+      toast({ title: "Error", description: message, variant: "destructive" })
+    } finally {
+      setNotificationEmailSaving(false)
     }
   }
 
@@ -434,6 +488,17 @@ export default function SettingsPage() {
                             />
                           </div>
                           <div className="space-y-1.5">
+                            <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">Email</Label>
+                            <Input
+                              type="email"
+                              value={editEmail}
+                              onChange={(e) => setEditEmail(e.target.value)}
+                              placeholder="you@example.com"
+                              className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]"
+                            />
+                            <p className="text-[11px] text-[#94A3B8]">This is also your login email.</p>
+                          </div>
+                          <div className="space-y-1.5">
                             <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">Phone</Label>
                             <Input
                               value={editPhone}
@@ -442,6 +507,43 @@ export default function SettingsPage() {
                               className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]"
                             />
                           </div>
+
+                          {isOrgAdmin && profile?.organization && (
+                            <div className="space-y-4 pt-3 border-t border-[#F1F5F9] dark:border-[#334155]">
+                              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                                Organization
+                              </p>
+                              <div className="space-y-1.5">
+                                <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">Organization Name</Label>
+                                <Input
+                                  value={editOrgName}
+                                  onChange={(e) => setEditOrgName(e.target.value)}
+                                  placeholder="Organization name"
+                                  className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                  <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">City</Label>
+                                  <Input
+                                    value={editOrgCity}
+                                    onChange={(e) => setEditOrgCity(e.target.value)}
+                                    placeholder="City"
+                                    className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">State</Label>
+                                  <Input
+                                    value={editOrgState}
+                                    onChange={(e) => setEditOrgState(e.target.value)}
+                                    placeholder="State"
+                                    className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -539,6 +641,42 @@ export default function SettingsPage() {
                               </p>
                             </div>
                           </div>
+
+                          {/* Notification email */}
+                          {isOrgAdmin && (
+                            <div className="space-y-2 p-4 rounded-lg border border-[#E2E8F0] dark:border-[#334155]">
+                              <Label className="text-[13px] font-medium text-[#0F172A] dark:text-white">
+                                New Submission Notification Email
+                              </Label>
+                              <p className="text-[11px] text-[#94A3B8]">
+                                Website form submission alerts go here. Leave blank to fall back to your admin or
+                                SMTP sending address — note that if that address matches your SMTP "From", alerts
+                                may land in Sent instead of Inbox.
+                              </p>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <Input
+                                  type="email"
+                                  value={notificationEmailInput}
+                                  onChange={(e) => setNotificationEmailInput(e.target.value)}
+                                  placeholder="alerts@yourcompany.com"
+                                  className="border-[#E2E8F0] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0F172A]"
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={handleNotificationEmailSave}
+                                  disabled={notificationEmailSaving || notificationEmailInput.trim() === notificationEmail.trim()}
+                                  className="shrink-0"
+                                >
+                                  {notificationEmailSaving ? (
+                                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                  ) : (
+                                    <Save className="w-3.5 h-3.5 mr-1.5" />
+                                  )}
+                                  Save
+                                </Button>
+                              </div>
+                            </div>
+                          )}
 
                           {/* SMTP form */}
                           {(smtpEditMode || !smtpConfig?.configured) && isOrgAdmin && (

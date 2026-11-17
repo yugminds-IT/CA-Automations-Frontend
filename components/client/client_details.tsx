@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { User, Users, KeyRound, FolderOpen, Settings as SettingsIcon, Building2, ChevronLeft, ChevronRight, ReceiptText, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
+import { LekvyaLoader } from '@/components/ui/lekvya-loader'
+import { InlineError } from '@/components/ui/inline-error'
 import type { Client } from './client_tab'
 import { DirectorsTab, type Director } from './director_info/directors_tab'
 import { EmailSetup } from './director_info/email-setup'
@@ -16,6 +18,7 @@ import { ClientDetailsTab } from './director_info/client-details-tab'
 import { SettingsTab } from './director_info/settings-tab'
 import { getClientById, updateClientLogin, removeClientLogin, addDirector, updateDirector, deleteDirector, listDirectors } from '@/lib/api/clients'
 import { ApiError } from '@/lib/api/client'
+import { getUserData } from '@/lib/api/index'
 import type { Client as ApiClient } from '@/lib/api/types'
 
 type SidebarSection = 'dashboard' | 'files' | 'tds' | 'gst'
@@ -89,8 +92,31 @@ function transformApiDirectors(apiDirectors?: Array<Record<string, unknown>>): D
 export function ClientDetails({ clientId }: ClientDetailsProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const [industry, setIndustry] = useState<string | null>(null)
   const [activeSidebar, setActiveSidebar] = useState<SidebarSection>('dashboard')
   const [activeTab, setActiveTab] = useState<DashboardTab>('details')
+
+  useEffect(() => {
+    const user = getUserData() as any
+    if (user?.organization?.industry) {
+      setIndustry(user.organization.industry)
+    }
+  }, [])
+
+  // Website & Developers clients have no filings/directors/portal-login concept
+  const isWebsiteDeveloper = industry === 'website_developer'
+  const visibleSidebarItems = isWebsiteDeveloper
+    ? SIDEBAR_ITEMS.filter((item) => item.value === 'dashboard')
+    : SIDEBAR_ITEMS
+  const visibleDashboardTabs = isWebsiteDeveloper
+    ? DASHBOARD_TABS.filter((tab) => tab.value !== 'directors' && tab.value !== 'login')
+    : DASHBOARD_TABS
+
+  useEffect(() => {
+    if (!isWebsiteDeveloper) return
+    if (activeSidebar !== 'dashboard') setActiveSidebar('dashboard')
+    if (activeTab === 'directors' || activeTab === 'login') setActiveTab('details')
+  }, [isWebsiteDeveloper, activeSidebar, activeTab])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [client, setClient] = useState<Client | null>(null)
   const [clientOrganizationId, setClientOrganizationId] = useState<number | undefined>(undefined)
@@ -294,7 +320,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
     return (
       <div className="p-6">
         <div className="flex items-center justify-center py-12">
-          <div className="text-muted-foreground">Loading client details...</div>
+          <LekvyaLoader />
         </div>
       </div>
     )
@@ -303,13 +329,10 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
   if (error || (!isLoading && !client)) {
     return (
       <div className="p-6">
-        <div className="flex flex-col items-center justify-center py-12">
-          <div className="text-destructive mb-2">
-            {error || 'Client not found'}
-          </div>
-          <Button 
-            variant="outline" 
-            className="mt-4"
+        <InlineError message={error || 'Client not found'} className="py-12" />
+        <div className="flex justify-center mt-4">
+          <Button
+            variant="outline"
             onClick={() => router.push('/client-management')}
           >
             Back to Client Management
@@ -348,7 +371,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
 
         {/* Sidebar nav */}
         <nav className="flex-1 py-2 overflow-y-auto">
-          {SIDEBAR_ITEMS.map((item) => {
+          {visibleSidebarItems.map((item) => {
             const isActive = activeSidebar === item.value
             return (
               <button
@@ -385,7 +408,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
 
       {/* Mobile bottom nav */}
       <div className="sm:hidden fixed bottom-0 left-0 right-0 z-10 bg-background border-t border-border flex overflow-x-auto scrollbar-none">
-        {SIDEBAR_ITEMS.map((item) => {
+        {visibleSidebarItems.map((item) => {
           const isActive = activeSidebar === item.value
           return (
             <button
@@ -431,7 +454,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
           <div className="flex flex-col h-full">
             {/* Horizontal tab list */}
             <div className="flex border-b border-border overflow-x-auto scrollbar-none shrink-0 px-4 sm:px-6 gap-1">
-              {DASHBOARD_TABS.map((tab) => {
+              {visibleDashboardTabs.map((tab) => {
                 const isActive = activeTab === tab.value
                 return (
                   <button

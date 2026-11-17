@@ -2,6 +2,7 @@
 
 import { apiRequest, setTokens, clearTokens, getRefreshToken, getAccessToken, setUserData, setOrganizationData } from './client';
 import { API_CONFIG } from './config';
+import { disconnectRealtime } from '@/lib/realtime';
 import type {
   LoginRequest,
   LoginResponse,
@@ -114,10 +115,11 @@ export async function logout(): Promise<void> {
     // ignore errors — always clear tokens regardless
   } finally {
     clearTokens();
+    disconnectRealtime();
   }
 }
 
-export async function updateProfile(data: { name?: string; phone?: string }): Promise<unknown> {
+export async function updateProfile(data: { name?: string; phone?: string; email?: string }): Promise<unknown> {
   const updated = await apiRequest('/auth/profile', {
     method: 'PATCH',
     body: data,

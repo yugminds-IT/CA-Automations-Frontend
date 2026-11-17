@@ -13,6 +13,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { LekvyaLoader } from '@/components/ui/lekvya-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -468,13 +469,11 @@ export function FilesTab({
             <LekvyaLoader />
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No files found.</p>
-            {!isAdmin && (
-              <p className="text-xs mt-2">Click "Add Files" to upload files</p>
-            )}
-          </div>
+          <EmptyState
+            icon={FileText}
+            title="No files found"
+            description={!isAdmin ? 'Click "Add Files" to upload files' : undefined}
+          />
         ) : (
           <div className="space-y-4">
             <div className="border rounded-md overflow-hidden">

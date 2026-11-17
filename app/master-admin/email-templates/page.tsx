@@ -3,6 +3,7 @@
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
+import { EmptyState } from "@/components/ui/empty-state"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { isAuthenticated, isMasterAdminUser, ApiError } from "@/lib/api/index"
@@ -482,10 +483,7 @@ export default function MasterAdminEmailTemplates() {
               {isLoading ? (
                 <div className="flex justify-center py-6"><LekvyaLoader /></div>
               ) : filteredSystemTemplates.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <FileText className="w-10 h-10 mb-3 opacity-40" />
-                  <p className="text-sm">No system templates found</p>
-                </div>
+                <EmptyState icon={FileText} title="No system templates found" />
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredSystemTemplates.map((template) => {
@@ -547,10 +545,7 @@ export default function MasterAdminEmailTemplates() {
               {isLoading ? (
                 <div className="flex justify-center py-6"><LekvyaLoader /></div>
               ) : filteredOrgTemplates.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-muted-foreground">
-                  <Mail className="w-10 h-10 mb-3 opacity-40" />
-                  <p className="text-sm">No organization templates yet</p>
-                </div>
+                <EmptyState icon={Mail} title="No organization templates yet" />
               ) : (
                 <div className="space-y-6">
                   {Object.entries(orgTemplatesByOrg).map(([orgName, templates]) => (

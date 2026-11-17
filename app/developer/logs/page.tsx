@@ -18,10 +18,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { getDeliveryLogs, EmailLogItem } from "@/lib/api/developer";
+import { useRealtimeEvent } from "@/lib/realtime";
 
 export default function DeliveryLogsPage() {
   const { toast } = useToast();
@@ -31,25 +34,30 @@ export default function DeliveryLogsPage() {
   const [search, setSearch] = useState("");
   const [selectedLog, setSelectedLog] = useState<EmailLogItem | null>(null);
 
-  const fetchLogs = async () => {
-    setLoading(true);
+  const fetchLogs = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await getDeliveryLogs(statusFilter === "all" ? undefined : statusFilter);
       setLogs(data);
     } catch (err: any) {
+      if (silent) return;
       toast({
         title: "Failed to load logs",
         description: err?.message || "Could not fetch delivery logs",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchLogs();
   }, [statusFilter]);
+
+  // Live refresh as soon as a new email log is created or its status changes
+  useRealtimeEvent('developer.email.created', () => fetchLogs(true));
+  useRealtimeEvent('developer.email.status', () => fetchLogs(true));
 
   const filtered = logs.filter((l) => {
     if (!search.trim()) return true;
@@ -107,7 +115,7 @@ export default function DeliveryLogsPage() {
             Resend-style real-time delivery stream: inspect opens, link clicks, SMTP headers, and message delivery timeline.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchLogs}>
+        <Button variant="outline" size="sm" onClick={() => fetchLogs()}>
           <RefreshCw className="w-4 h-4 mr-1.5" /> Refresh
         </Button>
       </div>
@@ -143,13 +151,11 @@ export default function DeliveryLogsPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading delivery logs…
-            </div>
+            <Table>
+              <TableSkeleton rows={6} columns={7} />
+            </Table>
           ) : filtered.length === 0 ? (
-            <div className="text-center p-12 text-sm text-muted-foreground">
-              No delivery logs found.
-            </div>
+            <EmptyState icon={Send} title="No delivery logs found" />
           ) : (
             <Table>
               <TableHeader>

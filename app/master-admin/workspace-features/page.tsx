@@ -7,6 +7,7 @@ import {
 } from "@/components/master-admin-sidebar";
 import { MasterAdminHeader } from "@/components/master-admin-header";
 import { LekvyaLoader } from "@/components/ui/lekvya-loader";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   isAuthenticated,
   isMasterAdminUser,
@@ -439,13 +440,15 @@ export default function WorkspaceFeaturesPage() {
 
               <CardContent className="p-0 divide-y">
                 {loading ? (
-                  <div className="p-12 text-center text-sm text-muted-foreground">
-                    Loading workspace feature cards…
+                  <div className="flex justify-center py-12">
+                    <LekvyaLoader />
                   </div>
                 ) : features.length === 0 ? (
-                  <div className="p-12 text-center text-sm text-muted-foreground">
-                    No cards found. Click &quot;Reset Defaults&quot; to seed original cards.
-                  </div>
+                  <EmptyState
+                    icon={Sparkles}
+                    title="No cards found"
+                    description='Click "Reset Defaults" to seed original cards'
+                  />
                 ) : (
                   features.map((item, index) => {
                     const Icon = ICON_MAP[item.icon] || Sparkles;

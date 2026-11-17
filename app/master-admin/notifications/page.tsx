@@ -3,6 +3,7 @@
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
+import { EmptyState } from "@/components/ui/empty-state"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -171,11 +172,11 @@ export default function MasterAdminNotificationsPage() {
                   <LekvyaLoader />
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Bell className="w-10 h-10 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">No notifications yet</p>
-                  <p className="text-xs text-muted-foreground/50">System events will appear here as activity occurs</p>
-                </div>
+                <EmptyState
+                  icon={Bell}
+                  title="No notifications yet"
+                  description="System events will appear here as activity occurs"
+                />
               ) : (
                 <div className="divide-y divide-[#F1F5F9] dark:divide-[#334155]">
                   {notifications.map((notif) => {
