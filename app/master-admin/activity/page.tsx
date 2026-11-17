@@ -3,6 +3,7 @@
 import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
 import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
+import { EmptyState } from "@/components/ui/empty-state"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { isAuthenticated, isMasterAdminUser, getActivityLogs, type ActivityLog } from "@/lib/api/index"
@@ -359,13 +360,11 @@ export default function MasterAdminActivity() {
                   <LekvyaLoader />
                 </div>
               ) : filteredLogs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Activity className="w-10 h-10 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">No logs found</p>
-                  <p className="text-xs text-muted-foreground/50">
-                    {search ? "Try a different search term" : "Logs appear here as users interact with the system"}
-                  </p>
-                </div>
+                <EmptyState
+                  icon={Activity}
+                  title="No logs found"
+                  description={search ? "Try a different search term" : "Logs appear here as users interact with the system"}
+                />
               ) : (
                 <div className="divide-y-0">
                   {filteredLogs.map((log) => (

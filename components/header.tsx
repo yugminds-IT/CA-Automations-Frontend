@@ -8,6 +8,7 @@ import { getUserData, getOrganizationData, logout, listNotifications } from "@/l
 import { getIndustryMailConfig } from "@/lib/industry-config"
 import type { User, Organization } from "@/lib/api/index"
 import { useTheme } from "./theme-provider"
+import { useRealtimeEvent } from "@/lib/realtime"
 import { useToast } from "@/components/ui/use-toast"
 import {
   Breadcrumb,
@@ -173,7 +174,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
     }
   }, [])
 
-  // Poll unread notification count every 60s for org users
+  // Poll unread notification count every 60s for org users (fallback if the socket is down)
   useEffect(() => {
     const fetchUnread = async () => {
       try {
@@ -187,6 +188,13 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
     const interval = setInterval(fetchUnread, 60_000)
     return () => clearInterval(interval)
   }, [])
+
+  // Live update as soon as a new notification is created
+  useRealtimeEvent('notification.created', () => {
+    listNotifications({ limit: 1 })
+      .then((res) => setUnreadNotifications(res.unread))
+      .catch(() => {})
+  })
 
   // Calculate header position based on sidebar state
   // On mobile (< lg), header is full width (sidebar is a menu)

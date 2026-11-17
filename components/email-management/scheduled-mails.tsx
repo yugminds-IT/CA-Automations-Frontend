@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Loader2, Trash2, RefreshCw, Clock, CheckCircle2, XCircle, AlertCircle, Repeat, Pencil, Play, StopCircle, ChevronDown, Plus } from 'lucide-react'
 import { LekvyaLoader } from '@/components/ui/lekvya-loader'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -37,6 +38,7 @@ import {
   updateRecurringSchedule, deleteRecurringSchedule,
 } from '@/lib/api/mail-management'
 import type { RecurringSchedule } from '@/lib/api/types'
+import { useRealtimeEvent } from '@/lib/realtime'
 
 interface Schedule {
   id: number | string
@@ -269,6 +271,9 @@ export function ScheduledMails() {
   }, [toast])
 
   useEffect(() => { load(); loadRecurring() }, [load, loadRecurring])
+
+  // Live refresh as soon as a schedule's send status changes
+  useRealtimeEvent('mail.status', () => { load(true); loadRecurring(true) })
   useEffect(() => { setSelectedIds(new Set()); setRecurringSelectedIds(new Set()); setCurrentPage(1) }, [activeTab])
   useEffect(() => { setCurrentPage(1) }, [pageSize])
   useEffect(() => {
@@ -539,9 +544,7 @@ export function ScheduledMails() {
               <div className="flex justify-center py-6"><LekvyaLoader /></div>
             ) : activeTab === 'recurring' ? (
               recurringSchedules.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm border border-dashed rounded-lg">
-                  No recurring monthly schedules found.
-                </div>
+                <EmptyState icon={Repeat} title="No recurring monthly schedules found" />
               ) : (
                 <>
                 <div className="overflow-x-auto">
@@ -641,9 +644,10 @@ export function ScheduledMails() {
                 </>
               )
             ) : displayed.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-sm border border-dashed rounded-lg">
-                No {activeTab === 'all' ? '' : activeTab + ' '}scheduled mails found.
-              </div>
+              <EmptyState
+                icon={Clock}
+                title={`No ${activeTab === 'all' ? '' : activeTab + ' '}scheduled mails found`}
+              />
             ) : (
               <>
               <div className="overflow-x-auto">

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusIcon, Edit, Trash2, ChevronRight, ChevronDown, ExternalLink } from 'lucide-react'
+import { PlusIcon, Edit, Trash2, ChevronRight, ChevronDown, ExternalLink, Users } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -15,10 +15,13 @@ import {
   TablePagination,
   type SortDirection,
 } from '@/components/ui/table'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
+import { EmptyState } from '@/components/ui/empty-state'
+import { InlineError } from '@/components/ui/inline-error'
 import { ClientOnboardForm } from './client_onboardform'
 import { getIndustryClientConfig } from '@/lib/industry-config'
 import {
@@ -630,8 +633,10 @@ export function ClientTab({
     return (
       <Card>
         <CardContent>
-          <div className="flex items-center justify-center py-12">
-            <div className="text-muted-foreground">Loading clients...</div>
+          <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0">
+            <Table>
+              <TableSkeleton rows={6} columns={9} />
+            </Table>
           </div>
         </CardContent>
       </Card>
@@ -642,17 +647,11 @@ export function ClientTab({
     return (
       <Card>
         <CardContent>
-          <div className="flex flex-col items-center justify-center py-12">
-            <div className="text-destructive mb-2">Error loading clients</div>
-            <div className="text-muted-foreground text-sm">{error}</div>
-            <Button 
-              variant="outline" 
-              className="mt-4"
-              onClick={() => fetchClients()}
-            >
-              Retry
-            </Button>
-          </div>
+          <InlineError
+            message={error}
+            onRetry={() => fetchClients()}
+            className="py-12"
+          />
         </CardContent>
       </Card>
     )
@@ -926,9 +925,15 @@ export function ClientTab({
       <Card>
         <CardContent>
           {displayClients.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No clients found
-            </div>
+            <EmptyState
+              icon={Users}
+              title="No clients found"
+              description={
+                searchQuery || (statusFilter && statusFilter !== 'all')
+                  ? 'Try adjusting your search or filters'
+                  : `No ${clientConfig.nameLabel.toLowerCase()}s have been added yet`
+              }
+            />
           ) : (
             <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0">
               <Table>

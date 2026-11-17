@@ -119,6 +119,7 @@ export interface Organization {
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   accessUntil?: string | null;
   approvedAt?: string | null;
+  industrySettings?: { notificationEmail?: string } | null;
 }
 
 export interface SmtpConfigResponse {
@@ -164,6 +165,7 @@ export interface UpdateOrganizationRequest {
   state?: string;
   country?: string;
   pincode?: string;
+  notificationEmail?: string;
 }
 
 // ============ USERS ============
