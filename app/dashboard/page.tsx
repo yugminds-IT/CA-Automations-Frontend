@@ -15,7 +15,7 @@
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
-import { Dashboard } from "../pages/dashboard"
+import { Dashboard } from "@/components/pages/dashboard"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getUserData, isAuthenticated, getRoleFromUser, restoreAutoLogoutTimer, getMe } from "@/lib/api/index"

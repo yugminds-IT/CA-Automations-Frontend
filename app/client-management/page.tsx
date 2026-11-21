@@ -2,7 +2,7 @@
 
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
-import { ClientManagement } from "../pages/client_management"
+import { ClientManagement } from "@/components/pages/client_management"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {

@@ -337,10 +337,10 @@ export default function HeroSection() {
               variants={itemVariants}
               className={`flex flex-col sm:flex-row gap-4 mt-6 transition-all w-full duration-[800ms] ease-out ${justifyStyles}`}
             >
-              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white gap-2 text-base px-8 h-14 shadow-lg rounded-xl transition-transform hover:scale-105" onClick={() => router.push("/login")}>
+              <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-white gap-2 text-base px-8 h-14 shadow-lg rounded-xl transition-transform hover:scale-105" onClick={() => router.push("/signup")}>
                 Start Free Trial <ArrowRight className="w-5 h-5" />
               </Button>
-              <Button size="lg" variant="outline" className="gap-2 text-base px-8 h-14 rounded-xl border border-zinc-200 bg-white transition-all hover:bg-muted" onClick={goToContact}>
+              <Button size="lg" variant="outline" className="gap-2 text-base px-8 h-14 rounded-xl border border-border bg-background transition-all hover:bg-muted" onClick={goToContact}>
                 <Play className="w-5 h-5"/> Book a Demo
               </Button>
             </motion.div>

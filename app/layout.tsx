@@ -120,7 +120,7 @@ const organizationSchema = {
       contactPoint: {
         "@type": "ContactPoint",
         contactType: "customer support",
-        email: "support@navedhana.com",
+        email: "contact@navedhana.com",
         availableLanguage: ["English", "Hindi"]
       }
     },

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -56,7 +57,7 @@ export default function PlanView() {
       <div className="container mx-auto px-4 py-12 md:py-20 max-w-6xl">
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-          <a href="/" className="hover:text-foreground transition-colors">Home</a>
+          <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           <ChevronRight className="w-3.5 h-3.5" />
           <span className="text-foreground font-medium">Plans & Pricing</span>
         </nav>

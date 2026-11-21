@@ -650,7 +650,7 @@ export default function SettingsPage() {
                               </Label>
                               <p className="text-[11px] text-[#94A3B8]">
                                 Website form submission alerts go here. Leave blank to fall back to your admin or
-                                SMTP sending address — note that if that address matches your SMTP "From", alerts
+                                SMTP sending address — note that if that address matches your SMTP &quot;From&quot;, alerts
                                 may land in Sent instead of Inbox.
                               </p>
                               <div className="flex flex-col sm:flex-row gap-2">

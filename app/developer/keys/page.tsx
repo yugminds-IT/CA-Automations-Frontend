@@ -174,7 +174,7 @@ export default function ApiKeysPage() {
         <CardHeader>
           <CardTitle className="text-base font-semibold">Active API Keys</CardTitle>
           <CardDescription className="text-xs">
-            Keys authorized to interact with your organization's email pipeline.
+            Keys authorized to interact with your organization&apos;s email pipeline.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -184,7 +184,7 @@ export default function ApiKeysPage() {
             </div>
           ) : keys.length === 0 ? (
             <div className="text-center p-12 text-sm text-muted-foreground">
-              No API keys created yet. Click "Create New Key" above.
+              No API keys created yet. Click &quot;Create New Key&quot; above.
             </div>
           ) : (
             <Table>

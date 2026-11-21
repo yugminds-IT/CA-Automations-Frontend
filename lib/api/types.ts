@@ -6,10 +6,12 @@
 export enum RoleName {
   MASTER_ADMIN = 'MASTER_ADMIN',
   ORG_ADMIN = 'ORG_ADMIN',
-  ADMIN = 'ORG_ADMIN', // alias
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values -- intentional alias
+  ADMIN = 'ORG_ADMIN',
   CAA = 'CAA',
   ORG_EMPLOYEE = 'ORG_EMPLOYEE',
-  EMPLOYEE = 'ORG_EMPLOYEE', // alias
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values -- intentional alias
+  EMPLOYEE = 'ORG_EMPLOYEE',
   CLIENT = 'CLIENT',
 }
 

@@ -95,6 +95,48 @@ const TEMPLATE_VAR_GROUPS = [
   },
 ]
 
+// ─── Variable dropdown component ─────────────────────────────────────────
+const VarDropdown = ({
+  dropRef, dropOpen, setOpen, onVar, label = "Insert Variable",
+}: {
+  dropRef: React.RefObject<HTMLDivElement | null>
+  dropOpen: boolean
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>
+  onVar: (v: string) => void
+  label?: string
+}) => (
+  <div ref={dropRef} className="relative">
+    <button
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      className="flex items-center gap-1 h-8 px-3 rounded border border-input bg-background text-xs hover:bg-muted transition-colors font-medium"
+    >
+      {label}
+      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+    </button>
+    {dropOpen && (
+      <div className="absolute top-full right-0 mt-1 w-56 rounded-lg border border-border bg-popover shadow-lg z-[200] py-1 text-sm" style={{ maxHeight: 260, overflowY: "auto" }}>
+        {TEMPLATE_VAR_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
+            {group.vars.map((v) => (
+              <button
+                key={v.value}
+                type="button"
+                onClick={() => onVar(v.value)}
+                className="w-full text-left px-3 py-1.5 hover:bg-muted transition-colors flex items-center justify-between gap-2"
+              >
+                <span className="text-foreground">{v.label}</span>
+                <span className="text-[10px] font-mono text-primary/70 truncate">{v.value}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)
+
 export default function MasterAdminEmailTemplates() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
@@ -361,48 +403,6 @@ export default function MasterAdminEmailTemplates() {
     { value: EmailTemplateCategory.REMINDER,     label: "Reminders" },
     { value: EmailTemplateCategory.SERVICE,      label: "Service" },
   ]
-
-  // ─── Variable dropdown component ─────────────────────────────────────────
-  const VarDropdown = ({
-    dropRef, dropOpen, setOpen, onVar, label = "Insert Variable",
-  }: {
-    dropRef: React.RefObject<HTMLDivElement | null>
-    dropOpen: boolean
-    setOpen: React.Dispatch<React.SetStateAction<boolean>>
-    onVar: (v: string) => void
-    label?: string
-  }) => (
-    <div ref={dropRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 h-8 px-3 rounded border border-input bg-background text-xs hover:bg-muted transition-colors font-medium"
-      >
-        {label}
-        <ChevronDown className="h-3 w-3 text-muted-foreground" />
-      </button>
-      {dropOpen && (
-        <div className="absolute top-full right-0 mt-1 w-56 rounded-lg border border-border bg-popover shadow-lg z-[200] py-1 text-sm" style={{ maxHeight: 260, overflowY: "auto" }}>
-          {TEMPLATE_VAR_GROUPS.map((group) => (
-            <div key={group.label}>
-              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-              {group.vars.map((v) => (
-                <button
-                  key={v.value}
-                  type="button"
-                  onClick={() => onVar(v.value)}
-                  className="w-full text-left px-3 py-1.5 hover:bg-muted transition-colors flex items-center justify-between gap-2"
-                >
-                  <span className="text-foreground">{v.label}</span>
-                  <span className="text-[10px] font-mono text-primary/70 truncate">{v.value}</span>
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 
   if (isCheckingAuth) {
     return <LekvyaLoader className="min-h-screen" />

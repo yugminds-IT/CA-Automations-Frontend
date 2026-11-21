@@ -5,9 +5,8 @@ import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminCreateOrganization, masterAdminUpdateOrganization, masterAdminDeleteOrganization, masterAdminCreateUser, approveOrganization, rejectOrganization, extendOrganizationAccess, ApiError, type Organization, type CreateOrganizationRequest } from "@/lib/api/index"
+import { isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminCreateOrganization, masterAdminUpdateOrganization, masterAdminDeleteOrganization, masterAdminCreateUser, approveOrganization, rejectOrganization, extendOrganizationAccess, ApiError, type Organization, type CreateOrganizationRequest } from "@/lib/api/index"
 import { UserRole } from "@/lib/api/types"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,6 +31,7 @@ import { Building2, Plus, Edit, Trash2, UserPlus, Shield, Check, X, CalendarCloc
 import { useToast } from "@/components/ui/use-toast"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Badge } from "@/components/ui/badge"
+import { OrganizationFormFields } from "@/components/master-admin/organization-form-fields"
 
 export default function MasterAdminOrganizations() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -673,60 +673,7 @@ export default function MasterAdminOrganizations() {
                         Create a new organization. Organization name is required.
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="org-name">Organization Name *</Label>
-                        <Input
-                          id="org-name"
-                          type="text"
-                          placeholder="ABC Chartered Accountants"
-                          value={orgFormData.name}
-                          onChange={(e) => setOrgFormData({ ...orgFormData, name: e.target.value })}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="city">City</Label>
-                          <Input
-                            id="city"
-                            type="text"
-                            placeholder="Mumbai"
-                            value={orgFormData.city}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, city: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="state">State</Label>
-                          <Input
-                            id="state"
-                            type="text"
-                            placeholder="Maharashtra"
-                            value={orgFormData.state}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, state: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="country">Country</Label>
-                          <Input
-                            id="country"
-                            type="text"
-                            placeholder="India"
-                            value={orgFormData.country}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, country: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="pincode">Pincode</Label>
-                          <Input
-                            id="pincode"
-                            type="text"
-                            placeholder="400001"
-                            value={orgFormData.pincode}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, pincode: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <OrganizationFormFields values={orgFormData} onChange={setOrgFormData} nameRequired />
                     <DialogFooter>
                       <Button
                         variant="outline"
@@ -756,60 +703,7 @@ export default function MasterAdminOrganizations() {
                         Update organization information.
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-org-name">Organization Name</Label>
-                        <Input
-                          id="edit-org-name"
-                          type="text"
-                          placeholder="ABC Chartered Accountants"
-                          value={orgFormData.name}
-                          onChange={(e) => setOrgFormData({ ...orgFormData, name: e.target.value })}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-city">City</Label>
-                          <Input
-                            id="edit-city"
-                            type="text"
-                            placeholder="Mumbai"
-                            value={orgFormData.city}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, city: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-state">State</Label>
-                          <Input
-                            id="edit-state"
-                            type="text"
-                            placeholder="Maharashtra"
-                            value={orgFormData.state}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, state: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-country">Country</Label>
-                          <Input
-                            id="edit-country"
-                            type="text"
-                            placeholder="India"
-                            value={orgFormData.country}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, country: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-pincode">Pincode</Label>
-                          <Input
-                            id="edit-pincode"
-                            type="text"
-                            placeholder="400001"
-                            value={orgFormData.pincode}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, pincode: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <OrganizationFormFields idPrefix="edit-" values={orgFormData} onChange={setOrgFormData} />
                     <DialogFooter>
                       <Button
                         variant="outline"

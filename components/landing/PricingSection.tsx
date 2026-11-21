@@ -103,7 +103,7 @@ export default function PricingSection() {
               transition={{ delay: 0.15 * i, duration: 0.5 }}
               className={`relative rounded-2xl p-8 flex flex-col ${
                 plan.popular
-                  ? "bg-foreground text-background border-2 border-foreground shadow-elevated scale-105"
+                  ? "bg-foreground text-background border-2 border-foreground shadow-elevated md:scale-105"
                   : "bg-card border border-border"
               }`}
             >
@@ -149,7 +149,7 @@ export default function PricingSection() {
                 size="lg"
                 onClick={() => {
                   if (plan.popular) {
-                    window.location.href = "/login";
+                    window.location.href = "/signup";
                   } else {
                     window.location.href = "/plan";
                   }
