@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -32,9 +33,9 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
       <div className="container mx-auto flex items-center justify-between h-16 px-4 md:px-6">
-        <a href="/" className="flex items-center">
+        <Link href="/" className="flex items-center">
           <img src={LOGO_SRC} alt="Lekvya" className="h-12 w-auto object-contain" />
-        </a>
+        </Link>
 
         <div className="hidden lg:flex items-center gap-8">
           {navLinks.map((link) => (
@@ -52,13 +53,15 @@ export default function Navbar() {
           <Button variant="ghost" size="sm" className="hidden lg:inline-flex" onClick={goToContact}>
             Book a Demo
           </Button>
-          <Button size="sm" className="hidden lg:inline-flex bg-gradient-primary text-primary-foreground px-3 lg:px-4" onClick={() => router.push("/login")}>
+          <Button size="sm" className="hidden lg:inline-flex bg-gradient-primary text-primary-foreground px-3 lg:px-4" onClick={() => router.push("/signup")}>
             Start Free Trial
           </Button>
         </div>
 
         <button
           className="lg:hidden p-2"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
           onClick={() => setMobileOpen(!mobileOpen)}
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -86,7 +89,7 @@ export default function Navbar() {
               ))}
               <div className="flex flex-col gap-2 pt-2">
                 <Button variant="outline" size="sm" onClick={() => { setMobileOpen(false); goToContact(); }}>Book a Demo</Button>
-                <Button size="sm" className="bg-gradient-primary text-primary-foreground" onClick={() => { setMobileOpen(false); router.push("/login"); }}>Start Free Trial</Button>
+                <Button size="sm" className="bg-gradient-primary text-primary-foreground" onClick={() => { setMobileOpen(false); router.push("/signup"); }}>Start Free Trial</Button>
               </div>
             </div>
           </motion.div>

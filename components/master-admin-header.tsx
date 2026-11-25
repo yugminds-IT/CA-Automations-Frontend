@@ -1,27 +1,10 @@
 "use client"
 
-/**
- * Master Admin Header - Redesigned
- *
- * Clean white sticky header with global search, notification bell,
- * theme toggle, and profile section. Uses #2563EB Professional Blue accent.
- */
-
-import {
-  LogOut,
-  Sun,
-  Moon,
-  PanelLeft,
-  Shield,
-  Search,
-  Bell,
-  ChevronDown,
-  Menu,
-} from "lucide-react"
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { getUserData, getOrganizationData, logout } from "@/lib/api/index"
-import type { User, Organization } from "@/lib/api/index"
+import Link from "next/link"
+import { useEffect, useState } from "react"
+import { Bell, LogOut, Menu, Moon, PanelLeft, Shield, Sun } from "lucide-react"
+import { getUserData, logout } from "@/lib/api/index"
+import type { User } from "@/lib/api/index"
 import { useTheme } from "./theme-provider"
 
 interface MasterAdminHeaderProps {
@@ -30,172 +13,68 @@ interface MasterAdminHeaderProps {
   sidebarCollapsed?: boolean
 }
 
-export function MasterAdminHeader({
-  onMenuClick,
-  onSidebarToggle,
-  sidebarCollapsed = false,
-}: MasterAdminHeaderProps) {
-  const router = useRouter()
+/** Sticky top bar for master-admin pages. Positioned by MasterAdminShell's CSS layout. */
+export function MasterAdminHeader({ onMenuClick, onSidebarToggle, sidebarCollapsed = false }: MasterAdminHeaderProps) {
   const { theme, toggleTheme } = useTheme()
   const [user, setUser] = useState<User | null>(null)
-  const [organization, setOrganization] = useState<Organization | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [isDesktop, setIsDesktop] = useState(false)
-
-  const loadUserData = () => {
-    const userData = getUserData()
-    const orgData = getOrganizationData()
-    if (userData) setUser(userData)
-    if (orgData) setOrganization(orgData)
-  }
 
   useEffect(() => {
+    const load = () => setUser(getUserData())
     setMounted(true)
-    loadUserData()
-
-    const checkIsDesktop = () => setIsDesktop(window.innerWidth >= 1024)
-    checkIsDesktop()
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "user_data" || e.key === "organization_data") loadUserData()
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-    window.addEventListener("userDataUpdated", loadUserData)
-    window.addEventListener("resize", checkIsDesktop)
-    window.addEventListener("focus", loadUserData)
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-      window.removeEventListener("userDataUpdated", loadUserData)
-      window.removeEventListener("resize", checkIsDesktop)
-      window.removeEventListener("focus", loadUserData)
-    }
+    load()
+    window.addEventListener("userDataUpdated", load)
+    return () => window.removeEventListener("userDataUpdated", load)
   }, [])
 
-  const getHeaderStyle = () => {
-    if (isDesktop) {
-      return {
-        left: sidebarCollapsed ? "60px" : "240px",
-        right: 0,
-        width: sidebarCollapsed ? "calc(100% - 60px)" : "calc(100% - 240px)",
-      }
-    }
-    return { left: 0, right: 0, width: "100%" }
-  }
-
-  const userInitial = (user?.full_name || user?.email || "A").charAt(0).toUpperCase()
-  const displayName =
-    user?.full_name || user?.email?.split("@")[0] || "Admin"
+  const displayName = user?.full_name || user?.email?.split("@")[0] || "Admin"
+  const iconBtn = "p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
 
   return (
-    <header
-      className="fixed top-0 z-50 bg-white dark:bg-[#0F172A] border-b border-[#E2E8F0] dark:border-[#1E293B] flex items-center justify-between px-4 md:px-6 transition-[left,width] duration-300 ease-out shadow-sm"
-      style={{ height: "56px", minHeight: "56px", ...getHeaderStyle() }}
-    >
-      {/* ── Left: Controls + brand badge ── */}
-      <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
-        {/* Mobile hamburger */}
+    <header className="sticky top-0 z-40 h-16 shrink-0 flex items-center justify-between gap-3 px-3 sm:px-6 border-b border-border bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <div className="flex items-center gap-2 min-w-0">
         {onMenuClick && (
-          <button
-            onClick={onMenuClick}
-            className="lg:hidden p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors"
-            aria-label="Open menu"
-          >
-            <Menu className="w-5 h-5 text-[#64748B] dark:text-muted-foreground" />
+          <button onClick={onMenuClick} className={`lg:hidden ${iconBtn}`} aria-label="Open menu">
+            <Menu className="w-5 h-5" />
           </button>
         )}
-
-        {/* Desktop sidebar collapse toggle */}
         {onSidebarToggle && (
           <button
             onClick={onSidebarToggle}
-            className="hidden lg:flex p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors"
+            className={`hidden lg:flex ${iconBtn}`}
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <PanelLeft className="w-5 h-5 text-[#64748B] dark:text-muted-foreground" />
+            <PanelLeft className="w-4 h-4" />
           </button>
         )}
-
-        {/* Master Admin badge + org name */}
-        <div className="flex items-center gap-2 ml-1">
-          <div className="hidden sm:flex items-center gap-1.5 bg-[#EFF6FF] dark:bg-[#1E3A5F] px-2.5 py-1 rounded-lg">
-            <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 tracking-wide">
-              MASTER ADMIN
-            </span>
-          </div>
-          <span className="text-sm font-semibold text-[#0F172A] dark:text-white hidden md:block truncate max-w-[160px]">
-            {organization?.name || ""}
-          </span>
-        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold tracking-wide text-primary">
+          <Shield className="w-3.5 h-3.5" /> MASTER ADMIN
+        </span>
       </div>
 
-      {/* ── Center: Global search ── */}
-      <div className="hidden md:flex flex-1 max-w-sm mx-6">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search organizations, users..."
-            className="w-full pl-9 pr-4 py-2 text-sm bg-[#F8FAFC] dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-[#334155] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] text-[#0F172A] dark:text-white placeholder:text-muted-foreground transition-all"
-          />
-        </div>
-      </div>
-
-      {/* ── Right: Theme + notifications + profile ── */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors"
-          aria-label="Toggle theme"
-          suppressHydrationWarning
-        >
-          {mounted && theme === "light" ? (
-            <Moon className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <Sun className="w-4 h-4 text-muted-foreground" />
-          )}
+      <div className="flex items-center gap-1">
+        <button onClick={toggleTheme} className={iconBtn} aria-label="Toggle theme" suppressHydrationWarning>
+          {mounted && theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
-
-        {/* Notification bell */}
-        <button className="relative p-2 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors">
-          <Bell className="w-4 h-4 text-[#64748B] dark:text-muted-foreground" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#2563EB] rounded-full ring-2 ring-white dark:ring-[#0F172A]" />
-        </button>
-
-        {/* Divider */}
-        <div className="w-px h-5 bg-[#E2E8F0] dark:bg-[#1E293B] mx-1 hidden sm:block" />
-
-        {/* Profile section */}
+        <Link href="/master-admin/notifications" className={iconBtn} aria-label="Notifications">
+          <Bell className="w-4 h-4" />
+        </Link>
         {user && (
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors cursor-default">
-              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-sm">
-                <span className="text-[11px] font-bold text-white">{userInitial}</span>
-              </div>
-              <div className="hidden sm:block min-w-0">
-                <p className="text-xs font-semibold text-[#0F172A] dark:text-white leading-none truncate max-w-[100px]">
-                  {displayName}
-                </p>
-                <p className="text-[10px] text-[#64748B] dark:text-muted-foreground leading-none mt-0.5">
-                  Master Admin
-                </p>
-              </div>
-              <ChevronDown className="w-3 h-3 text-muted-foreground hidden sm:block flex-shrink-0" />
+          <div className="flex items-center gap-2 pl-2 ml-1 border-l border-border">
+            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+              {displayName.charAt(0).toUpperCase()}
             </div>
-
+            <span className="hidden sm:block text-xs font-semibold text-foreground truncate max-w-[140px]">{displayName}</span>
             <button
               onClick={async () => {
                 await logout()
                 window.location.replace("/login")
               }}
-              className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group"
-              aria-label="Logout"
+              className={`${iconBtn} hover:text-destructive`}
+              aria-label="Sign out"
               title="Sign out"
             >
-              <LogOut className="w-4 h-4 text-muted-foreground group-hover:text-red-500 transition-colors" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         )}

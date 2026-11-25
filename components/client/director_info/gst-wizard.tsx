@@ -50,7 +50,7 @@ function DropZone({ label, accept, done, filename, uploading, onFile }: {
             <p className="text-sm font-medium text-green-700 truncate max-w-[220px]">{filename ?? label}</p>
             <p className="text-xs text-green-600 mt-0.5">Uploaded successfully</p>
           </div>
-          <Button variant="outline" size="sm" className="text-xs h-7"
+          <Button variant="outline" size="sm" className="h-9"
             onClick={(e) => { e.stopPropagation(); ref.current?.click() }}>
             Replace
           </Button>
@@ -67,7 +67,7 @@ function DropZone({ label, accept, done, filename, uploading, onFile }: {
             <p className="text-sm font-medium">{label}</p>
             <p className="text-xs text-muted-foreground mt-0.5">PDF or image — drag & drop or click to browse</p>
           </div>
-          <Button variant="outline" size="sm" className="text-xs h-7 pointer-events-none">
+          <Button variant="outline" size="sm" className="h-9 pointer-events-none">
             <Upload className="h-3.5 w-3.5 mr-1.5" />Browse
           </Button>
         </>
@@ -89,7 +89,7 @@ function DocumentViewer({ previewUrl, filename, fileType }: {
           <FileText className="h-4 w-4 text-blue-500" />
           <p className="text-xs font-semibold text-blue-800 truncate flex-1">{filename ?? 'GST Document'}</p>
           <a href={previewUrl} target="_blank" rel="noreferrer"
-            className="text-[10px] text-blue-600 hover:underline shrink-0">Open ↗</a>
+            className="text-xs text-blue-600 hover:underline shrink-0">Open ↗</a>
         </div>
         {isPdf ? (
           <iframe src={previewUrl} className="flex-1 w-full border-0 min-h-[340px]" title="GST Document Preview" />
@@ -244,7 +244,7 @@ export function GstWizard({ session: initialSession, clientName, onBack }: GstWi
           </p>
         </div>
         {/* Breadcrumb */}
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
           {(['upload','preview','review','complete'] as const).map((p, i, arr) => (
             <span key={p} className="flex items-center gap-1">
               <span className={phase === p ? 'text-primary font-semibold' : ''}>
@@ -494,7 +494,7 @@ export function GstWizard({ session: initialSession, clientName, onBack }: GstWi
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground h-7 text-xs" onClick={() => setPhase('review')}>
+                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground h-9" onClick={() => setPhase('review')}>
                   <ArrowLeft className="h-3.5 w-3.5" />Back
                 </Button>
                 <div>

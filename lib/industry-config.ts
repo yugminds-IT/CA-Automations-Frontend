@@ -245,11 +245,10 @@ export const INDUSTRY_MAIL_CONFIGS: Record<string, IndustryMailConfig> = {
       { label: 'Due Date', value: '{{due_date}}' },
       { label: 'Service Name', value: '{{service_name}}' },
     ],
+    // financial_year / assessment_year are filled by the server from today's date
     resolveClientVars: (c, u) => ({
       client_name: c.name || '',
       company_name: c.companyName || '',
-      financial_year: '',
-      assessment_year: '',
       due_date: c.followUpDate || '',
       service_name: (c.services && c.services[0]?.name) || '',
     }),
@@ -602,4 +601,19 @@ export const INDUSTRY_CLIENT_CONFIGS: Record<string, IndustryClientConfig> = {
 export function getIndustryClientConfig(industry?: string | null): IndustryClientConfig {
   const normalized = (industry || 'financial_services').toLowerCase().trim()
   return INDUSTRY_CLIENT_CONFIGS[normalized] || INDUSTRY_CLIENT_CONFIGS.financial_services
+}
+
+/** Starter tags offered when tagging contacts; any business can type its own. */
+const SUGGESTED_TAGS: Record<string, string[]> = {
+  website_developer: ['Retainer', 'Lead', 'Maintenance plan', 'Website live', 'Invoice overdue'],
+  school: ['Class 10', 'Class 12', 'Fee pending', 'Transport', 'Hostel'],
+  education: ['Batch 2026', 'Fee pending', 'Scholarship', 'Alumni', 'Demo class'],
+  ecommerce: ['VIP', 'Repeat buyer', 'Wholesale', 'Abandoned cart', 'Newsletter'],
+  healthcare: ['New patient', 'Follow-up due', 'Insurance', 'Senior citizen', 'Cardiology'],
+  saas: ['Trial', 'Paying', 'Churn risk', 'Enterprise', 'Beta tester'],
+  financial_services: ['GST monthly', 'ITR pending', 'Audit client', 'Retainer', 'Documents pending'],
+}
+
+export function suggestedTagsFor(industry?: string | null): string[] {
+  return SUGGESTED_TAGS[getIndustryClientConfig(industry).key] ?? ['VIP', 'Lead', 'Follow-up']
 }

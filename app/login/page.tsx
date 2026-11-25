@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SignInPage, SignUpPage } from "@/components/ui/sign-in";
@@ -170,15 +171,11 @@ export default function LoginPage() {
       <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-orange-500/5 blur-[120px] pointer-events-none" />
 
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3 bg-background/80 backdrop-blur-lg border-b border-border">
-        <a
+        <Link
           href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            router.push("/");
-          }}
         >
           <img src="/landing-assets/lekvya-logo-new.png" alt="Lekvya" className="h-10 w-auto object-contain" />
-        </a>
+        </Link>
 
         <div className="flex items-center gap-1 bg-secondary rounded-xl p-1">
           <button

@@ -1,5 +1,6 @@
 "use client"
 
+import { useAppUi } from "@/lib/use-app-ui"
 import { useEffect, useMemo, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Upload, FileText, Trash2, X, CheckCircle2, Loader2, Eye, Download, Plus } from "lucide-react"
@@ -28,6 +29,7 @@ type UploadItem = {
 }
 
 export default function UploadsPage() {
+  useAppUi()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [isDesktop, setIsDesktop] = useState(false)
@@ -369,12 +371,12 @@ export default function UploadsPage() {
       <div
         className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
         style={{
-          marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0",
-          width: isDesktop ? (sidebarCollapsed ? "calc(100% - 60px)" : "calc(100% - 240px)") : "100%",
+          marginLeft: isDesktop ? (sidebarCollapsed ? "72px" : "256px") : "0",
+          width: isDesktop ? (sidebarCollapsed ? "calc(100% - 72px)" : "calc(100% - 256px)") : "100%",
         }}
       >
         <Header onMenuClick={() => setMobileMenuOpen(true)} onSidebarToggle={toggleSidebar} sidebarCollapsed={sidebarCollapsed} />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}>
+        <div className="overflow-auto" style={{ height: "calc(100vh - 64px)" }}>
           <div className="p-4 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Upload className="h-5 w-5" />

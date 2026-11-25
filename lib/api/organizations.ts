@@ -89,3 +89,20 @@ export async function testSmtpConfig(
     requiresAuth: true,
   });
 }
+
+// ─── Reply-to and signature ──────────────────────────────────────────────────
+
+export interface MailIdentity {
+  /** Where client replies go; empty = to the sender */
+  replyTo: string
+  /** Plain-text sign-off added to every email to clients */
+  signature: string
+}
+
+export async function getMailIdentity(id: number | string): Promise<MailIdentity> {
+  return apiRequestWithRefresh<MailIdentity>(`${API_CONFIG.endpoints.organizations.byId(id)}/mail-identity`, { method: 'GET', requiresAuth: true })
+}
+
+export async function saveMailIdentity(id: number | string, data: Partial<MailIdentity>): Promise<MailIdentity> {
+  return apiRequestWithRefresh<MailIdentity>(`${API_CONFIG.endpoints.organizations.byId(id)}/mail-identity`, { method: 'PUT', body: data, requiresAuth: true })
+}

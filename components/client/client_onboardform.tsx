@@ -4,7 +4,6 @@ import * as React from 'react'
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
 import { format } from 'date-fns'
 import { CalendarIcon, PlusIcon, Trash2Icon, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -45,67 +44,14 @@ import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import { getIndustryClientConfig } from '@/lib/industry-config'
 import { getUserData } from '@/lib/api/index'
-import type { Client } from './client_tab'
-
-const clientOnboardSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
-  phone: z.string().optional().or(z.literal('')).refine(
-    (val) => !val || val === '' || val.length >= 10,
-    'Please enter a valid phone number (at least 10 digits)'
-  ),
-  companyName: z.string().optional().or(z.literal('')),
-  panNumber: z.string().max(50).optional().or(z.literal('')),
-  gstNumber: z.string().max(50).optional().or(z.literal('')),
-  businessType: z.string().min(1, 'Please select an option'),
-  customBusinessType: z.string().optional(),
-  status: z.string().optional(),
-  addressLine1: z.string().optional().or(z.literal('')),
-  city: z.string().optional().or(z.literal('')),
-  state: z.string().optional().or(z.literal('')),
-  country: z.string().optional().or(z.literal('')),
-  pincode: z.string().optional().or(z.literal('')).refine(
-    (val) => !val || val === '' || /^[0-9]{6}$/.test(val),
-    'Pincode must be 6 digits'
-  ),
-  directories: z.array(z.string()).optional().default([]),
-  onboardDate: z.date().optional().nullable(),
-  followUpDate: z.date().optional().nullable(),
-  notes: z.string().optional(),
-  directors: z.array(z.object({
-    name: z.string().min(2, 'Name must be at least 2 characters'),
-    email: z.string().email('Please enter a valid email address').optional().or(z.literal('')),
-    phone: z.string().optional().or(z.literal('')),
-    designation: z.string().optional().or(z.literal('')),
-    din: z.string().optional().or(z.literal('')),
-    pan: z.string().optional().or(z.literal('')),
-    aadhar: z.string().optional().or(z.literal('')),
-  })).optional().default([]),
-})
-
-type ClientOnboardFormValues = z.infer<typeof clientOnboardSchema>
-
+import type { NewClient } from './client-transforms'
+import { clientOnboardSchema, type ClientOnboardFormValues } from './client-onboard-schema'
+import { TagInput } from './tag-input'
+import { suggestedTagsFor } from '@/lib/industry-config'
 interface ClientOnboardFormProps {
-  onSubmit?: (data: Omit<Client, 'id' | 'lastContactedDate'> & {
-    panNumber?: string
-    gstNumber?: string
-    businessType?: string
-    address?: string
-    city?: string
-    state?: string
-    country?: string
-    pincode?: string
-    notes?: string
-    directors?: Array<{
-      name: string
-      email?: string
-      phone?: string
-      designation?: string
-      din?: string
-      pan?: string
-      aadhar?: string
-    }>
-  }) => Promise<void> | void
+  /** Tags already used in the organization, offered first */
+  tagSuggestions?: string[]
+  onSubmit?: (data: NewClient) => Promise<void> | void
   onCancel?: () => void
   defaultValues?: Partial<ClientOnboardFormValues>
   services?: string[]
@@ -124,6 +70,7 @@ export function ClientOnboardForm({
   clientStatuses = [],
   isEditing = false,
   industry: propIndustry,
+  tagSuggestions = [],
 }: ClientOnboardFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [customServiceInput, setCustomServiceInput] = useState('')
@@ -173,6 +120,7 @@ export function ClientOnboardForm({
       onboardDate: defaultValues?.onboardDate || new Date(),
       followUpDate: defaultValues?.followUpDate || null,
       notes: defaultValues?.notes || '',
+      tags: defaultValues?.tags || [],
       directors: defaultValues?.directors || [],
     },
   })
@@ -287,26 +235,7 @@ export function ClientOnboardForm({
         : data.name.trim()
       
       // Transform form data to Client format with all fields
-      const clientData: Omit<Client, 'id' | 'lastContactedDate'> & {
-        panNumber?: string
-        gstNumber?: string
-        businessType?: string
-        address?: string
-        city?: string
-        state?: string
-        country?: string
-        pincode?: string
-        notes?: string
-        directors?: Array<{
-          name: string
-          email?: string
-          phone?: string
-          designation?: string
-          din?: string
-          pan?: string
-          aadhar?: string
-        }>
-      } = {
+      const clientData: NewClient = {
         name: data.name,
         email: data.email,
         phone: (data.phone && data.phone.trim() !== '') ? data.phone : null,
@@ -323,6 +252,7 @@ export function ClientOnboardForm({
         country: (data.country && data.country.trim() !== '') ? data.country : undefined,
         pincode: (data.pincode && data.pincode.trim() !== '') ? data.pincode : undefined,
         notes: (data.notes && data.notes.trim() !== '') ? data.notes : undefined,
+        tags: data.tags ?? [],
         directors: allDirectors,
         onboardDate: data.onboardDate ? format(data.onboardDate, 'yyyy-MM-dd') : null,
       }
@@ -448,7 +378,7 @@ export function ClientOnboardForm({
   return (
     <Form {...form}>
       <form id="client-onboard-form" onSubmit={form.handleSubmit(handleSubmit)} className="space-y-0 overflow-x-hidden max-w-full">
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-3 flex-wrap">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3 flex-wrap">
             {PHASE_ORDER.map((p, i, arr) => {
               const pIndex = PHASE_ORDER.indexOf(p)
               const isPast = pIndex < phaseIndex
@@ -1046,6 +976,23 @@ export function ClientOnboardForm({
                 </div>
               </div>
 
+              {/* Tags: how any business groups its contacts ("VIP", "Class 10") */}
+              <div className="p-5 pb-0 space-y-2">
+                <label htmlFor="client-tags" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tags <span className="normal-case font-normal text-muted-foreground/70">(optional, used to pick who gets an email)</span></label>
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <TagInput id="client-tags" value={field.value ?? []} onChange={field.onChange}
+                          suggestions={[...tagSuggestions, ...suggestedTagsFor(currentIndustry)]} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               {/* Notes */}
               <div className="p-5 space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{clientConfig.notesLabel} <span className="normal-case font-normal text-muted-foreground/70">(optional)</span></p>
@@ -1094,7 +1041,7 @@ export function ClientOnboardForm({
 
               {directors.length === 0 && savedDirectors.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground border border-dashed rounded-md">
-                  No {clientConfig.stakeholdersSectionTitle.toLowerCase()} added. Click "{clientConfig.stakeholdersAddButtonLabel}" to add details.
+                  No {clientConfig.stakeholdersSectionTitle.toLowerCase()} added. Click &quot;{clientConfig.stakeholdersAddButtonLabel}&quot; to add details.
                 </div>
               ) : directors.length > 0 ? (
                 <div className="space-y-6">

@@ -15,7 +15,7 @@ export default function NotFound() {
           <div className="text-6xl font-bold text-muted-foreground mb-4">404</div>
           <CardTitle className="text-2xl">Page Not Found</CardTitle>
           <CardDescription className="mt-2">
-            The page you're looking for doesn't exist or has been moved.
+            The page you&apos;re looking for doesn&apos;t exist or has been moved.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -24,7 +24,7 @@ export default function NotFound() {
             className="w-full"
           >
             <Home className="h-4 w-4 mr-2" />
-            Go to Dashboard
+            Go to Home
           </Button>
           <Button
             variant="outline"

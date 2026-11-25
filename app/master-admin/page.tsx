@@ -1,7 +1,5 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -25,9 +23,6 @@ import {
 } from "lucide-react"
 
 export default function MasterAdminDashboard() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [stats, setStats] = useState<MasterAdminStats | null>(null)
   const [isLoadingStats, setIsLoadingStats] = useState(true)
@@ -64,24 +59,8 @@ export default function MasterAdminDashboard() {
     }
   }
 
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed")
-    setSidebarCollapsed(saved !== null ? saved === "true" : true)
-  }, [])
-
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   const kpiCards = [
@@ -136,25 +115,21 @@ export default function MasterAdminDashboard() {
       label: "Add Organization",
       icon: Plus,
       path: "/master-admin/organizations",
-      color: "bg-blue-600 hover:bg-blue-700",
     },
     {
       label: "Create User",
       icon: UserPlus,
       path: "/master-admin/users",
-      color: "bg-green-600 hover:bg-green-700",
     },
     {
       label: "View Analytics",
       icon: BarChart3,
       path: "/master-admin/analytics",
-      color: "bg-purple-600 hover:bg-purple-700",
     },
     {
       label: "Activity Log",
       icon: Activity,
       path: "/master-admin/activity",
-      color: "bg-amber-500 hover:bg-amber-600",
     },
   ]
 
@@ -210,25 +185,8 @@ export default function MasterAdminDashboard() {
   ]
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{
-          marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0",
-        }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-
-        <div className="overflow-auto flex-1" style={{ marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-6 space-y-6 max-w-7xl mx-auto">
 
             {/* ── Page Header ── */}
@@ -262,18 +220,18 @@ export default function MasterAdminDashboard() {
                       <card.icon className={`w-5 h-5 ${card.iconColor}`} />
                     </div>
                     <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${card.badgeColor}`}
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${card.badgeColor}`}
                     >
                       {card.badge}
                     </span>
                   </div>
-                  <p className="text-[13px] font-medium text-muted-foreground mb-1">
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
                     {card.title}
                   </p>
                   <p className="text-2xl font-bold text-foreground">
                     {card.value}
                   </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">{card.subtitle}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{card.subtitle}</p>
                 </button>
               ))}
             </div>
@@ -291,10 +249,10 @@ export default function MasterAdminDashboard() {
                     <button
                       key={action.label}
                       onClick={() => router.push(action.path)}
-                      className={`${action.color} text-white rounded-xl p-4 flex flex-col items-start gap-2.5 transition-colors`}
+                      className="rounded-xl border border-border bg-background p-4 flex flex-col items-start gap-2.5 text-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors"
                     >
-                      <action.icon className="w-4 h-4" />
-                      <span className="text-[11px] font-semibold leading-tight">
+                      <action.icon className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-semibold leading-tight">
                         {action.label}
                       </span>
                     </button>
@@ -308,7 +266,7 @@ export default function MasterAdminDashboard() {
                   <h2 className="text-sm font-semibold text-foreground">
                     Management Modules
                   </h2>
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {modules.length} modules
                   </span>
                 </div>
@@ -325,10 +283,10 @@ export default function MasterAdminDashboard() {
                         <item.icon className={`w-4 h-4 ${item.color}`} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-semibold text-foreground">
+                        <p className="text-sm font-semibold text-foreground">
                           {item.label}
                         </p>
-                        <p className="text-[11px] text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {item.desc}
                         </p>
                       </div>
@@ -341,7 +299,6 @@ export default function MasterAdminDashboard() {
 
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }

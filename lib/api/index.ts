@@ -52,30 +52,6 @@ export const EmailTemplateType = {
 
 export type EmailTemplateTypeValue = (typeof EmailTemplateType)[keyof typeof EmailTemplateType];
 
-// Template type strings (from backend - fetch /email-templates/types?category=X for dynamic)
-export const TEMPLATE_VARIABLES = {
-  CLIENT_NAME: '{{client_name}}',
-  CLIENT_EMAIL: '{{client_email}}',
-  CLIENT_PHONE: '{{client_phone}}',
-  COMPANY_NAME: '{{company_name}}',
-  ORG_NAME: '{{org_name}}',
-  ORG_EMAIL: '{{org_email}}',
-  ORG_PHONE: '{{org_phone}}',
-  SERVICE_NAME: '{{service_name}}',
-  SERVICE_DESCRIPTION: '{{service_description}}',
-  CURRENT_DATE: '{{current_date}}',
-  DATE: '{{date}}',
-  TODAY: '{{today}}',
-  DEADLINE_DATE: '{{deadline_date}}',
-  FOLLOW_UP_DATE: '{{follow_up_date}}',
-  LOGIN_EMAIL: '{{login_email}}',
-  LOGIN_PASSWORD: '{{login_password}}',
-  LOGIN_URL: '{{login_url}}',
-  ADDITIONAL_NOTES: '{{additional_notes}}',
-  AMOUNT: '{{amount}}',
-  DOCUMENT_NAME: '{{document_name}}',
-} as const;
-
 // Compatibility aliases for email templates
 export {
   listTemplates as getEmailTemplates,
@@ -99,12 +75,18 @@ export async function getOrgEmailTemplates(params?: { limit?: number; category?:
   return listTemplates({ ...params, organizationId });
 }
 
+/**
+ * Save an org's version of a shared template: updates the org's existing copy when given,
+ * otherwise creates one. Never PATCHes the shared template itself (the backend forbids it).
+ */
 export async function customizeMasterTemplate(
-  templateId: number | string,
-  data: { subject?: string; body?: string }
+  master: { category: string; type: string; name: string },
+  existingCopyId: number | string | null | undefined,
+  data: { subject: string; body: string }
 ) {
-  const { updateTemplate } = await import('./email-templates');
-  return updateTemplate(templateId, data);
+  const { createTemplate, updateTemplate } = await import('./email-templates');
+  if (existingCopyId != null) return updateTemplate(existingCopyId, data);
+  return createTemplate({ category: master.category, type: master.type, name: master.name, ...data });
 }
 
 export type { CreateEmailTemplateRequest, UpdateEmailTemplateRequest } from './types';

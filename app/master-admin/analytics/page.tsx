@@ -1,7 +1,5 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -11,9 +9,6 @@ import { BarChart3, TrendingUp, Users, Building2, Mail, RefreshCw } from "lucide
 import { Button } from "@/components/ui/button"
 
 export default function MasterAdminAnalyticsPage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [data, setData] = useState<MasterAdminAnalytics | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -43,24 +38,8 @@ export default function MasterAdminAnalyticsPage() {
     }
   }
 
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed")
-    setSidebarCollapsed(saved !== null ? saved === "true" : true)
-  }, [])
-
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   const metrics = [
@@ -118,22 +97,8 @@ export default function MasterAdminAnalyticsPage() {
     .filter((r) => r.pct > 0)
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0" }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        <div className="overflow-auto flex-1" style={{ marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-6 space-y-6 max-w-7xl mx-auto">
 
             <div className="flex items-start justify-between gap-4">
@@ -163,8 +128,8 @@ export default function MasterAdminAnalyticsPage() {
                     </div>
                   </div>
                   <p className="text-2xl font-bold text-foreground">{m.value}</p>
-                  <p className="text-[13px] font-medium text-muted-foreground dark:text-muted-foreground mt-0.5">{m.label}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{m.period}</p>
+                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground mt-0.5">{m.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{m.period}</p>
                 </div>
               ))}
             </div>
@@ -195,7 +160,7 @@ export default function MasterAdminAnalyticsPage() {
                           className="w-full bg-blue-600 rounded-t-md opacity-80 hover:opacity-100 transition-opacity"
                           style={{ height: `${Math.max((bar.value / barMax) * 100, 4)}%` }}
                         />
-                        <span className="text-[10px] text-muted-foreground">{bar.label}</span>
+                        <span className="text-xs text-muted-foreground">{bar.label}</span>
                       </div>
                     ))}
                   </div>
@@ -231,7 +196,6 @@ export default function MasterAdminAnalyticsPage() {
 
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }

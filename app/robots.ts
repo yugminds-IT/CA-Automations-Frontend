@@ -16,7 +16,6 @@ export default function robots(): MetadataRoute.Robots {
         allow: [
           "/",
           "/plan",
-          "/docs",
           "/login",
           "/signup",
           "/llms.txt",
@@ -44,7 +43,6 @@ export default function robots(): MetadataRoute.Robots {
         allow: [
           "/",
           "/plan",
-          "/docs",
           "/llms.txt",
           "/llms-full.txt",
         ],
