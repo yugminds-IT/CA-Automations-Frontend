@@ -150,13 +150,13 @@ export function TdsTab({ clientId, clientName = '' }: TdsTabProps) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
+                          <Button variant="ghost" size="sm" className="h-9 gap-1"
                             onClick={(e) => { e.stopPropagation(); setActiveSessionId(s.id) }}>
                             Open <ChevronRight className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant="ghost" size="sm"
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                             disabled={isDeleting}
                             onClick={(e) => handleDelete(e, s.id)}
                           >

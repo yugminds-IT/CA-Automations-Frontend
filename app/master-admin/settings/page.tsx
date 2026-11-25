@@ -1,7 +1,5 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -48,9 +46,6 @@ const settingSections = [
 ]
 
 export default function MasterAdminSettings() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [activeSection, setActiveSection] = useState("general")
   const [platformName, setPlatformName] = useState("CA Automations")
@@ -67,43 +62,13 @@ export default function MasterAdminSettings() {
     setIsCheckingAuth(false)
   }, [router, toast])
 
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed")
-    setSidebarCollapsed(saved !== null ? saved === "true" : true)
-  }, [])
-
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0" }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        <div className="overflow-auto flex-1" style={{ marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-6 space-y-6 max-w-5xl mx-auto">
 
             <div>
@@ -131,7 +96,7 @@ export default function MasterAdminSettings() {
                       <p className={`text-sm font-medium ${activeSection === s.id ? "text-blue-600 dark:text-blue-400" : "text-foreground"}`}>
                         {s.title}
                       </p>
-                      <p className="text-[10px] text-muted-foreground truncate">{s.desc}</p>
+                      <p className="text-xs text-muted-foreground truncate">{s.desc}</p>
                     </div>
                     <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 transition-colors ${activeSection === s.id ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground/50"}`} />
                   </button>
@@ -151,7 +116,7 @@ export default function MasterAdminSettings() {
                   {activeSection === "general" && (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="platform-name" className="text-[13px] font-medium text-foreground">
+                        <Label htmlFor="platform-name" className="text-sm font-medium text-foreground">
                           Platform Name
                         </Label>
                         <Input
@@ -163,7 +128,7 @@ export default function MasterAdminSettings() {
                         <p className="text-xs text-muted-foreground">Displayed in email headers and the browser tab.</p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="timezone" className="text-[13px] font-medium text-foreground">
+                        <Label htmlFor="timezone" className="text-sm font-medium text-foreground">
                           Default Timezone
                         </Label>
                         <Input
@@ -186,7 +151,7 @@ export default function MasterAdminSettings() {
                             </div>
                             <p className="text-sm font-semibold text-foreground">{sec.title} Settings</p>
                             <p className="text-xs text-muted-foreground text-center max-w-xs">{sec.desc}</p>
-                            <span className="text-[11px] text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 rounded-full font-medium">
+                            <span className="text-xs text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 rounded-full font-medium">
                               Coming Soon
                             </span>
                           </>
@@ -234,7 +199,6 @@ export default function MasterAdminSettings() {
 
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }

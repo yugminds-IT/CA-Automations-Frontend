@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { PageHeader } from "@/components/ui/page-header"
 import { Search, Download, PlusIcon, Upload, FileSpreadsheet, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +23,7 @@ import {
 import { ClientTab, type Client } from "@/components/client/client_tab"
 import { useToast } from "@/components/ui/use-toast"
 import { onboardClient } from "@/lib/api/clients"
+import { normalizeTags } from "@/components/client/tag-input"
 import { getUserData } from "@/lib/api/index"
 import { getIndustryClientConfig } from "@/lib/industry-config"
 
@@ -30,7 +32,7 @@ const STATIC_HEADERS = [
   'Name*', 'Email*', 'Phone', 'Company Name', 'Business Type',
   'Status', 'Address', 'City', 'State', 'Country', 'Pincode',
   'PAN Number', 'GST Number', 'Onboard Date (YYYY-MM-DD)',
-  'Follow-up Date (YYYY-MM-DD)', 'Additional Notes',
+  'Follow-up Date (YYYY-MM-DD)', 'Additional Notes', 'Tags',
   'Director Name', 'Director Email', 'Director Phone',
   'Director Designation', 'Director DIN', 'Director PAN', 'Director Aadhar',
 ]
@@ -39,7 +41,7 @@ const STATIC_SAMPLE = [
   'John Doe', 'john@example.com', '9876543210', 'Doe Enterprises',
   'Private Limited', 'active', '123 Main Street',
   'Mumbai', 'Maharashtra', 'India', '400001', 'ABCDE1234F', '27ABCDE1234F1Z5',
-  '2024-01-15', '2024-06-01', 'Key account',
+  '2024-01-15', '2024-06-01', 'Key account', 'VIP; Retainer',
   'Jane Doe', 'jane@example.com', '9876543211', 'CFO', 'DIN001', 'PQRST5678G', '1234-5678-9012',
 ]
 
@@ -101,6 +103,11 @@ export function ClientManagement({
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  // "Add client" from elsewhere (e.g. the dashboard) arrives as ?add=1
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from the URL on arrival
+    if (new URLSearchParams(window.location.search).get('add') === '1') setIsDialogOpen(true)
+  }, [])
   const [filteredClientsForExport, setFilteredClientsForExport] = useState<Client[]>([])
 
   // Import state
@@ -123,7 +130,7 @@ export function ClientManagement({
 
     try {
       const headers = [
-        'Name', 'Email', 'Phone', 'Company Name', 'Services', 'Follow-up Date', 'Onboard Date', 'Last Contacted',
+        'Name', 'Email', 'Phone', 'Company Name', 'Services', 'Tags', 'Follow-up Date', 'Onboard Date', 'Last Contacted',
         'Director Name', 'Director Email', 'Director Phone', 'Director Designation', 'Director DIN', 'Director PAN', 'Director Aadhar',
       ]
       const rows: string[][] = []
@@ -131,6 +138,7 @@ export function ClientManagement({
         const base = [
           client.name, client.email, client.phone || '', client.companyName,
           Array.isArray(client.directories) ? client.directories.join('; ') : client.directories || '',
+          (client.tags ?? []).join('; '),
           client.followUpDate ? new Date(client.followUpDate).toLocaleDateString() : '',
           client.onboardDate ? new Date(client.onboardDate).toLocaleDateString() : '',
           client.lastContactedDate ? new Date(client.lastContactedDate).toLocaleDateString() : '',
@@ -398,6 +406,8 @@ export function ClientManagement({
         onboardDate: parseDate(d['Onboard Date (YYYY-MM-DD)'] || d['Onboard Date'] || ''),
         followupDate: parseDate(d['Follow-up Date (YYYY-MM-DD)'] || d['Follow-up Date'] || ''),
         additionalNotes: d['Additional Notes'] || undefined,
+        // "VIP; Retainer" (semicolons, commas or | between tags)
+        tags: normalizeTags((d['Tags'] || '').split(/[;,|]/)),
         organizationId: orgId,
         directors,
       }
@@ -445,46 +455,44 @@ export function ClientManagement({
   const totalRows = importRows.length
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold" suppressHydrationWarning>{clientConfig.clientPlural} Management</h1>
-          <p className="text-muted-foreground mt-1" suppressHydrationWarning>Manage your {clientConfig.clientPlural.toLowerCase()} and their information</p>
+    <div className="flex flex-col gap-4 p-4 sm:p-5 md:h-full">
+      <PageHeader
+        title={<span suppressHydrationWarning>{clientConfig.clientPlural}</span>}
+        description={<span suppressHydrationWarning>Add, find and manage your {clientConfig.clientPlural.toLowerCase()}.</span>}
+        actions={
+          <>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setImportLandingOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport} disabled={filteredClientsForExport.length === 0}>
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            <Button onClick={() => setIsDialogOpen(true)} size="sm" className="gap-1.5" suppressHydrationWarning>
+              <PlusIcon className="h-4 w-4" />
+              {clientConfig.onboardButtonLabel}
+            </Button>
+          </>
+        }
+      />
+      {/* Hidden file input for Import */}
+      <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder={`Search ${clientConfig.clientPlural.toLowerCase()} by name, company or email`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-card" suppressHydrationWarning />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Search */}
-          <div className="relative flex-1 sm:flex-initial sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder={`Search ${clientConfig.clientPlural.toLowerCase()}...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 border border-input" suppressHydrationWarning />
-          </div>
-          {/* Status filter */}
-          <Select value={statusFilter} onValueChange={setStatusFilter} disabled={statusOptions.length === 0}>
-            <SelectTrigger className="w-[140px] h-9 border border-input">
-              <SelectValue placeholder={statusOptions.length === 0 ? 'No status options' : 'Filter by status'} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              {statusOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {/* Export */}
-          <Button variant="outline" size="sm" onClick={handleExport}
-            disabled={filteredClientsForExport.length === 0}
-            className="border border-input">
-            <Download className="h-4 w-4 mr-2" />Export
-          </Button>
-          {/* Import button → landing dialog */}
-          <Button variant="outline" size="sm" className="border border-input gap-1" onClick={() => setImportLandingOpen(true)}>
-            <Upload className="h-4 w-4" />
-            Import
-          </Button>
-          {/* Hidden file input */}
-          <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
-          {/* Onboard Client */}
-          <Button onClick={() => setIsDialogOpen(true)} size="sm" suppressHydrationWarning>
-            <PlusIcon className="h-4 w-4 mr-2" />{clientConfig.onboardButtonLabel}
-          </Button>
-        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter} disabled={statusOptions.length === 0}>
+          <SelectTrigger className="sm:w-[160px] bg-card">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {statusOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <ClientTab

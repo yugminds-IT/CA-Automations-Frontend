@@ -1,457 +1,292 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import {
-  Users,
-  Clock,
-  Mail,
-  MailCheck,
-  MailX,
-  FileText,
-  TrendingUp,
-  Activity,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-} from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { getDashboardStats } from "@/lib/api/index"
-import type { DashboardStats } from "@/lib/api/index"
-import { useToast } from "@/components/ui/use-toast"
-import { format } from "date-fns"
+import Link from "next/link"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { AlertCircle, CheckCircle2, Clock, Repeat, SquarePen, UserPlus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { SmtpAlertBanner } from "@/components/dashboard/smtp-alert-banner"
-import { EmptyState } from "@/components/ui/empty-state"
+import { Calendar3D, Clock3D, Draft3D, Folder3D, Mail3D, Person3D, Sent3D } from "@/components/dashboard/illustrations"
+import { getUserData, getRoleFromUser, getOrganizationData } from "@/lib/api/index"
+import { getClients } from "@/lib/api/clients"
+import { getFormSubmissions } from "@/lib/api/developer"
+import { listDrafts, listRecurringSchedules, listSchedules } from "@/lib/api/mail-management"
+import type { RecurringSchedule } from "@/lib/api/types"
 import { useRealtimeEvent } from "@/lib/realtime"
+import { COMPOSE_PATH, pagesFor, toIndustry } from "@/lib/nav"
+import { transformClient, type ClientItem } from "@/components/email-management/send-mails-utils"
+import {
+  groupEmails, messageOf, statusOf, toLabel, toMs, whenLabel, type EmailGroup, type SendRow,
+} from "@/components/email-management/emails"
+import { cn } from "@/lib/utils"
 
-type RecentItem = DashboardStats["recentActivity"][number]
+const DAY = 86_400_000
+const EMAILS = "/email-management/scheduled-mails"
+const emailLink = (g: EmailGroup, tab: "scheduled" | "sent") => `${EMAILS}?tab=${tab}&open=${encodeURIComponent(g.key)}`
+
+/** YYYY-MM-DD in the viewer's own calendar */
+const localDay = (ms: number) => {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / DAY)
+/** "4:42 PM" today, "Tomorrow", "Yesterday", else "28 Nov" */
+const shortDate = (ms: number, now: number) => {
+  const d = daysBetween(localDay(now), localDay(ms))
+  if (d === 0) return new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+  if (d === 1) return "Tomorrow"
+  if (d === -1) return "Yesterday"
+  return new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" })
+}
+
+interface Data {
+  sends: SendRow[]
+  repeats: RecurringSchedule[]
+  drafts: number
+  clients: ClientItem[] | null
+  inquiries: number
+  /** when it was loaded */
+  at: number
+}
 
 export function Dashboard() {
-  const { toast } = useToast()
-  const [stats, setStats] = useState<DashboardStats>({
-    totalClients: 0,
-    pendingEmails: 0,
-    sentEmails: 0,
-    failedEmails: 0,
-    totalTemplates: 0,
-    successRate: 0,
-    recentActivity: [],
-  })
-  const [isLoading, setIsLoading] = useState(true)
+  const [data, setData] = useState<Data | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [me, setMe] = useState<{ name: string; industry: ReturnType<typeof toIndustry>; role: string | null }>({ name: "", industry: toIndustry(null), role: null })
 
   useEffect(() => {
-    fetchDashboardData()
+    const user = getUserData() as any
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- user data lives in localStorage, read once on arrival
+    setMe({
+      name: String(user?.name ?? user?.full_name ?? "").split(" ")[0],
+      industry: toIndustry(getOrganizationData()?.industry || user?.organization?.industry),
+      role: getRoleFromUser(user),
+    })
   }, [])
+  const pages = useMemo(() => pagesFor(me.industry, me.role), [me.industry, me.role])
+  const clientsPage = pages.find((p) => p.id === "clients")
+  const inquiriesPage = pages.find((p) => p.id === "inquiries")
+  const hasInquiries = !!inquiriesPage
 
-  // Live refresh recent activity as soon as a scheduled mail's status changes
-  useRealtimeEvent('mail.status', () => {
-    fetchDashboardData(true)
-  })
+  const load = useCallback(async () => {
+    const [s, r, d, c, i] = await Promise.all([
+      listSchedules().catch(() => null),
+      listRecurringSchedules().catch(() => null),
+      listDrafts().catch(() => null),
+      getClients().catch(() => null),
+      hasInquiries ? getFormSubmissions("new").catch(() => null) : Promise.resolve(null),
+    ])
+    if (!s) { setFailed(true); return }
+    setFailed(false)
+    setData({
+      sends: (Array.isArray(s) ? s : (s as { schedules?: SendRow[] }).schedules ?? []) as SendRow[],
+      repeats: Array.isArray(r) ? (r as RecurringSchedule[]) : [],
+      drafts: d?.length ?? 0,
+      clients: c ? c.clients.map(transformClient) : null,
+      inquiries: Array.isArray(i) ? i.length : 0,
+      at: Date.now(),
+    })
+  }, [hasInquiries])
 
-  const fetchDashboardData = async (silent = false) => {
-    try {
-      if (!silent) setIsLoading(true)
-      const data = await getDashboardStats()
-      setStats(data)
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error)
-      if (silent) return
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard statistics",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
+  useEffect(() => { void load() }, [load])
+  useRealtimeEvent("mail.status", () => { void load() })
+
+  const view = useMemo(() => {
+    if (!data) return null
+    const now = data.at
+    const today = localDay(now)
+    const monthAgo = now - 30 * DAY
+    const groups = groupEmails(data.sends, data.repeats)
+
+    let sent = 0, bounced = 0
+    for (const s of data.sends) {
+      if (toMs(s.sentAt ?? s.scheduledAt) < monthAgo) continue
+      if (s.status === "sent") sent += s.recipientEmails.length
+      if (s.status === "failed") bounced += s.recipientEmails.length
     }
-  }
-
-  const getStatusBadge = (status: RecentItem["status"]) => {
-    switch (status) {
-      case "sent":
-        return (
-          <Badge variant="secondary" className="bg-success/15 text-success border-0 font-medium gap-1">
-            <CheckCircle2 className="h-3.5 w-3" />
-            Sent
-          </Badge>
-        )
-      case "pending":
-        return (
-          <Badge variant="secondary" className="font-medium gap-1">
-            <Clock className="h-3.5 w-3" />
-            Pending
-          </Badge>
-        )
-      case "failed":
-        return (
-          <Badge variant="destructive" className="font-medium gap-1">
-            <XCircle className="h-3.5 w-3" />
-            Failed
-          </Badge>
-        )
-      case "cancelled":
-        return (
-          <Badge variant="outline" className="font-medium gap-1">
-            <AlertCircle className="h-3.5 w-3" />
-            Cancelled
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{status}</Badge>
+    const upcoming = groups.filter((g) => g.upcoming).sort((a, b) => (a.next ?? Infinity) - (b.next ?? Infinity))
+    const recent = groups.filter((g) => !g.upcoming && g.last != null).sort((a, b) => b.last! - a.last!)
+    const failedWeek = recent.filter((g) => g.problems && g.last! >= now - 7 * DAY)
+    const followUps = (data.clients ?? [])
+      .filter((c) => c.followUpOn && daysBetween(today, c.followUpOn) <= 7)
+      .map((c) => ({ ...c, inDays: daysBetween(today, c.followUpOn!) }))
+      .sort((a, b) => a.inDays - b.inDays)
+    return {
+      sent, bounced,
+      rate: sent + bounced ? Math.round((sent / (sent + bounced)) * 100) : null,
+      upcoming, recent, failedWeek, followUps,
+      overdue: followUps.filter((c) => c.inDays < 0).length,
+      dueToday: followUps.filter((c) => c.inDays === 0).length,
     }
-  }
+  }, [data])
+
+  const clientsWord = clientsPage?.label ?? "Clients"
+
+  const upcoming = view?.upcoming ?? []
+  const recent = view?.recent ?? []
+  const follow = view?.followUps ?? []
+
+  const counts = !view || !data ? [] : [
+    { Art: Mail3D, n: view.sent, text: "Delivered in 30 days", href: `${EMAILS}?tab=sent` },
+    { Art: Clock3D, n: upcoming.length, text: "Scheduled", href: `${EMAILS}?tab=scheduled` },
+    { Art: Draft3D, n: data.drafts, text: data.drafts === 1 ? "Draft waiting" : "Drafts waiting", href: `${EMAILS}?tab=drafts` },
+    { Art: Person3D, n: data.clients?.length ?? 0, text: clientsWord, href: clientsPage?.path ?? "/client-management" },
+    // problems only show up when there are some
+    ...(view.failedWeek.length ? [{ Art: Mail3D, n: view.failedWeek.length, warn: true, text: "Failed this week", href: `${EMAILS}?tab=sent` }] : []),
+    ...(view.overdue ? [{ Art: Calendar3D, n: view.overdue, warn: true, text: view.overdue === 1 ? "Overdue follow-up" : "Overdue follow-ups", href: clientsPage?.path ?? "/client-management" }] : []),
+    ...(inquiriesPage && data.inquiries ? [{ Art: Mail3D, n: data.inquiries, text: data.inquiries === 1 ? "New inquiry" : "New inquiries", href: inquiriesPage.path }] : []),
+  ]
 
   return (
-    <div className="min-h-full bg-background">
-      {/* Page header */}
-      <div className="border-b border-border bg-card">
-        <div className="px-4 py-3 sm:px-5 sm:py-3">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                Dashboard
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Overview of clients, email delivery, and recent activity
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Activity className="h-4 w-4 shrink-0" />
-              <span>Updated {format(new Date(), "MMM d, yyyy · HH:mm")}</span>
-            </div>
-          </div>
+    // Desktop: exactly one screen, lists scroll inside their cards. Phone: a normal scrolling page.
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-4 py-5 sm:px-6 lg:h-full lg:min-h-0">
+      <SmtpAlertBanner />
+
+      {failed && !data && (
+        <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+          Couldn’t load your dashboard. <button type="button" className="font-medium underline" onClick={() => void load()}>Try again</button>
         </div>
-      </div>
+      )}
 
-      <div className="p-4 sm:p-5 space-y-4">
-        {/* Outgoing Email SMTP Setup Alert */}
-        <SmtpAlertBanner />
-
-        {/* KPI cards */}
-        <section>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {[
-              {
-                label: "Total Clients",
-                value: stats.totalClients,
-                icon: Users,
-                desc: "Registered",
-                theme: "primary",
-              },
-              {
-                label: "Scheduled",
-                value: stats.pendingEmails,
-                icon: Clock,
-                desc: "Pending emails",
-                theme: "warning",
-              },
-              {
-                label: "Sent",
-                value: stats.sentEmails,
-                icon: MailCheck,
-                desc: "Delivered",
-                theme: "success",
-              },
-              {
-                label: "Failed",
-                value: stats.failedEmails,
-                icon: MailX,
-                desc: "Delivery failed",
-                theme: "destructive",
-              },
-              {
-                label: "Templates",
-                value: stats.totalTemplates,
-                icon: FileText,
-                desc: "Available",
-                theme: "muted",
-              },
-              {
-                label: "Success Rate",
-                value: `${stats.successRate}%`,
-                icon: TrendingUp,
-                desc: "Last period",
-                theme:
-                  stats.successRate >= 90
-                    ? "success"
-                    : stats.successRate >= 70
-                      ? "warning"
-                      : "destructive",
-              },
-            ].map((item, index) => {
-              const Icon = item.icon
-              return (
-                <motion.div
-                  key={item.label}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, delay: index * 0.04 }}
-                >
-                <Card
-                  className="overflow-hidden border-border bg-card transition-shadow hover:shadow-md hover:-translate-y-0.5 py-0 gap-0"
-                >
-                  <CardContent className="px-3 py-3">
-                    {isLoading ? (
-                      <div className="space-y-2">
-                        <div className="h-4 w-20 rounded bg-muted animate-pulse" />
-                        <div className="h-8 w-16 rounded bg-muted animate-pulse" />
-                        <div className="h-3 w-24 rounded bg-muted animate-pulse" />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            {item.label}
-                          </span>
-                          <span
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                              item.theme === "primary"
-                                ? "bg-primary/10 text-primary"
-                                : item.theme === "success"
-                                  ? "bg-success/15 text-success"
-                                  : item.theme === "warning"
-                                    ? "bg-warning/15 text-warning"
-                                    : item.theme === "destructive"
-                                      ? "bg-destructive/10 text-destructive"
-                                      : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </span>
-                        </div>
-                        <p className="mt-1 kpi-medium text-foreground">
-                          {typeof item.value === "number"
-                            ? item.value.toLocaleString()
-                            : item.value}
-                        </p>
-                        <p className="mt-0 text-xs text-muted-foreground">{item.desc}</p>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-                </motion.div>
-              )
-            })}
-          </div>
-        </section>
-
-        {/* Main content: Activity + Side panels */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          {/* Recent Email Activity */}
-          <Card className="xl:col-span-2 border-border bg-card py-0 gap-0">
-            <CardHeader className="px-4 pb-2 pt-3 sm:px-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle className="text-base font-semibold">
-                    Recent Email Activity
-                  </CardTitle>
-                  <CardDescription className="text-xs mt-0.5">
-                    Latest sends across all clients
-                  </CardDescription>
-                </div>
-                {!isLoading && stats.recentActivity.length > 0 && (
-                  <Badge variant="secondary" className="w-fit text-xs font-normal">
-                    {stats.recentActivity.length} items
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 pt-0">
-              {isLoading ? (
-                <div className="space-y-0 divide-y divide-border">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="flex items-center gap-4 py-4 first:pt-0">
-                      <div className="h-10 w-10 shrink-0 rounded-lg bg-muted animate-pulse" />
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <div className="h-4 w-48 rounded bg-muted animate-pulse" />
-                        <div className="h-3 w-32 rounded bg-muted animate-pulse" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : stats.recentActivity.length > 0 ? (
-                <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
-                  {stats.recentActivity.map((item, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, x: -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.03 }}
-                      className="flex flex-col gap-2 bg-card px-4 py-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                    >
-                      <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
-                        <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                            item.status === "sent"
-                              ? "bg-success/15 text-success"
-                              : item.status === "failed"
-                                ? "bg-destructive/10 text-destructive"
-                                : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {item.status === "sent" ? (
-                            <MailCheck className="h-5 w-5" />
-                          ) : item.status === "failed" ? (
-                            <MailX className="h-5 w-5" />
-                          ) : (
-                            <Mail className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">
-                            {Array.isArray(item.recipientEmails) && item.recipientEmails.length > 0
-                              ? item.recipientEmails.join(", ")
-                              : "No recipient"}
-                          </p>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <FileText className="h-3 w-3 shrink-0" />
-                              {item.templateName ?? (item.isCustom ? "Custom email" : "Unknown template")}
-                            </span>
-                            {item.scheduledAt && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3 shrink-0" />
-                                {format(new Date(item.scheduledAt), "MMM d, HH:mm")}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="shrink-0 sm:pl-2">{getStatusBadge(item.status)}</div>
-                    </motion.div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  icon={Mail}
-                  title="No recent activity"
-                  description="Email sends will show here once deliveries are made"
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Right column */}
-          <div className="space-y-4 xl:col-span-1">
-            <Card className="border-border bg-card py-0 gap-0">
-              <CardHeader className="px-4 pb-2 pt-3 sm:px-4">
-                <CardTitle className="text-base font-semibold">Email Performance</CardTitle>
-                <CardDescription className="text-xs">Delivery success vs failed</CardDescription>
-              </CardHeader>
-              <CardContent className="px-4 pb-3 pt-0">
-                {isLoading ? (
-                  <div className="space-y-4">
-                    <div className="h-3 w-full rounded-full bg-muted animate-pulse" />
-                    <div className="h-3 w-full rounded-full bg-muted animate-pulse" />
-                    <div className="h-4 w-24 rounded bg-muted animate-pulse" />
-                  </div>
-                ) : (
-                  <div className="space-y-5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Processed</span>
-                      <span className="font-semibold text-foreground">
-                        {(stats.sentEmails + stats.failedEmails).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Success</span>
-                        <span className="font-medium text-success">{stats.sentEmails.toLocaleString()}</span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-success transition-all duration-500"
-                          style={{
-                            width: `${
-                              stats.sentEmails + stats.failedEmails > 0
-                                ? (stats.sentEmails / (stats.sentEmails + stats.failedEmails)) * 100
-                                : 0
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Failed</span>
-                        <span className="font-medium text-destructive">{stats.failedEmails.toLocaleString()}</span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-destructive transition-all duration-500"
-                          style={{
-                            width: `${
-                              stats.sentEmails + stats.failedEmails > 0
-                                ? (stats.failedEmails / (stats.sentEmails + stats.failedEmails)) * 100
-                                : 0
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-border bg-card py-0 gap-0">
-              <CardHeader className="px-4 pb-2 pt-3 sm:px-4">
-                <CardTitle className="text-base font-semibold">System Overview</CardTitle>
-                <CardDescription className="text-xs">Key metrics at a glance</CardDescription>
-              </CardHeader>
-              <CardContent className="px-4 pb-3 pt-0">
-                {isLoading ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="h-10 w-full rounded-lg bg-muted animate-pulse" />
-                    ))}
-                  </div>
-                ) : (
-                  <ul className="space-y-1">
-                    {[
-                      { label: "Active clients", value: stats.totalClients.toLocaleString(), icon: Users },
-                      { label: "Email templates", value: stats.totalTemplates.toLocaleString(), icon: FileText },
-                      { label: "Pending emails", value: stats.pendingEmails.toLocaleString(), icon: Clock },
-                    ].map((row) => {
-                      const Icon = row.icon
-                      return (
-                        <li
-                          key={row.label}
-                          className="flex items-center justify-between gap-3 py-2.5 text-sm first:pt-0"
-                        >
-                          <span className="flex items-center gap-2 text-muted-foreground">
-                            <Icon className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-                            {row.label}
-                          </span>
-                          <span className="font-semibold tabular-nums text-foreground">{row.value}</span>
-                        </li>
-                      )
-                    })}
-                    <li className="flex items-center justify-between gap-3 border-t border-border pt-3 mt-2 text-sm">
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        <TrendingUp className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-                        Success rate
-                      </span>
-                      <span
-                        className={`font-semibold tabular-nums ${
-                          stats.successRate >= 90
-                            ? "text-success"
-                            : stats.successRate >= 70
-                              ? "text-warning"
-                              : "text-destructive"
-                        }`}
-                      >
-                        {stats.successRate}%
-                      </span>
-                    </li>
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+      <h1 className="sr-only">Dashboard</h1>
+      <section aria-label="Today" className="flex shrink-0 flex-wrap items-center gap-3 rounded-3xl border bg-gradient-to-br from-orange-50 via-card to-card p-3 shadow-sm dark:from-orange-950/30 sm:p-4">
+        <ul aria-label="At a glance" className="grid w-full grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] sm:gap-3 lg:w-auto lg:flex-1">
+          {!view && [0, 1, 2, 3].map((i) => <li key={i}><Skeleton className="h-[4.5rem] w-full rounded-2xl" /></li>)}
+          {counts.map((c) => (
+            <li key={c.text}>
+              <Link href={c.href} className="flex h-full items-center gap-3 rounded-2xl border bg-background/80 py-2 pl-2 pr-4 transition-colors hover:border-primary/40 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <c.Art className="h-12 w-12 sm:h-14 sm:w-14" />
+                <span className="min-w-0">
+                  <span className={cn("block text-xl font-semibold leading-7 tabular-nums sm:text-2xl sm:leading-8", "warn" in c && c.warn && "text-red-600 dark:text-red-400")}>{c.n.toLocaleString()}</span>
+                  <span className="block text-xs leading-4 text-muted-foreground sm:text-sm sm:leading-5">{c.text}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="flex w-full gap-2 sm:justify-end lg:w-auto">
+          {clientsPage && (
+            <Button asChild variant="outline" className="h-10 bg-background/70"><Link href={`${clientsPage.path}?add=1`}><UserPlus className="mr-1.5 h-4 w-4" />Add {clientsWord.toLowerCase().replace(/s$/, "")}</Link></Button>
+          )}
+          <Button asChild className="h-10"><Link href={COMPOSE_PATH}><SquarePen className="mr-1.5 h-4 w-4" />Compose email</Link></Button>
         </div>
+      </section>
+
+      <div className="grid gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-3">
+        <Card Art={Clock3D} title="Up next" count={view ? upcoming.length : undefined} href={`${EMAILS}?tab=scheduled`}>
+          {!view ? <Rows /> : upcoming.length
+            ? <EmailList groups={upcoming} tab="scheduled" now={data!.at} />
+            : <Empty Art={Clock3D} title="Nothing is scheduled" text="Write an email and pick a time, and it will wait here."
+                action={<Button asChild size="sm"><Link href={COMPOSE_PATH}>Schedule an email</Link></Button>} />}
+        </Card>
+
+        <Card Art={Sent3D} title="Just sent" href={`${EMAILS}?tab=sent`}>
+          {!view ? <Rows /> : recent.length
+            ? <EmailList groups={recent.slice(0, 20)} tab="sent" now={data!.at} />
+            : <Empty Art={Sent3D} title="No emails sent yet" text="Emails you send show up here with how they did." />}
+        </Card>
+
+        <Card Art={Folder3D} title="Follow-ups" count={view && data?.clients ? follow.length : undefined}
+          href={clientsPage?.path} linkText={data?.clients ? `All ${clientsWord.toLowerCase()}` : undefined}>
+          {!view ? <Rows /> : !data?.clients ? <Empty Art={Person3D} title={`Couldn’t load ${clientsWord.toLowerCase()}`} text="Reload the page to try again." />
+            : follow.length ? (
+              <ul className="space-y-0.5 p-2">
+                {follow.map((c) => (
+                  <li key={c.id}>
+                    <Link href={`/client-management/${c.id}`} className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
+                      <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-orange-200 to-orange-400 text-sm font-semibold text-orange-950">
+                        {(c.name || c.email || "?").trim().slice(0, 1).toUpperCase()}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{c.name || c.companyName || c.email}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{c.followUpDate}</span>
+                      </span>
+                      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
+                        c.inDays < 0 ? "bg-red-500/10 text-red-700 dark:text-red-300" : c.inDays === 0 ? "bg-amber-500/15 text-amber-800 dark:text-amber-200" : "bg-muted text-muted-foreground")}>
+                        {c.inDays < 0 ? `${-c.inDays}d overdue` : c.inDays === 0 ? "Today" : c.inDays === 1 ? "Tomorrow" : `In ${c.inDays} days`}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : <Empty Art={Folder3D} title="No follow-ups this week" text={`Add a follow-up date to any of your ${clientsWord.toLowerCase()} and it will show up here.`} />}
+        </Card>
       </div>
     </div>
   )
 }
+
+type ArtComponent = (p: { className?: string }) => React.ReactNode
+type Tone = "green" | "red" | "amber" | "blue" | "gray"
+const CHIP: Record<Tone, string> = {
+  green: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  red: "bg-red-500/10 text-red-600 dark:text-red-400",
+  amber: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  gray: "bg-muted text-muted-foreground",
+}
+
+function Card({ Art, title, count, href, linkText = "See all", children }: {
+  Art: ArtComponent; title: string; count?: number; href?: string; linkText?: string; children: React.ReactNode
+}) {
+  return (
+    <section aria-label={title} className="flex flex-col overflow-hidden rounded-3xl border bg-card shadow-sm lg:min-h-0">
+      <div className="flex shrink-0 items-center gap-2.5 border-b px-4 py-2.5">
+        <Art className="h-9 w-9" />
+        <h2 className="font-semibold">{title}</h2>
+        {count != null && count > 0 && <span className="rounded-full bg-primary/10 px-2 text-xs font-semibold tabular-nums text-orange-800 dark:text-orange-300">{count}</span>}
+        {href && <Link href={href} className="ml-auto text-sm font-medium text-primary hover:underline">{linkText}</Link>}
+      </div>
+      {/* relative: keeps absolutely positioned bits (sr-only labels) inside the scroll box, or they stretch the page */}
+      <div className="relative max-h-96 overflow-y-auto lg:max-h-none lg:min-h-0 lg:flex-1">{children}</div>
+    </section>
+  )
+}
+
+function EmailList({ groups, tab, now }: { groups: EmailGroup[]; tab: "scheduled" | "sent"; now: number }) {
+  return (
+    <ul className="space-y-0.5 p-2">
+      {groups.map((g) => {
+        const st = statusOf(g)
+        const repeating = g.repeats.length > 0
+        const tone: Tone = st.tone === "green" ? "green" : st.tone === "red" ? "red" : st.tone === "amber" ? "amber" : st.tone === "gray" ? "gray" : "blue"
+        const problem = tone === "red" || tone === "amber"
+        const Icon = problem ? AlertCircle : repeating ? Repeat : tab === "sent" ? CheckCircle2 : Clock
+        const at = tab === "sent" ? g.last : g.next
+        return (
+          <li key={g.key}>
+            <Link href={emailLink(g, tab)} title={whenLabel(g)}
+              className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
+              <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", CHIP[tone])}>
+                <Icon className="h-4 w-4" aria-hidden /><span className="sr-only">{st.label}</span>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{messageOf(g).title}</span>
+                <span className="block truncate text-xs text-muted-foreground">{toLabel(g)}</span>
+              </span>
+              <span className={cn("shrink-0 text-right text-xs", problem ? "font-medium" : "text-muted-foreground",
+                tone === "red" && "text-red-600 dark:text-red-400", tone === "amber" && "text-amber-700 dark:text-amber-300")}>
+                {problem ? st.label : at != null ? shortDate(at, now) : repeating ? "Repeats" : ""}
+              </span>
+            </Link>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function Empty({ Art, title, text, action }: { Art: ArtComponent; title: string; text?: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex h-full min-h-48 flex-col items-center justify-center gap-1.5 px-6 py-6 text-center">
+      <Art className="mb-1 h-28 w-28" />
+      <p className="font-semibold">{title}</p>
+      {text && <p className="max-w-64 text-sm text-muted-foreground">{text}</p>}
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+  )
+}
+
+const Rows = () => (
+  <div className="space-y-2 p-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-11 w-full rounded-xl" />)}</div>
+)

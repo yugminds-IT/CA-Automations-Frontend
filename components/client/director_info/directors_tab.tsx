@@ -228,7 +228,7 @@ export function DirectorsTab({
       <Card>
         <CardHeader className="px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base sm:text-lg">Director List</CardTitle>
-          <Button type="button" size="sm" className="h-8 gap-1.5" onClick={openAdd}>
+          <Button type="button" size="sm" className="h-9 gap-1.5" onClick={openAdd}>
             <Plus className="h-3.5 w-3.5" />
             Add Director
           </Button>
@@ -362,11 +362,11 @@ export function DirectorsTab({
                       )}
                     </div>
                     {error ? (
-                      <p className="text-[11px] text-destructive flex items-center gap-1">
+                      <p className="text-xs text-destructive flex items-center gap-1">
                         {error}
                       </p>
                     ) : (
-                      <p className="text-[11px] text-muted-foreground">{hint}</p>
+                      <p className="text-xs text-muted-foreground">{hint}</p>
                     )}
                   </div>
                 )

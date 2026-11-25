@@ -1,8 +1,11 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { ChevronRight, ChevronDown, ExternalLink, Users } from 'lucide-react'
+import { ChevronRight, ChevronDown, ExternalLink, Loader2, Tag, Users } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { TagChips, TagInput } from './tag-input'
 import {
   Table,
   TableBody,
@@ -21,13 +24,14 @@ import { useToast } from '@/components/ui/use-toast'
 import { EmptyState } from '@/components/ui/empty-state'
 import { InlineError } from '@/components/ui/inline-error'
 import { ClientOnboardForm } from './client_onboardform'
-import { getIndustryClientConfig } from '@/lib/industry-config'
+import { getIndustryClientConfig, suggestedTagsFor } from '@/lib/industry-config'
 import {
   onboardClient,
   getClients,
   getClientById,
   updateClient,
   deleteClient,
+  bulkTagClients,
   getServices,
 } from '@/lib/api/clients'
 import { getUserData, createBusinessType } from '@/lib/api/index'
@@ -217,8 +221,9 @@ export function ClientTab({
     }
   }, [useApi, clients.length, apiClients.length, isLoading, error])
 
+  const router = useRouter()
   const handleRowClick = (client: Client) => {
-    window.open(`/client-management/${client.id}`, '_blank')
+    router.push(`/client-management/${client.id}`)
   }
 
   const handleSort = (field: SortField) => {
@@ -289,6 +294,34 @@ export function ClientTab({
     })
   }
 
+  // ── Selecting clients to tag them in bulk ──
+  const [selected, setSelected] = useState<Set<string | number>>(new Set())
+  const [tagMode, setTagMode] = useState<'add' | 'remove' | null>(null)
+  const [tagDraft, setTagDraft] = useState<string[]>([])
+  const [tagSaving, setTagSaving] = useState(false)
+  const allTags = React.useMemo(() => [...new Set(clients.flatMap((c) => c.tags ?? []))].sort((a, b) => a.localeCompare(b)), [clients])
+  const selectedTags = [...new Set(clients.filter((c) => selected.has(c.id)).flatMap((c) => c.tags ?? []))]
+  const toggleSelected = (id: string | number) => setSelected((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+  const applyTags = async (mode: 'add' | 'remove') => {
+    setTagSaving(true)
+    try {
+      const { updated } = await bulkTagClients({ clientIds: [...selected].map(Number), [mode]: tagDraft })
+      toast({ title: `Tags ${mode === 'add' ? 'added' : 'removed'}`, description: `${updated} ${updated === 1 ? clientConfig.nameLabel.toLowerCase() : `${clientConfig.nameLabel.toLowerCase()}s`} changed.`, variant: 'success' })
+      setTagMode(null)
+      setTagDraft([])
+      await fetchClients()
+    } catch (err) {
+      toast({ title: 'Could not change tags', description: err instanceof ApiError ? err.detail : 'Please try again.', variant: 'destructive' })
+    } finally {
+      setTagSaving(false)
+    }
+  }
+
   // Apply search and status filter client-side (backend does not support these params)
   const filteredClients = React.useMemo(
     () => filterClients(clients, searchQuery, statusFilter ?? 'all'),
@@ -313,7 +346,7 @@ export function ClientTab({
         <CardContent>
           <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0">
             <Table>
-              <TableSkeleton rows={6} columns={9} />
+              <TableSkeleton rows={6} columns={8} />
             </Table>
           </div>
         </CardContent>
@@ -539,13 +572,12 @@ export function ClientTab({
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  form="client-onboard-form"
-                  size="sm"
-                >
-                  {editingClient ? clientConfig.editTitle : clientConfig.onboardButtonLabel}
-                </Button>
+                {/* New clients go through the form's own steps; edits can be saved from any step. */}
+                {editingClient && (
+                  <Button type="submit" form="client-onboard-form" size="sm">
+                    Save changes
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -578,6 +610,7 @@ export function ClientTab({
                       followUpDate: editingClient.followUpDate ? new Date(editingClient.followUpDate) : null,
                       onboardDate: editingClient.onboardDate ? new Date(editingClient.onboardDate) : new Date(),
                       notes: '',
+                      tags: editingClient.tags ?? [],
                       status: editingClient.status || '',
                       businessType: editingClient.businessType ?? '',
                       addressLine1: '',
@@ -591,6 +624,7 @@ export function ClientTab({
               businessTypes={businessTypes}
               clientStatuses={clientStatuses}
               industry={currentIndustry}
+              tagSuggestions={allTags}
             />
           )}
         </CardContent>
@@ -600,8 +634,8 @@ export function ClientTab({
 
   return (
     <>
-      <Card>
-        <CardContent>
+      <Card className="md:min-h-0 md:flex-1">
+        <CardContent className="flex flex-col md:min-h-0 md:flex-1">
           {displayClients.length === 0 ? (
             <EmptyState
               icon={Users}
@@ -613,13 +647,44 @@ export function ClientTab({
               }
             />
           ) : (
-            <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0">
+            <>
+            {selected.size > 0 && (
+              <div role="region" aria-label="Selected" className="mb-3 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                <span className="text-sm font-medium">{selected.size} selected</span>
+                {(['add', 'remove'] as const).map((mode) => (
+                  <Popover key={mode} open={tagMode === mode} onOpenChange={(o) => { setTagMode(o ? mode : null); setTagDraft([]) }}>
+                    <PopoverTrigger asChild>
+                      <Button type="button" size="sm" variant="outline" className="gap-1.5 bg-background" disabled={mode === 'remove' && !selectedTags.length}>
+                        <Tag className="h-4 w-4" />{mode === 'add' ? 'Add tags' : 'Remove tags'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-80 space-y-3">
+                      <p className="text-sm font-medium">{mode === 'add' ? 'Add tags to' : 'Remove tags from'} {selected.size} selected</p>
+                      <TagInput value={tagDraft} onChange={setTagDraft}
+                        suggestions={mode === 'add' ? [...allTags, ...suggestedTagsFor(currentIndustry)] : selectedTags} />
+                      <Button type="button" size="sm" className="w-full gap-1.5" disabled={!tagDraft.length || tagSaving} onClick={() => applyTags(mode)}>
+                        {tagSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {mode === 'add' ? 'Add' : 'Remove'} {tagDraft.length || ''} tag{tagDraft.length === 1 ? '' : 's'}
+                      </Button>
+                    </PopoverContent>
+                  </Popover>
+                ))}
+                <Button type="button" size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear selection</Button>
+              </div>
+            )}
+            <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0 md:min-h-0 md:flex-1 md:overflow-y-auto [&>[data-slot=table-container]]:overflow-visible [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-card">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[36px] pr-0">
+                      <input type="checkbox" className="h-4 w-4 accent-primary align-middle"
+                        aria-label={`Select all ${filteredClients.length} shown`}
+                        checked={filteredClients.length > 0 && filteredClients.every((c) => selected.has(c.id))}
+                        onChange={(e) => setSelected(e.target.checked ? new Set(filteredClients.map((c) => c.id)) : new Set())} />
+                    </TableHead>
                     <TableHead className="w-[40px]" />
                     <SortableTableHead
-                      className="min-w-[120px]"
+                      className="min-w-[200px]"
                       sortable
                       sortDirection={sortField === 'name' ? sortDirection : null}
                       onSort={() => handleSort('name')}
@@ -635,15 +700,7 @@ export function ClientTab({
                       {clientConfig.companyLabel}
                     </SortableTableHead>
                     <SortableTableHead
-                      className="min-w-[180px]"
-                      sortable
-                      sortDirection={sortField === 'email' ? sortDirection : null}
-                      onSort={() => handleSort('email')}
-                    >
-                      Email
-                    </SortableTableHead>
-                    <SortableTableHead
-                      className="min-w-[140px]"
+                      className="min-w-[130px] hidden xl:table-cell"
                       sortable
                       sortDirection={sortField === 'phone' ? sortDirection : null}
                       onSort={() => handleSort('phone')}
@@ -675,7 +732,11 @@ export function ClientTab({
                     const isExpanded = expandedRows.has(client.id)
                     return (
                       <React.Fragment key={client.id}>
-                        <TableRow>
+                        <TableRow data-state={selected.has(client.id) ? 'selected' : undefined}>
+                          <TableCell className="w-[36px] pr-0">
+                            <input type="checkbox" className="h-4 w-4 accent-primary align-middle" aria-label={`Select ${client.name}`}
+                              checked={selected.has(client.id)} onChange={() => toggleSelected(client.id)} />
+                          </TableCell>
                           <TableCell className="w-[40px] pr-0">
                             <Button
                               variant="ghost"
@@ -690,22 +751,21 @@ export function ClientTab({
                               }
                             </Button>
                           </TableCell>
-                          <TableCell className="font-medium">
-                            <span className="truncate block max-w-[120px]" title={client.name}>
+                          <TableCell>
+                            <span className="font-medium truncate block max-w-[240px]" title={client.name}>
                               {client.name}
                             </span>
+                            <span className="text-xs text-muted-foreground truncate block max-w-[240px]" title={client.email}>
+                              {client.email}
+                            </span>
+                            <TagChips tags={client.tags} className="mt-1 max-w-[280px]" />
                           </TableCell>
                           <TableCell>
                             <span className="truncate block max-w-[150px]" title={client.companyName}>
                               {client.companyName}
                             </span>
                           </TableCell>
-                          <TableCell>
-                            <span className="truncate block max-w-[180px]" title={client.email}>
-                              {client.email}
-                            </span>
-                          </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden xl:table-cell">
                             {client.phone || '—'}
                           </TableCell>
                           <TableCell>
@@ -716,24 +776,13 @@ export function ClientTab({
                           <TableCell>
                             {client.status ? (
                               <span
-                                className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium"
-                                style={{
-                                  backgroundColor: client.status === 'Active' || client.status?.toLowerCase() === 'active'
-                                    ? '#22c55e'
-                                    : client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive'
-                                    ? '#000000'
-                                    : undefined,
-                                  color: (client.status === 'Active' || client.status?.toLowerCase() === 'active' ||
-                                          client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive')
-                                    ? '#ffffff'
-                                    : undefined,
-                                  borderColor: client.status === 'Active' || client.status?.toLowerCase() === 'active'
-                                    ? '#22c55e'
-                                    : client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive'
-                                    ? '#000000'
-                                    : undefined,
-                                }}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+                                  client.status.toLowerCase() === 'active'
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
                               >
+                                <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
                                 {client.status}
                               </span>
                             ) : (
@@ -756,7 +805,7 @@ export function ClientTab({
                                 title="View client details"
                               >
                                 <ExternalLink className="h-3.5 w-3.5" />
-                                More
+                                View
                               </Button>
                             </div>
                           </TableCell>
@@ -831,6 +880,7 @@ export function ClientTab({
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
         
         {/* Pagination */}

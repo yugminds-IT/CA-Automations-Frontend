@@ -39,6 +39,7 @@ export interface Client {
   country?: string
   pincode?: string
   notes?: string
+  tags?: string[]
   directors?: ClientDirector[]
 }
 
@@ -58,6 +59,7 @@ export function filterClients(clientsList: Client[], query: string, status: stri
         (c.email ?? '').toLowerCase().includes(lowerQuery) ||
         (c.phone ?? '').toLowerCase().includes(lowerQuery) ||
         (c.companyName ?? '').toLowerCase().includes(lowerQuery) ||
+        (c.tags ?? []).some((t) => t.toLowerCase().includes(lowerQuery)) ||
         (Array.isArray(c.directories)
           ? c.directories.some((d) => String(d).toLowerCase().includes(lowerQuery))
           : String(c.directories ?? '').toLowerCase().includes(lowerQuery)),
@@ -113,6 +115,7 @@ export function transformApiClientToComponent(apiClient: ApiClient & Record<stri
     lastContactedDate: null, // API doesn't provide this field
     status: apiClient.status ?? undefined,
     businessType: businessTypeNameOf(c.businessType ?? c.business_type),
+    tags: Array.isArray(c.tags) ? c.tags : [],
   }
 }
 
@@ -162,6 +165,8 @@ function commonPayload(clientData: NewClient, businessTypeId?: number | null) {
     onboardDate: toDateOnly(clientData.onboardDate),
     followupDate: toDateOnly(clientData.followUpDate),
     additionalNotes: clientData.notes,
+    // only sent when the form had tags, so other callers never wipe them
+    ...(clientData.tags ? { tags: clientData.tags } : {}),
   }
 }
 
@@ -215,6 +220,7 @@ export interface ClientFormValues {
   onboardDate: Date
   followUpDate: Date | null
   notes?: string
+  tags?: string[]
   directors?: ClientDirector[]
 }
 
@@ -255,6 +261,7 @@ export function transformApiClientToFormValues(apiClient: ApiClient & Record<str
     onboardDate: onboard ? new Date(onboard) : new Date(),
     followUpDate: followup ? new Date(followup) : null,
     notes: c.additionalNotes ?? apiClient.additional_notes ?? undefined,
+    tags: Array.isArray(c.tags) ? c.tags : [],
     directors,
   }
 }

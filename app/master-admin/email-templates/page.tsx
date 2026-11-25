@@ -1,10 +1,8 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { EmptyState } from "@/components/ui/empty-state"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { isAuthenticated, isMasterAdminUser, ApiError } from "@/lib/api/index"
 import {
@@ -53,94 +51,11 @@ import {
   Building2,
 } from "lucide-react"
 import { RichTextarea, type RichTextareaRef } from "@/components/ui/rich-textarea"
-import { previewEmailTemplate } from "@/lib/utils/email-template"
-
-// ─── Grouped template variables ─────────────────────────────────────────────
-const TEMPLATE_VAR_GROUPS = [
-  {
-    label: "Client Details",
-    vars: [
-      { label: "Client Name",      value: "{{client_name}}" },
-      { label: "Client Email",     value: "{{client_email}}" },
-      { label: "Client Phone",     value: "{{client_phone}}" },
-      { label: "Company Name",     value: "{{company_name}}" },
-      { label: "Login Email",      value: "{{login_email}}" },
-      { label: "Login Password",   value: "{{login_password}}" },
-      { label: "Login URL",        value: "{{login_url}}" },
-      { label: "Additional Notes", value: "{{additional_notes}}" },
-    ],
-  },
-  {
-    label: "Organization Details",
-    vars: [
-      { label: "Org Name",       value: "{{org_name}}" },
-      { label: "Org Admin Name", value: "{{org_admin_name}}" },
-      { label: "Org Email",      value: "{{org_email}}" },
-      { label: "Org Phone",      value: "{{org_phone}}" },
-    ],
-  },
-  {
-    label: "Service & Dates",
-    vars: [
-      { label: "Service Name",        value: "{{service_name}}" },
-      { label: "Service Description", value: "{{service_description}}" },
-      { label: "Date",                value: "{{date}}" },
-      { label: "Today",               value: "{{today}}" },
-      { label: "Current Date",        value: "{{current_date}}" },
-      { label: "Deadline Date",       value: "{{deadline_date}}" },
-      { label: "Follow-up Date",      value: "{{follow_up_date}}" },
-      { label: "Amount",              value: "{{amount}}" },
-      { label: "Document Name",       value: "{{document_name}}" },
-    ],
-  },
-]
-
-// ─── Variable dropdown component ─────────────────────────────────────────
-const VarDropdown = ({
-  dropRef, dropOpen, setOpen, onVar, label = "Insert Variable",
-}: {
-  dropRef: React.RefObject<HTMLDivElement | null>
-  dropOpen: boolean
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>
-  onVar: (v: string) => void
-  label?: string
-}) => (
-  <div ref={dropRef} className="relative">
-    <button
-      type="button"
-      onClick={() => setOpen((v) => !v)}
-      className="flex items-center gap-1 h-8 px-3 rounded border border-input bg-background text-xs hover:bg-muted transition-colors font-medium"
-    >
-      {label}
-      <ChevronDown className="h-3 w-3 text-muted-foreground" />
-    </button>
-    {dropOpen && (
-      <div className="absolute top-full right-0 mt-1 w-56 rounded-lg border border-border bg-popover shadow-lg z-[200] py-1 text-sm" style={{ maxHeight: 260, overflowY: "auto" }}>
-        {TEMPLATE_VAR_GROUPS.map((group) => (
-          <div key={group.label}>
-            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-            {group.vars.map((v) => (
-              <button
-                key={v.value}
-                type="button"
-                onClick={() => onVar(v.value)}
-                className="w-full text-left px-3 py-1.5 hover:bg-muted transition-colors flex items-center justify-between gap-2"
-              >
-                <span className="text-foreground">{v.label}</span>
-                <span className="text-[10px] font-mono text-primary/70 truncate">{v.value}</span>
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-)
+import { previewEmailTemplate, renderEmailPreview } from "@/lib/utils/email-template"
+import { useTemplateVariables, exampleValues } from "@/lib/template-variables"
+import { VarLineInput, VarPickerButton, UnknownVarsNotice, type VarLineInputHandle } from "@/components/email-management/var-tags"
 
 export default function MasterAdminEmailTemplates() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [systemTemplates, setSystemTemplates] = useState<EmailTemplate[]>([])
   const [orgTemplates, setOrgTemplates] = useState<EmailTemplate[]>([])
@@ -190,25 +105,14 @@ export default function MasterAdminEmailTemplates() {
 
   // Refs for variable insertion
   const editorRef = useRef<RichTextareaRef | null>(null)
-  const subjectRef = useRef<HTMLInputElement | null>(null)
-  const varDropdownRef = useRef<HTMLDivElement | null>(null)
-  const subjectVarDropdownRef = useRef<HTMLDivElement | null>(null)
-  const [varDropdownOpen, setVarDropdownOpen] = useState(false)
-  const [subjectVarDropdownOpen, setSubjectVarDropdownOpen] = useState(false)
+  const subjectRef = useRef<VarLineInputHandle | null>(null)
+  // One variable list (server catalog), shared with Send Mails; previews use sample values
+  const { vars } = useTemplateVariables()
+  const previewValues = useMemo(() => exampleValues(vars), [vars])
 
   const router = useRouter()
   const { toast } = useToast()
 
-
-  // Close dropdowns on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (varDropdownRef.current && !varDropdownRef.current.contains(e.target as Node)) setVarDropdownOpen(false)
-      if (subjectVarDropdownRef.current && !subjectVarDropdownRef.current.contains(e.target as Node)) setSubjectVarDropdownOpen(false)
-    }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [])
 
   useEffect(() => {
     if (!isAuthenticated()) { router.replace("/login"); return }
@@ -220,49 +124,6 @@ export default function MasterAdminEmailTemplates() {
     setIsCheckingAuth(false)
     fetchTemplates()
   }, [router, toast])
-
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed")
-    setSidebarCollapsed(saved !== null ? saved === "true" : true)
-  }, [])
-
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
-  // ─── Variable insertion helpers ───────────────────────────────────────────
-  const insertAtCursor = (
-    el: HTMLTextAreaElement | HTMLInputElement,
-    varStr: string,
-    currentValue: string,
-    setValue: (v: string) => void,
-    closeDropdown: () => void,
-  ) => {
-    const start = el.selectionStart ?? currentValue.length
-    const end = el.selectionEnd ?? start
-    const newVal = currentValue.substring(0, start) + varStr + currentValue.substring(end)
-    setValue(newVal)
-    closeDropdown()
-    setTimeout(() => {
-      el.selectionStart = el.selectionEnd = start + varStr.length
-      el.focus()
-    }, 0)
-  }
-
-  const insertVar = (varStr: string) => {
-    editorRef.current?.insert(varStr)
-    setVarDropdownOpen(false)
-  }
-  const insertVarToSubject = (varStr: string) => {
-    if (subjectRef.current) insertAtCursor(subjectRef.current, varStr, formData.subject, (v) => setFormData((p) => ({ ...p, subject: v })), () => setSubjectVarDropdownOpen(false))
-  }
 
   // ─── API calls ────────────────────────────────────────────────────────────
   const fetchTemplates = async () => {
@@ -405,29 +266,12 @@ export default function MasterAdminEmailTemplates() {
   ]
 
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden w-full">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{
-          marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0",
-          width: isDesktop ? (sidebarCollapsed ? "calc(100% - 60px)" : "calc(100% - 240px)") : "100%",
-        }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        <div className="overflow-y-auto overflow-x-hidden w-full" style={{ height: "calc(100vh - 56px)", marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-4 sm:p-6 space-y-5">
 
             {/* Header */}
@@ -506,15 +350,15 @@ export default function MasterAdminEmailTemplates() {
                         </div>
                         <p className="text-xs text-muted-foreground mb-4 flex-1 truncate">{template.subject}</p>
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={() => handleEdit(template)}>
+                          <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => handleEdit(template)}>
                             <Edit className="w-3.5 h-3.5 mr-1.5" />
                             Edit
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handlePreview(template)} title="Preview">
+                          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={() => handlePreview(template)} title="Preview">
                             <Eye className="w-3.5 h-3.5" />
                           </Button>
                           {!template.is_default && (
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(template.id)} title="Delete">
+                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(template.id)} title="Delete">
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           )}
@@ -563,21 +407,21 @@ export default function MasterAdminEmailTemplates() {
                             <div className="flex items-start justify-between gap-2 mb-1.5">
                               <div className="min-w-0">
                                 <p className="font-medium text-xs text-foreground truncate">{template.name}</p>
-                                <p className="text-[11px] text-muted-foreground truncate mt-0.5">{template.subject}</p>
+                                <p className="text-xs text-muted-foreground truncate mt-0.5">{template.subject}</p>
                               </div>
-                              <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>
+                              <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${getCategoryBadgeClass(template.category)}`}>
                                 {getCategoryLabel(template.category)}
                               </span>
                             </div>
-                            <p className="text-[11px] text-muted-foreground mb-2">{getTypeLabel(template.type)}</p>
+                            <p className="text-xs text-muted-foreground mb-2">{getTypeLabel(template.type)}</p>
                             <div className="border-t border-border pt-2 flex items-center gap-0.5">
-                              <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handleEdit(template)}>
+                              <Button size="sm" variant="ghost" className="h-9 flex-1 px-1" onClick={() => handleEdit(template)}>
                                 <Edit className="w-3 h-3 mr-1" />Edit
                               </Button>
-                              <Button size="sm" variant="ghost" className="h-7 text-[11px] flex-1 px-1" onClick={() => handlePreview(template)}>
+                              <Button size="sm" variant="ghost" className="h-9 flex-1 px-1" onClick={() => handlePreview(template)}>
                                 <Eye className="w-3 h-3 mr-1" />Preview
                               </Button>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(template.id)} title="Delete">
+                              <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(template.id)} title="Delete">
                                 <Trash2 className="w-3 h-3" />
                               </Button>
                             </div>
@@ -594,7 +438,6 @@ export default function MasterAdminEmailTemplates() {
 
           </div>
         </div>
-      </div>
 
       {/* ─── Edit / Create Dialog ──────────────────────────────────────────── */}
       <Dialog open={editDialogOpen || createDialogOpen} onOpenChange={(open) => {
@@ -657,15 +500,9 @@ export default function MasterAdminEmailTemplates() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="template-subject">Subject *</Label>
-                <VarDropdown
-                  dropRef={subjectVarDropdownRef}
-                  dropOpen={subjectVarDropdownOpen}
-                  setOpen={setSubjectVarDropdownOpen}
-                  onVar={insertVarToSubject}
-                  label="Variable"
-                />
+                <VarPickerButton vars={vars} onPick={(t) => subjectRef.current?.insert(t)} />
               </div>
-              <Input ref={subjectRef} id="template-subject" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} placeholder="Enter email subject" />
+              <VarLineInput ref={subjectRef} id="template-subject" ariaLabel="Subject" vars={vars} value={formData.subject} onChange={(v) => setFormData((p) => ({ ...p, subject: v }))} placeholder="Enter email subject (type @ to add a variable)" />
             </div>
 
             <div className="space-y-2">
@@ -684,35 +521,27 @@ export default function MasterAdminEmailTemplates() {
                     <Eye className="h-3 w-3" />Preview
                   </button>
                 </div>
-                {bodyTab === "edit" && (
-                  <VarDropdown
-                    dropRef={varDropdownRef}
-                    dropOpen={varDropdownOpen}
-                    setOpen={setVarDropdownOpen}
-                    onVar={insertVar}
-                  />
-                )}
+                {bodyTab === "edit" && <VarPickerButton vars={vars} label="Insert Variable" onPick={(t) => editorRef.current?.insert(t)} />}
               </div>
               {bodyTab === "edit" ? (
                 <RichTextarea
                   ref={editorRef}
                   value={formData.body}
                   onChange={(v) => setFormData((prev) => ({ ...prev, body: v }))}
-                  placeholder="Write your email body here. Use variables like {{client_name}} or click 'Insert Variable'."
+                  placeholder="Write your email body here. Type @ or click 'Insert Variable' to add a variable.\"
                   minHeight={280}
+                  variables={vars}
                 />
               ) : (
                 <div className="rounded-md border border-border overflow-hidden" style={{ height: 300 }}>
                   <iframe
-                    srcDoc={previewEmailTemplate(formData.body, formData.subject || "Preview")}
+                    srcDoc={previewEmailTemplate(formData.body, formData.subject || "Preview", previewValues)}
                     title="Email preview"
                     className="w-full h-full border-0"
                   />
                 </div>
               )}
-              {bodyTab === "edit" && (
-                <p className="text-xs text-muted-foreground">Plain text with line breaks. Use the variable picker to insert dynamic values.</p>
-              )}
+              <UnknownVarsNotice text={`${formData.subject} ${formData.body}`} vars={vars} />
             </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
@@ -740,13 +569,13 @@ export default function MasterAdminEmailTemplates() {
             <div className="space-y-4 py-4 overflow-y-auto flex-1 min-h-0">
               <div>
                 <Label className="text-sm font-medium">Subject:</Label>
-                <p className="mt-1 p-3 bg-muted rounded border">{previewTemplate.subject}</p>
+                <p className="mt-1 p-3 bg-muted rounded border">{renderEmailPreview(previewTemplate.subject, '', previewValues).subject}</p>
               </div>
               <div>
                 <Label className="text-sm font-medium mb-2 block">Email Preview:</Label>
                 <div className="border rounded-md bg-card overflow-auto" style={{ maxHeight: "calc(90vh - 250px)" }}>
                   <iframe
-                    srcDoc={previewEmailTemplate(previewTemplate.body, previewTemplate.subject)}
+                    srcDoc={previewEmailTemplate(previewTemplate.body, previewTemplate.subject, previewValues)}
                     title="Email preview"
                     className="w-full border-0"
                     style={{ minHeight: 300, height: "calc(90vh - 260px)" }}
@@ -760,6 +589,6 @@ export default function MasterAdminEmailTemplates() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }

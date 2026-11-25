@@ -3,7 +3,7 @@
 /**
  * Master Admin Sidebar Component - Redesigned
  *
- * Clean, dark enterprise sidebar with Professional Blue (#2563EB) active state,
+ * Light sidebar using theme tokens (orange active pill),
  * grouped navigation with section labels, and smooth collapse/expand behavior.
  */
 
@@ -17,8 +17,8 @@ import {
   FileText,
   BarChart3,
   Mail,
-  ChevronRight,
   Layers,
+  Tag,
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState } from "react"
@@ -49,6 +49,7 @@ const menuGroups = [
       { icon: Users, label: "User Management", path: "/master-admin/users" },
       { icon: Building2, label: "Organizations", path: "/master-admin/organizations" },
       { icon: Layers, label: "Workspace Features", path: "/master-admin/workspace-features" },
+      { icon: Tag, label: "Pricing Plans", path: "/master-admin/pricing-plans" },
       { icon: Mail, label: "Email Templates", path: "/master-admin/email-templates" },
     ],
   },
@@ -91,7 +92,7 @@ export function MasterAdminSidebar({
       (item) => pathname.startsWith(item.path) && item.path !== "/master-admin"
     )
     if (pathMatch) return pathMatch.label
-    return "Dashboard"
+    return ""
   }
 
   const activePage = getActivePage()
@@ -109,21 +110,14 @@ export function MasterAdminSidebar({
         }}
         className={`w-full flex items-center ${
           isCollapsed ? "justify-center px-2" : "gap-3 px-3"
-        } py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+        } py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
           isActive
-            ? "bg-[#2563EB] text-white shadow-sm"
-            : "text-[#94A3B8] hover:bg-[#1E293B] hover:text-white"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+            : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
         }`}
       >
-        <item.icon
-          className={`w-4 h-4 flex-shrink-0 ${
-            isActive ? "text-white" : "text-[#64748B]"
-          }`}
-        />
+        <item.icon className="w-5 h-5 flex-shrink-0" />
         {!isCollapsed && <span className="truncate">{item.label}</span>}
-        {!isCollapsed && isActive && (
-          <ChevronRight className="w-3 h-3 ml-auto text-white/70 flex-shrink-0" />
-        )}
       </button>
     )
 
@@ -153,7 +147,7 @@ export function MasterAdminSidebar({
         menuGroups.map((group) => (
           <div key={group.label} className="mb-4">
             <div className="px-4 py-1">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 {group.label}
               </span>
             </div>
@@ -168,15 +162,15 @@ export function MasterAdminSidebar({
 
   const brandSection = (isCollapsed: boolean) => (
     <div
-      className={`${
-        isCollapsed ? "p-3" : "px-4 py-5"
-      } border-b border-[#1E293B] flex-shrink-0`}
+      className={`h-16 flex items-center border-b border-sidebar-border flex-shrink-0 ${
+        isCollapsed ? "justify-center px-2" : "px-5"
+      }`}
     >
-      <div className="flex items-center justify-center">
+      <div className="flex items-center">
         {isCollapsed ? (
-          <img src="/Light.png" className="h-10 w-10 object-contain" alt="Lekvya" />
+          <img src="/Light.png" className="h-8 w-8 object-contain" alt="Lekvya" />
         ) : (
-          <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain" alt="Lekvya" />
+          <img src="/Light.png" className="h-8 w-auto max-w-[140px] object-contain" alt="Lekvya" />
         )}
       </div>
     </div>
@@ -188,13 +182,13 @@ export function MasterAdminSidebar({
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent
           side="left"
-          className="bg-[#0F172A] text-white w-[260px] p-0 border-r border-[#1E293B]"
+          className="bg-sidebar text-sidebar-foreground w-[260px] p-0 border-r border-sidebar-border"
         >
           <SheetHeader className="p-0">
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
           </SheetHeader>
           {brandSection(false)}
-          <div className="flex flex-col h-[calc(100vh-73px)] overflow-y-auto">
+          <div className="flex flex-col h-[calc(100vh-4rem)] overflow-y-auto">
             {renderMenuItems(false)}
           </div>
         </SheetContent>
@@ -202,8 +196,7 @@ export function MasterAdminSidebar({
 
       {/* Desktop Sidebar */}
       <aside
-        className="hidden lg:flex bg-[#0F172A] flex-col border-r border-[#1E293B] h-screen fixed top-0 bottom-0 left-0 transition-all duration-300 z-40"
-        style={{ width: collapsed ? "60px" : "240px" }}
+        className={`hidden lg:flex bg-sidebar text-sidebar-foreground flex-col border-r border-sidebar-border h-screen fixed top-0 bottom-0 left-0 transition-[width] duration-200 z-40 ${collapsed ? "w-[72px]" : "w-64"}`}
       >
         {brandSection(collapsed)}
         {renderMenuItems(collapsed)}

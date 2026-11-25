@@ -116,7 +116,7 @@ export function SmtpAlertBanner({ onGuideOpen }: SmtpAlertBannerProps) {
                 setIsDismissed(false)
               }}
               title="Expand alert"
-              className="ml-2 text-muted-foreground hover:text-foreground text-[11px] underline"
+              className="ml-2 text-muted-foreground hover:text-foreground text-xs underline"
             >
               Show Banner
             </button>
@@ -149,7 +149,7 @@ export function SmtpAlertBanner({ onGuideOpen }: SmtpAlertBannerProps) {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   variant="outline"
-                  className="bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/30 text-[11px] font-semibold gap-1.5 py-0.5"
+                  className="bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/30 text-xs font-semibold gap-1.5 py-0.5"
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                   Email Setup Required

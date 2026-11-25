@@ -4,27 +4,40 @@
  * so the preview matches what recipients actually receive.
  */
 
-/** Same rules as EmailTemplatesService.substituteVariables — keeps preview in sync with sent mail. */
-export function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/**
+ * Mirrors backend template-render.ts: {{ key }} with optional spaces, unknown variables become '',
+ * values are HTML-escaped in HTML bodies; a tag-less body with entities (&nbsp;) counts as HTML.
+ */
+export function isHtmlBody(body: string): boolean {
+  return /<[a-z][\s\S]*?>|&(?:[a-z]+|#\d+);/i.test(body);
 }
 
-export function substituteTemplatePlaceholders(
-  content: string,
-  variables: Record<string, string>,
-): string {
-  let result = content;
-  const entries = Object.entries(variables).sort((a, b) => b[0].length - a[0].length);
-  for (const [key, value] of entries) {
-    let bare = key.trim();
-    if (bare.startsWith('{{')) bare = bare.slice(2);
-    if (bare.endsWith('}}')) bare = bare.slice(0, -2);
-    bare = bare.trim();
-    if (!bare) continue;
-    const re = new RegExp(`\\{\\{\\s*${escapeRegExp(bare)}\\s*\\}\\}`, 'g');
-    result = result.replace(re, value ?? '');
-  }
-  return result;
+/** Accepts keys as "client_name" or "{{client_name}}". */
+function normalizeVars(vars: Record<string, string | null | undefined>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(vars)) out[k.replace(/[{}\s]/g, '')] = v == null ? '' : String(v);
+  return out;
+}
+
+export function substituteTokens(content: string, variables: Record<string, string | null | undefined>, escapeValues: boolean): string {
+  const vars = normalizeVars(variables);
+  return content.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => {
+    const v = vars[key] ?? '';
+    return escapeValues ? escapeHtml(v) : v;
+  });
+}
+
+/** Plain-text substitution (e.g. a subject line). */
+export function substituteTemplatePlaceholders(content: string, variables: Record<string, string>): string {
+  return substituteTokens(content, variables, false);
+}
+
+/** Exactly what the recipient gets: { subject, html (full document), bodyHtml (sanitized body only) }. */
+export function renderEmailPreview(subject: string, body: string, variables: Record<string, string | null | undefined>) {
+  const html = isHtmlBody(body);
+  const renderedSubject = substituteTokens(subject, variables, false).replace(/\s+/g, ' ').trim();
+  const bodyHtml = sanitizeBody(substituteTokens(body, variables, html), html);
+  return { subject: renderedSubject, bodyHtml, html: wrapSanitized(bodyHtml, renderedSubject || 'Email') };
 }
 
 function escapeHtml(text: string): string {
@@ -41,8 +54,7 @@ function escapeHtml(text: string): string {
  * - Plain text: double \n = paragraph, single \n = <br>
  * - HTML: strip class/data-* attrs, div → p
  */
-function sanitizeBody(body: string): string {
-  const hasHtml = /<[a-z][\s\S]*?>/i.test(body);
+function sanitizeBody(body: string, hasHtml = isHtmlBody(body)): string {
   if (!hasHtml) {
     const paragraphs = body.split(/\n\n+/);
     return paragraphs
@@ -65,7 +77,10 @@ function sanitizeBody(body: string): string {
  * Mirrors backend toProfessionalHtml — no blue bar, no subject heading, no card.
  */
 export function wrapEmailInHTMLTemplate(body: string, subject = 'Email'): string {
-  const sanitized = sanitizeBody(body);
+  return wrapSanitized(sanitizeBody(body), subject);
+}
+
+function wrapSanitized(sanitized: string, subject: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -91,55 +106,22 @@ export function wrapEmailInHTMLTemplate(body: string, subject = 'Email'): string
 }
 
 /**
- * Preview with sample variable substitution — matches backend variable names.
+ * Full preview document. Pass `variables` (a real client's values, or exampleValues(vars) from
+ * lib/template-variables) — unknown variables render blank, exactly as in the sent email.
  */
-export function previewEmailTemplate(body: string, subject = 'Sample Email'): string {
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    year: 'numeric', month: 'long', day: 'numeric',
-  });
-
-  const sampleData: Record<string, string> = {
-    // Client variables
-    '{{client_name}}': 'John Doe',
-    '{{client_email}}': 'john.doe@example.com',
-    '{{client_phone}}': '+91 98765 43210',
-    '{{company_name}}': 'ABC Pvt. Ltd.',
-    '{{client_city}}': 'Mumbai',
-    // Organization variables (auto-enriched by backend; shown with sample data in preview)
-    '{{org_name}}': 'Navedhana Pvt. Ltd.',
-    '{{org_admin_name}}': 'Navedhana Team',
-    '{{org_email}}': 'contact@navedhana.com',
-    '{{org_phone}}': '+91 90000 00000',
-    // Login / credentials variables
-    '{{login_email}}': 'john.doe@example.com',
-    '{{login_password}}': 'TempPass@123',
-    '{{login_url}}': 'https://app.navedhana.com/login',
-    // Service variables
-    '{{service_name}}': 'GST Filing',
-    '{{service_description}}': 'Monthly GST return filing service',
-    '{{amount}}': '₹5,000',
-    '{{document_name}}': 'Form 16',
-    // Date variables
-    '{{date}}': currentDate,
-    '{{today}}': currentDate,
-    '{{current_date}}': currentDate,
-    '{{deadline_date}}': currentDate,
-    '{{follow_up_date}}': currentDate,
-    '{{additional_notes}}': 'Please submit all documents by the due date.',
-  };
-
-  let previewBody = body;
-  Object.entries(sampleData).forEach(([variable, value]) => {
-    previewBody = previewBody.replace(
-      new RegExp(variable.replace(/[{}]/g, '\\$&'), 'g'),
-      value,
-    );
-  });
-
-  return wrapEmailInHTMLTemplate(previewBody, subject);
+export function previewEmailTemplate(body: string, subject = 'Sample Email', variables: Record<string, string> = {}): string {
+  return renderEmailPreview(subject, body, variables).html;
 }
 
 /** @deprecated use wrapEmailInHTMLTemplate */
 export function formatPlainTextToHTML(text: string): string {
   return sanitizeBody(text);
+}
+
+/** Mirrors backend withSignature: the firm's sign-off after the body, in the body's own format. */
+export function withSignature(body: string, signature?: string | null): string {
+  const sig = signature?.trim();
+  if (!sig) return body;
+  if (isHtmlBody(body)) return `${body}<p>${escapeHtml(sig).replace(/\r?\n/g, '<br>')}</p>`;
+  return `${body.replace(/\s+$/, '')}\n\n${sig}`;
 }

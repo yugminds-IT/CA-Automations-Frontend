@@ -46,7 +46,11 @@ import { getIndustryClientConfig } from '@/lib/industry-config'
 import { getUserData } from '@/lib/api/index'
 import type { NewClient } from './client-transforms'
 import { clientOnboardSchema, type ClientOnboardFormValues } from './client-onboard-schema'
+import { TagInput } from './tag-input'
+import { suggestedTagsFor } from '@/lib/industry-config'
 interface ClientOnboardFormProps {
+  /** Tags already used in the organization, offered first */
+  tagSuggestions?: string[]
   onSubmit?: (data: NewClient) => Promise<void> | void
   onCancel?: () => void
   defaultValues?: Partial<ClientOnboardFormValues>
@@ -66,6 +70,7 @@ export function ClientOnboardForm({
   clientStatuses = [],
   isEditing = false,
   industry: propIndustry,
+  tagSuggestions = [],
 }: ClientOnboardFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [customServiceInput, setCustomServiceInput] = useState('')
@@ -115,6 +120,7 @@ export function ClientOnboardForm({
       onboardDate: defaultValues?.onboardDate || new Date(),
       followUpDate: defaultValues?.followUpDate || null,
       notes: defaultValues?.notes || '',
+      tags: defaultValues?.tags || [],
       directors: defaultValues?.directors || [],
     },
   })
@@ -246,6 +252,7 @@ export function ClientOnboardForm({
         country: (data.country && data.country.trim() !== '') ? data.country : undefined,
         pincode: (data.pincode && data.pincode.trim() !== '') ? data.pincode : undefined,
         notes: (data.notes && data.notes.trim() !== '') ? data.notes : undefined,
+        tags: data.tags ?? [],
         directors: allDirectors,
         onboardDate: data.onboardDate ? format(data.onboardDate, 'yyyy-MM-dd') : null,
       }
@@ -371,7 +378,7 @@ export function ClientOnboardForm({
   return (
     <Form {...form}>
       <form id="client-onboard-form" onSubmit={form.handleSubmit(handleSubmit)} className="space-y-0 overflow-x-hidden max-w-full">
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground mb-3 flex-wrap">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3 flex-wrap">
             {PHASE_ORDER.map((p, i, arr) => {
               const pIndex = PHASE_ORDER.indexOf(p)
               const isPast = pIndex < phaseIndex
@@ -967,6 +974,23 @@ export function ClientOnboardForm({
                     )}
                   />
                 </div>
+              </div>
+
+              {/* Tags: how any business groups its contacts ("VIP", "Class 10") */}
+              <div className="p-5 pb-0 space-y-2">
+                <label htmlFor="client-tags" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tags <span className="normal-case font-normal text-muted-foreground/70">(optional, used to pick who gets an email)</span></label>
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <TagInput id="client-tags" value={field.value ?? []} onChange={field.onChange}
+                          suggestions={[...tagSuggestions, ...suggestedTagsFor(currentIndustry)]} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </div>
 
               {/* Notes */}

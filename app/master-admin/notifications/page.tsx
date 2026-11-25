@@ -1,7 +1,5 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { EmptyState } from "@/components/ui/empty-state"
 import { useState, useEffect } from "react"
@@ -45,9 +43,6 @@ interface NotifState extends MasterAdminNotification {
 }
 
 export default function MasterAdminNotificationsPage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [notifications, setNotifications] = useState<NotifState[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -78,22 +73,6 @@ export default function MasterAdminNotificationsPage() {
     }
   }
 
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed")
-    setSidebarCollapsed(saved !== null ? saved === "true" : true)
-  }, [])
-
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
   const unreadCount = notifications.filter((n) => !n.read).length
 
   const markAllRead = () => {
@@ -101,26 +80,12 @@ export default function MasterAdminNotificationsPage() {
   }
 
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0" }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        <div className="overflow-auto flex-1" style={{ marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-6 space-y-6 max-w-3xl mx-auto">
 
             <div className="flex items-start justify-between gap-4">
@@ -207,7 +172,7 @@ export default function MasterAdminNotificationsPage() {
                           </div>
                           <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5">{notif.description}</p>
                         </div>
-                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground flex-shrink-0">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
                           <Clock className="w-3 h-3" />
                           {formatTimestamp(notif.timestamp)}
                         </div>
@@ -220,7 +185,6 @@ export default function MasterAdminNotificationsPage() {
 
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }

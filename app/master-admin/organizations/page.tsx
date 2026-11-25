@@ -1,7 +1,5 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
@@ -34,9 +32,6 @@ import { Badge } from "@/components/ui/badge"
 import { OrganizationFormFields } from "@/components/master-admin/organization-form-fields"
 
 export default function MasterAdminOrganizations() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true)
@@ -202,32 +197,6 @@ export default function MasterAdminOrganizations() {
     } finally {
       setIsCreatingAdmin(false)
     }
-  }
-
-  useEffect(() => {
-    const savedState = localStorage.getItem('sidebarCollapsed')
-    if (savedState !== null) {
-      setSidebarCollapsed(savedState === 'true')
-    } else {
-      setSidebarCollapsed(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
-    checkIsDesktop()
-    window.addEventListener('resize', checkIsDesktop)
-    return () => window.removeEventListener('resize', checkIsDesktop)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed)
   }
 
   const handleDialogClose = (open: boolean) => {
@@ -525,29 +494,12 @@ export default function MasterAdminOrganizations() {
   }
 
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{
-          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '240px') : '0',
-          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)') : '100%',
-        }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={toggleSidebar}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 56px)", marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-6 space-y-6 max-w-7xl mx-auto">
             {/* ── Page Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -847,7 +799,7 @@ export default function MasterAdminOrganizations() {
                                     size="sm"
                                     onClick={() => handleApproveOrganization(org.id)}
                                     disabled={isApprovingId === org.id || isRejectingId === org.id || isDeletingOrg}
-                                    className="h-8 px-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                    className="h-8 px-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                                     title="Approve"
                                   >
                                     <Check className="w-3.5 h-3.5 mr-0.5" />
@@ -858,7 +810,7 @@ export default function MasterAdminOrganizations() {
                                     size="sm"
                                     onClick={() => handleRejectOrganization(org.id)}
                                     disabled={isApprovingId === org.id || isRejectingId === org.id || isDeletingOrg}
-                                    className="h-8 px-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    className="h-8 px-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                     title="Reject"
                                   >
                                     <X className="w-3.5 h-3.5 mr-0.5" />
@@ -872,7 +824,7 @@ export default function MasterAdminOrganizations() {
                                   size="sm"
                                   onClick={() => openExtendDialog(org)}
                                   disabled={isDeletingOrg}
-                                  className="h-8 px-2 text-[11px] font-semibold text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                                  className="h-8 px-2 text-xs font-semibold text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
                                   title="Extend access"
                                 >
                                   <CalendarClock className="w-3.5 h-3.5 mr-0.5" />
@@ -886,7 +838,7 @@ export default function MasterAdminOrganizations() {
                                   setSelectedOrgId(org.id)
                                   setCreateAdminDialogOpen(true)
                                 }}
-                                className="h-8 px-2.5 text-[11px] font-semibold text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                                className="h-8 px-2.5 text-xs font-semibold text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                                 disabled={isDeletingOrg}
                               >
                                 <UserPlus className="w-3.5 h-3.5 mr-1" />
@@ -923,8 +875,7 @@ export default function MasterAdminOrganizations() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }
 

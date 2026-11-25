@@ -225,6 +225,7 @@ export interface OnboardClientRequest {
   onboardDate?: string;
   followupDate?: string;
   additionalNotes?: string;
+  tags?: string[];
   phone?: string;
   organizationId?: number;
   directors?: OnboardDirectorRequest[];
@@ -248,6 +249,7 @@ export interface UpdateClientRequest {
   onboardDate?: string;
   followupDate?: string;
   additionalNotes?: string;
+  tags?: string[];
   /** When true, removes the client's login user from DB. */
   remove_login?: boolean;
   login_email?: string;
@@ -414,7 +416,31 @@ export interface ScheduleMonthly {
   timeZoneOffset?: string;
 }
 
+/** How often a repeating email goes out (see lib/schedule-rule.ts) */
+export interface RepeatRule {
+  every: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  /** Months it may go out in, 1–12 */
+  months: number[];
+  /** Days of the month, 1–31, or -1 for the last day */
+  days?: number[];
+  /** 0 = Sunday … 6 = Saturday (day / week) */
+  weekdays?: number[];
+  /** YYYY-MM-DD */
+  startDate: string;
+  endDate?: string;
+  /** Stop after this many sends */
+  count?: number;
+}
+
+export interface ScheduleRepeat {
+  type: 'repeat';
+  repeat: RepeatRule;
+  times: string[];
+  timeZoneOffset?: string;
+}
+
 export type ScheduleConfig =
+  | ScheduleRepeat
   | ScheduleSingleDate
   | ScheduleDateRange
   | ScheduleMultipleDates
@@ -422,13 +448,48 @@ export type ScheduleConfig =
   | ScheduleWeekly
   | ScheduleMonthly;
 
+/** A file uploaded with POST /mail-management/attachments, referenced when sending */
+export interface MailAttachment {
+  key: string;
+  name: string;
+  size: number;
+  contentType: string;
+}
+
 export interface ScheduleEmailRequest {
   templateId?: number;
   subject?: string;
   body?: string;
-  recipientEmails: string[];
+  /** Plain list sharing `variables`; omit when using `recipients`. */
+  recipientEmails?: string[];
+  /** Many recipients in one call, each with their own variables. */
+  recipients?: { email: string; variables?: Record<string, string>; attachments?: MailAttachment[] }[];
   variables?: Record<string, string>;
+  /** Files every recipient gets (one-off schedules only) */
+  attachments?: MailAttachment[];
+  /** Everyone matching these rules when it goes out (not for monthly) */
+  segment?: SegmentSend;
+  cc?: string;
+  bcc?: string;
   schedule: ScheduleConfig;
+}
+
+/** A send to a group: the server works out who matches when the email goes out. */
+export interface SegmentSend {
+  rules: { field: string; op: string; values?: string[]; days?: number }[];
+  /** Contacts unticked in the panel */
+  excludeIds: number[];
+  /** Sender's UTC offset in minutes, so date rules use their calendar day */
+  tzOffsetMinutes: number;
+  /** Typed values: fill each recipient's blanks */
+  fallbacks: Record<string, string>;
+  label?: string;
+}
+
+export interface SavedSegment {
+  id: number;
+  name: string;
+  rules: SegmentSend['rules'];
 }
 
 // ============ RECURRING SCHEDULE (Monthly) ============
@@ -442,9 +503,24 @@ export interface RecurringSchedule {
   variables?: Record<string, string> | null;
   months: number[];
   days: number[];
+  weekdays?: number[] | null;
+  /** Null on older monthly repeats */
+  frequency?: RepeatRule['every'] | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  maxSends?: number | null;
+  sentCount?: number;
+  recipientVariables?: Record<string, Record<string, string>> | null;
+  cc?: string | null;
+  bcc?: string | null;
+  /** A group, worked out again at each send */
+  segment?: SegmentSend & { label?: string | null; resolvedAt?: string; matched?: number } | null;
+  attachments?: MailAttachment[] | null;
   times: string[];
   timeZoneOffset?: string | null;
-  status: 'active' | 'stopped';
+  status: 'active' | 'stopped' | 'ended';
+  /** Shared by every send of one email */
+  batchId?: string | null;
   organizationId?: number | null;
   createdBy?: number;
   createdAt?: string;

@@ -1,5 +1,6 @@
 "use client"
 
+import { useAppUi } from "@/lib/use-app-ui"
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
@@ -7,14 +8,15 @@ import { Header } from "@/components/header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { getUserData, isAuthenticated, getRoleFromUser, restoreAutoLogoutTimer } from "@/lib/api/index"
 
-interface DashboardShellProps {
-  children: React.ReactNode
-}
-
-export function DashboardShell({ children }: DashboardShellProps) {
+/**
+ * App frame for org users: auth check, fixed sidebar, sticky header, scrolling page area.
+ * Used once by app/(app)/layout.tsx so it stays mounted while navigating between pages.
+ * Layout is pure CSS (no window-width state), so nothing jumps on load.
+ */
+export function DashboardShell({ children }: { children: React.ReactNode }) {
+  useAppUi()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const router = useRouter()
 
@@ -23,48 +25,27 @@ export function DashboardShell({ children }: DashboardShellProps) {
       router.replace("/login")
       return
     }
-
     restoreAutoLogoutTimer()
 
-    const role = getRoleFromUser(getUserData())
-    if (role != null) {
-      const roleUpper = role.toUpperCase()
-      if (roleUpper === "MASTER_ADMIN") {
-        router.replace("/master-admin")
-        return
-      }
-      if (roleUpper === "CLIENT") {
-        router.replace("/uploads")
-        return
-      }
+    const role = getRoleFromUser(getUserData())?.toUpperCase()
+    if (role === "MASTER_ADMIN") {
+      router.replace("/master-admin")
+      return
     }
+    if (role === "CLIENT") {
+      router.replace("/uploads")
+      return
+    }
+    // Labeled sidebar by default; remember if the user collapses it.
+    setSidebarCollapsed(localStorage.getItem("sidebarCollapsed") === "true")
     setIsCheckingAuth(false)
   }, [router])
 
-  useEffect(() => {
-    const savedState = localStorage.getItem("sidebarCollapsed")
-    if (savedState !== null) {
-      setSidebarCollapsed(savedState === "true")
-    } else {
-      setSidebarCollapsed(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
-    checkIsDesktop()
-    window.addEventListener("resize", checkIsDesktop)
-    return () => window.removeEventListener("resize", checkIsDesktop)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
   const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed)
+    setSidebarCollapsed((c) => {
+      localStorage.setItem("sidebarCollapsed", String(!c))
+      return !c
+    })
   }
 
   if (isCheckingAuth) {
@@ -72,34 +53,23 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <div className="h-screen bg-background text-foreground">
       <Sidebar
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
         collapsed={sidebarCollapsed}
       />
       <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{
-          marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0",
-          width: isDesktop
-            ? sidebarCollapsed
-              ? "calc(100% - 60px)"
-              : "calc(100% - 240px)"
-            : "100%",
-        }}
+        className={`flex h-full flex-col transition-[padding] duration-200 ${
+          sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-64"
+        }`}
       >
         <Header
           onMenuClick={() => setMobileMenuOpen(true)}
           onSidebarToggle={toggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <div
-          className="overflow-auto flex-1 w-full"
-          style={{ height: "calc(100vh - 54px)", marginTop: "54px" }}
-        >
-          {children}
-        </div>
+        <main className="min-h-0 flex-1 overflow-auto">{children}</main>
       </div>
     </div>
   )

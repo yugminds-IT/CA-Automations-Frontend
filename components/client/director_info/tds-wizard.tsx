@@ -54,7 +54,7 @@ function DropZone({ label, accept, icon: Icon, done, filename, uploading, onFile
             <p className="text-sm font-medium text-green-700 truncate max-w-[180px]">{filename ?? label}</p>
             <p className="text-xs text-green-600 mt-0.5">Uploaded successfully</p>
           </div>
-          <Button variant="outline" size="sm" className="text-xs h-7" onClick={(e) => { e.stopPropagation(); ref.current?.click() }}>
+          <Button variant="outline" size="sm" className="h-9" onClick={(e) => { e.stopPropagation(); ref.current?.click() }}>
             Replace
           </Button>
         </>
@@ -67,7 +67,7 @@ function DropZone({ label, accept, icon: Icon, done, filename, uploading, onFile
             <p className="text-sm font-medium">{label}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Drag & drop or click to browse</p>
           </div>
-          <Button variant="outline" size="sm" className="text-xs h-7 pointer-events-none">
+          <Button variant="outline" size="sm" className="h-9 pointer-events-none">
             <Upload className="h-3.5 w-3.5 mr-1.5" />Browse
           </Button>
         </>
@@ -85,7 +85,7 @@ function PdfViewer({ previewUrl, filename }: { previewUrl?: string; filename?: s
           <FileText className="h-4 w-4 text-red-500" />
           <p className="text-xs font-semibold text-red-800 truncate flex-1">{filename ?? 'Challan PDF'}</p>
           <a href={previewUrl} target="_blank" rel="noreferrer"
-            className="text-[10px] text-red-600 hover:underline shrink-0">Open ↗</a>
+            className="text-xs text-red-600 hover:underline shrink-0">Open ↗</a>
         </div>
         <iframe src={previewUrl} className="flex-1 w-full border-0 min-h-[340px]" title="Challan PDF Preview" />
       </div>
@@ -127,16 +127,16 @@ function ExcelViewer({ filename, fileUrl, rawRows }: {
           <FileSpreadsheet className="h-3 w-3 text-white" />
         </div>
         <p className="text-xs font-semibold text-green-800 truncate flex-1">{filename ?? 'Deductee Excel'}</p>
-        <span className="text-[10px] text-green-700 shrink-0">{dataRows.length} rows</span>
+        <span className="text-xs text-green-700 shrink-0">{dataRows.length} rows</span>
         {fileUrl && (
           <a href={fileUrl} download={filename ?? 'deductees.xlsx'}
-            className="text-[10px] text-green-600 hover:underline shrink-0 ml-2">
+            className="text-xs text-green-600 hover:underline shrink-0 ml-2">
             <Download className="h-3 w-3 inline mr-0.5" />Download
           </a>
         )}
       </div>
       <div className="overflow-auto flex-1">
-        <table className="w-full text-[10px] border-collapse">
+        <table className="w-full text-xs border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="bg-muted/80">
               <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground border-b border-r border-border w-7 select-none">#</th>
@@ -378,7 +378,7 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
           </p>
         </div>
         {/* Phase breadcrumb */}
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
           <span className={phase === 'upload' ? 'text-primary font-semibold' : ''}>Upload</span>
           <span className="mx-1">›</span>
           <span className={phase === 'preview' ? 'text-primary font-semibold' : ''}>Review</span>
@@ -465,7 +465,7 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
                 <div className="p-4 space-y-4 overflow-y-auto max-h-[420px]">
                   {Object.keys(editedChallanFields).length > 0 && (
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Challan Fields</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Challan Fields</p>
                       <div className="space-y-2">
                         {Object.entries(editedChallanFields).map(([k, v]) => (
                           <div key={k} className="grid grid-cols-[140px_1fr] items-center gap-2">
@@ -478,7 +478,7 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
                   )}
                   {Object.keys(editedTaxBreakup).length > 0 && (
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Tax Breakup</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Tax Breakup</p>
                       <div className="space-y-2">
                         {Object.entries(editedTaxBreakup).map(([k, v]) => (
                           <div key={k} className="grid grid-cols-[140px_1fr] items-center gap-2">
@@ -715,7 +715,7 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground h-7 text-xs" onClick={() => setPhase('review')}>
+                  <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground h-9" onClick={() => setPhase('review')}>
                     <ArrowLeft className="h-3.5 w-3.5" />Back
                   </Button>
                   <div>
@@ -734,7 +734,7 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
                     <button key={ver} onClick={() => { setSelFormVersion(ver); setSelFormType(''); setSelSections([]) }}
                       className={`flex-1 rounded-lg border-2 p-3 text-left transition ${selFormVersion === ver ? 'border-primary bg-primary/5' : 'border-border hover:border-border/80'}`}>
                       <p className="font-semibold text-xs">{label}</p>
-                      <p className="text-[10px] text-muted-foreground">{desc}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
                     </button>
                   ))}
                 </div>
@@ -750,7 +750,7 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
                       <button key={key} onClick={() => { setSelFormType(key); setSelSections([]) }}
                         className={`rounded-lg border-2 p-3 text-left transition ${isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 hover:bg-muted/30'}`}>
                         <p className={`text-base font-black ${isSelected ? 'text-primary' : 'text-foreground'}`}>{name}</p>
-                        <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{f.description}</p>
+                        <p className="text-xs text-muted-foreground leading-tight mt-0.5">{f.description}</p>
                       </button>
                     )
                   })}
@@ -764,7 +764,7 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
                     <button key={q.value} onClick={() => setSelQuarter(q.value)}
                       className={`px-3 py-1.5 text-sm rounded-lg border-2 font-medium transition ${selQuarter === q.value ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:border-primary/50'}`}>
                       {q.value}
-                      <span className="block text-[9px] font-normal opacity-70">{q.label.split('(')[1]?.replace(')', '') ?? ''}</span>
+                      <span className="block text-xs font-normal opacity-70">{q.label.split('(')[1]?.replace(')', '') ?? ''}</span>
                     </button>
                   ))}
                 </div>
@@ -784,13 +784,13 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
                           <input type="checkbox" checked={checked}
                             onChange={(e) => setSelSections(e.target.checked ? [...selSections, s.code] : selSections.filter((x) => x !== s.code))}
                             className="w-4 h-4 accent-primary shrink-0" />
-                          <span className={`font-mono text-[11px] font-bold w-20 shrink-0 ${checked ? 'text-primary' : 'text-muted-foreground'}`}>{s.code}</span>
+                          <span className={`font-mono text-xs font-bold w-20 shrink-0 ${checked ? 'text-primary' : 'text-muted-foreground'}`}>{s.code}</span>
                           <span className="text-xs">{s.label}</span>
                         </label>
                       )
                     })}
                   </div>
-                  {selSections.length > 0 && <p className="text-[11px] text-primary mt-1.5 font-medium">{selSections.length} section(s): {selSections.join(', ')}</p>}
+                  {selSections.length > 0 && <p className="text-xs text-primary mt-1.5 font-medium">{selSections.length} section(s): {selSections.join(', ')}</p>}
                 </div>
               )}
 
@@ -801,7 +801,7 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
                     { title: 'Challan Details', rows: [['BSR Code', autoFill.bsr_code], ['Challan No', autoFill.challan_no], ['Date of Deposit', autoFill.challan_date], ['Total Tax', `₹ ${autoFill.total_tax_deposited}`]] },
                   ].map(({ title, rows }) => (
                     <div key={title} className="rounded-lg border border-border p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{title}</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{title}</p>
                       <Table>
                         <TableBody>
                           {(rows as [string, unknown][]).map(([l, v]) => (

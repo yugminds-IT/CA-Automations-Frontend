@@ -84,6 +84,15 @@ export async function updateClient(
   });
 }
 
+/** Add and/or remove tags on many clients at once. */
+export async function bulkTagClients(data: { clientIds: number[]; add?: string[]; remove?: string[] }): Promise<{ updated: number }> {
+  return apiRequestWithRefresh<{ updated: number }>(API_CONFIG.endpoints.clients.tags, {
+    method: 'POST',
+    body: data,
+    requiresAuth: true,
+  });
+}
+
 export async function deleteClient(id: number | string): Promise<void> {
   return apiRequestWithRefresh<void>(API_CONFIG.endpoints.clients.byId(id), {
     method: 'DELETE',

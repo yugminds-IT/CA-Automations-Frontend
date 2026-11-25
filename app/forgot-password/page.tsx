@@ -168,8 +168,9 @@ export default function ForgotPasswordPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-            <Card className="w-full max-w-md">
+        <div className="min-h-screen flex flex-col items-center justify-center gap-8 bg-background p-4">
+            <Link href="/"><img src="/landing-assets/lekvya-logo-new.png" alt="Lekvya" className="h-10 w-auto object-contain" /></Link>
+            <Card className="w-full max-w-md rounded-2xl shadow-lg">
                 <CardHeader className="space-y-1">
                     <CardTitle className="text-2xl font-bold text-center">
                         {step === 1 && 'Forgot Password'}

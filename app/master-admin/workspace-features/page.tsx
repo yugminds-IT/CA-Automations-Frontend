@@ -2,10 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  MasterAdminSidebar,
-} from "@/components/master-admin-sidebar";
-import { MasterAdminHeader } from "@/components/master-admin-header";
 import { LekvyaLoader } from "@/components/ui/lekvya-loader";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -71,10 +67,6 @@ const ICON_MAP: Record<string, React.ElementType> = {
 export default function WorkspaceFeaturesPage() {
   const router = useRouter();
   const { toast } = useToast();
-
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const [isDesktop, setIsDesktop] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const [features, setFeatures] = useState<WorkspaceFeatureItem[]>([]);
@@ -117,15 +109,6 @@ export default function WorkspaceFeaturesPage() {
     setIsCheckingAuth(false);
     loadFeatures();
   }, [router, toast]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed");
-    setSidebarCollapsed(saved !== null ? saved === "true" : true);
-    const check = () => setIsDesktop(window.innerWidth >= 1024);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   const loadFeatures = async () => {
     setLoading(true);
@@ -321,7 +304,7 @@ export default function WorkspaceFeaturesPage() {
   };
 
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />;
+    return <LekvyaLoader className="min-h-[60vh]" />;
   }
 
   const totalCards = features.length;
@@ -330,24 +313,8 @@ export default function WorkspaceFeaturesPage() {
   const topPriorityFeature = features[0]?.name || "—";
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0" }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-
-        <div className="overflow-auto flex-1" style={{ marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-6 space-y-6 max-w-6xl mx-auto">
             {/* Header Title Section */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-5">
@@ -432,7 +399,7 @@ export default function WorkspaceFeaturesPage() {
                       Cards at the top (Priority #1) appear first on the signup page. Use the Up/Down buttons or edit priority directly.
                     </CardDescription>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={loadFeatures} className="text-xs h-7">
+                  <Button variant="ghost" size="sm" onClick={loadFeatures} className="h-9">
                     <RefreshCw className="w-3.5 h-3.5 mr-1" /> Reload
                   </Button>
                 </div>
@@ -466,7 +433,7 @@ export default function WorkspaceFeaturesPage() {
                         <div className="flex items-start sm:items-center gap-3.5">
                           {/* Priority Rank Pill */}
                           <div className="flex flex-col items-center justify-center shrink-0 w-12">
-                            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                               Rank
                             </span>
                             <span className="text-base font-extrabold text-orange-600 dark:text-orange-400">
@@ -513,23 +480,23 @@ export default function WorkspaceFeaturesPage() {
                               </h3>
                               <Badge
                                 variant="outline"
-                                className="text-[10px] px-2 py-0 border-slate-300 font-medium"
+                                className="text-xs px-2 py-0 border-slate-300 font-medium"
                               >
                                 {item.badge}
                               </Badge>
 
                               {item.isLocked ? (
-                                <Badge className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] gap-1 px-2 py-0">
+                                <Badge className="bg-rose-600 hover:bg-rose-700 text-white text-xs gap-1 px-2 py-0">
                                   <Lock className="w-3 h-3" /> LOCKED
                                 </Badge>
                               ) : (
-                                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] gap-1 px-2 py-0">
+                                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1 px-2 py-0">
                                   <Unlock className="w-3 h-3" /> UNLOCKED
                                 </Badge>
                               )}
 
                               {!item.isActive && (
-                                <Badge variant="secondary" className="text-[10px] px-2 py-0">
+                                <Badge variant="secondary" className="text-xs px-2 py-0">
                                   HIDDEN
                                 </Badge>
                               )}
@@ -540,7 +507,7 @@ export default function WorkspaceFeaturesPage() {
                             </p>
 
                             {item.isLocked && item.lockReason && (
-                              <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium mt-1 flex items-center gap-1">
+                              <p className="text-xs text-rose-600 dark:text-rose-400 font-medium mt-1 flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3 shrink-0" />
                                 Lock Note: {item.lockReason}
                               </p>
@@ -579,7 +546,7 @@ export default function WorkspaceFeaturesPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 text-xs"
+                            className="h-9"
                             onClick={() => handleOpenEdit(item)}
                           >
                             <Edit2 className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
@@ -594,7 +561,6 @@ export default function WorkspaceFeaturesPage() {
             </Card>
           </div>
         </div>
-      </div>
 
       {/* Lock Dialog (Prompt reason) */}
       <Dialog open={!!lockDialogItem} onOpenChange={() => setLockDialogItem(null)}>
@@ -703,7 +669,7 @@ export default function WorkspaceFeaturesPage() {
                       type="button"
                       size="sm"
                       variant={editForm.isLocked ? "destructive" : "outline"}
-                      className="text-xs h-8 flex-1"
+                      className="h-9 flex-1"
                       onClick={() => setEditForm({ ...editForm, isLocked: !editForm.isLocked })}
                     >
                       {editForm.isLocked ? (
@@ -811,15 +777,15 @@ export default function WorkspaceFeaturesPage() {
 
                         <div className="flex items-center gap-1.5">
                           {ind.isLocked ? (
-                            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1">
+                            <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 flex items-center gap-1">
                               <Lock className="w-2.5 h-2.5" /> Locked
                             </span>
                           ) : (
-                            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                            <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                               {ind.badge}
                             </span>
                           )}
-                          <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
+                          <span className="text-xs font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
                             #{ind.priority}
                           </span>
                         </div>
@@ -828,12 +794,12 @@ export default function WorkspaceFeaturesPage() {
                       <h4 className="font-semibold text-slate-900 text-sm mb-1">
                         {ind.name}
                       </h4>
-                      <p className="text-[11px] text-slate-500 line-clamp-2">
+                      <p className="text-xs text-slate-500 line-clamp-2">
                         {ind.description}
                       </p>
                     </div>
 
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold">
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-semibold">
                       {ind.isLocked ? (
                         <span className="text-rose-500 font-medium">Feature Locked</span>
                       ) : (
@@ -853,6 +819,6 @@ export default function WorkspaceFeaturesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

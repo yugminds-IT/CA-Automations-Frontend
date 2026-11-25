@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatPlainTextToHTML,
   previewEmailTemplate,
+  renderEmailPreview,
   substituteTemplatePlaceholders,
   wrapEmailInHTMLTemplate,
 } from "./email-template";
@@ -15,20 +16,28 @@ describe("substituteTemplatePlaceholders", () => {
     expect(out).toBe("Hi Asha, from Lekvya");
   });
 
-  it("replaces longer keys first so prefixes do not clobber them", () => {
-    const out = substituteTemplatePlaceholders("{{date}} / {{date_due}}", {
-      date: "1 Jan",
-      date_due: "5 Jan",
-    });
-    expect(out).toBe("1 Jan / 5 Jan");
+  it("does not let a shorter key clobber a longer one", () => {
+    expect(substituteTemplatePlaceholders("{{date}} / {{date_due}}", { date: "1 Jan", date_due: "5 Jan" })).toBe("1 Jan / 5 Jan");
   });
 
-  it("treats regex characters in keys literally", () => {
-    expect(substituteTemplatePlaceholders("{{a.b}} {{axb}}", { "a.b": "X" })).toBe("X {{axb}}");
+  it("blanks unknown placeholders, like the server does, so previews never promise raw {{braces}}", () => {
+    expect(substituteTemplatePlaceholders("pwd={{missing}}", { other: "1" })).toBe("pwd=");
+  });
+});
+
+describe("renderEmailPreview (mirror of backend renderEmail)", () => {
+  it("escapes values inside HTML bodies", () => {
+    const { bodyHtml } = renderEmailPreview("S", "<p>{{client_name}}</p>", { client_name: "<b>x</b>" });
+    expect(bodyHtml).toBe("<p>&lt;b&gt;x&lt;/b&gt;</p>");
   });
 
-  it("leaves unknown placeholders untouched", () => {
-    expect(substituteTemplatePlaceholders("{{missing}}", { other: "1" })).toBe("{{missing}}");
+  it("treats a tag-less body with &nbsp; as HTML so the entity is not shown literally", () => {
+    const { bodyHtml } = renderEmailPreview("S", "city={{client_city}}&nbsp;bye", { client_city: "Pune" });
+    expect(bodyHtml).toBe("city=Pune&nbsp;bye");
+  });
+
+  it("subject: plain text, unknowns blank, whitespace collapsed", () => {
+    expect(renderEmailPreview("Hi {{client_name}} {{nope}} !", "b", { client_name: "A & B" }).subject).toBe("Hi A & B !");
   });
 });
 
@@ -48,8 +57,8 @@ describe("email HTML", () => {
     expect(wrapEmailInHTMLTemplate("Body", "<script>")).toContain("<title>&lt;script&gt;</title>");
   });
 
-  it("fills sample values in the preview", () => {
-    const html = previewEmailTemplate("Dear {{client_name}}, your {{service_name}} is due.");
+  it("fills the given values in the preview", () => {
+    const html = previewEmailTemplate("Dear {{client_name}}, your {{service_name}} is due.", "S", { client_name: "John Doe", service_name: "GST Filing" });
     expect(html).toContain("Dear John Doe, your GST Filing is due.");
   });
 });

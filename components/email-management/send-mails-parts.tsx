@@ -1,7 +1,8 @@
 'use client'
 
-import { Loader2 } from 'lucide-react'
-import { Mail01, Send01, ArrowLeft, ArrowRight, User01 } from '@untitled-ui/icons-react'
+import { useState } from 'react'
+import { Loader2, Monitor, Paperclip, Smartphone } from 'lucide-react'
+import { Send01, ChevronLeft, ChevronRight } from '@untitled-ui/icons-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { ClientItem } from './send-mails-utils'
+import { cn } from '@/lib/utils'
 
 export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
   const letter = name.trim().charAt(0).toUpperCase() || '?'
@@ -31,136 +32,71 @@ function recipientsLabel(count: number) {
   return `${count} recipient${count !== 1 ? 's' : ''}`
 }
 
-export function EmailPreviewDialog({
-  open,
-  onOpenChange,
-  client,
-  clientIndex,
-  clientCount,
-  onPrev,
-  onNext,
-  subjectText,
-  bodyHtml,
-  recipientCount,
-  sendDisabled,
-  onSendNow,
+/** Always-visible preview: the email exactly as one recipient gets it, with real values. */
+export function LivePreview({
+  recipient, index, count, onPrev, onNext, subjectText, bodyHtml, attachments = [], emptyText, className,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  client: ClientItem | null | undefined
-  clientIndex: number
-  clientCount: number
+  recipient: { name: string; email: string } | null
+  index: number
+  count: number
   onPrev: () => void
   onNext: () => void
   subjectText: string
-  /** Already HTML-safe (built with substituteVarsHtml / cleanAndSubstituteVars). */
+  /** Already HTML-safe (built by renderEmailPreview). */
   bodyHtml: string
-  recipientCount: number
-  sendDisabled: boolean
-  onSendNow: () => void
+  /** File names this recipient gets */
+  attachments?: string[]
+  emptyText: string
+  className?: string
 }) {
+  // Most clients read on a phone: show the email at phone width too
+  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop')
+  const navBtn = 'h-7 w-7 inline-flex items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40'
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl">
-        <DialogTitle className="sr-only">Email Preview</DialogTitle>
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Mail01 className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold">Email Preview</h2>
-              {clientCount > 1 && (
-                <p className="text-xs text-muted-foreground">
-                  {clientIndex + 1} of {clientCount} recipients
-                </p>
-              )}
-            </div>
+    <section aria-label="Preview" className={cn("flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm", className)}>
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <span className="text-sm text-muted-foreground">Recipient</span>
+        {recipient && count > 1 && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <button type="button" aria-label="Previous recipient" className={navBtn} disabled={index === 0} onClick={onPrev}><ChevronLeft className="h-3.5 w-3.5" /></button>
+            <span className="tabular-nums">{index + 1} of {count.toLocaleString()}</span>
+            <button type="button" aria-label="Next recipient" className={navBtn} disabled={index >= count - 1} onClick={onNext}><ChevronRight className="h-3.5 w-3.5" /></button>
           </div>
-          <div className="flex items-center gap-1.5">
-            {clientCount > 1 && (
-              <>
-                <button
-                  type="button"
-                  aria-label="Previous recipient"
-                  disabled={clientIndex === 0}
-                  onClick={onPrev}
-                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Next recipient"
-                  disabled={clientIndex === clientCount - 1}
-                  onClick={onNext}
-                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-border hover:bg-muted disabled:opacity-40 transition-colors"
-                >
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </>
+        )}
+        <div role="group" aria-label="Preview size" className="ml-auto inline-flex rounded-md border border-border p-0.5">
+          {([['desktop', Monitor, 'Desktop'], ['mobile', Smartphone, 'Phone']] as const).map(([d, Icon, label]) => (
+            <button key={d} type="button" aria-pressed={device === d} aria-label={label} title={label} onClick={() => setDevice(d)}
+              className={cn('inline-flex h-6 w-7 items-center justify-center rounded', device === d ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!recipient ? (
+        <p className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">{emptyText}</p>
+      ) : (
+        <>
+          <div className="space-y-0.5 border-b border-border px-4 py-2.5 text-sm">
+            <p className="truncate"><span className="text-muted-foreground">To </span><span className="font-medium">{recipient.name}</span> <span className="text-muted-foreground">&lt;{recipient.email}&gt;</span></p>
+            <p className="font-semibold break-words">{subjectText || <span className="font-normal text-muted-foreground">(no subject)</span>}</p>
+            {attachments.length > 0 && (
+              <p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><Paperclip className="h-3 w-3 shrink-0" />{attachments.join(', ')}</p>
             )}
           </div>
-        </div>
-
-        {client && (
-          <>
-            {/* Email metadata */}
-            <div className="px-5 py-3 border-b border-border bg-background space-y-2">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <User01 className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate">{client.name}</span>
-                    {client.businessType && (
-                      <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 shrink-0">{client.businessType}</span>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground">{client.email}</span>
-                </div>
-              </div>
-              <div className="pl-11">
-                <p className="text-xs text-muted-foreground mb-0.5">Subject</p>
-                <p className="text-sm font-medium">{subjectText || '(no subject)'}</p>
-              </div>
-            </div>
-
-            {/* Email body & footer preview */}
-            <div className="px-6 py-5 text-sm min-h-[220px] max-h-[440px] overflow-y-auto bg-background leading-relaxed flex flex-col justify-between">
+          <div className={cn('min-h-0 flex-1 overflow-y-auto', device === 'mobile' && 'bg-muted/40 px-3 py-4')}>
+            <div className={device === 'mobile'
+              ? 'mx-auto w-[375px] max-w-full rounded-[24px] border-[6px] border-foreground/80 bg-background px-4 py-4 text-sm leading-relaxed break-words [&_img]:h-auto [&_img]:max-w-full [&_table]:max-w-full'
+              : 'mx-auto max-w-3xl px-6 py-5 text-sm leading-relaxed break-words [&_img]:h-auto [&_img]:max-w-full'}>
               <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
-              <div className="mt-8 pt-4 border-t border-border/60 text-center text-xs text-muted-foreground">
-                <a
-                  href={typeof window !== 'undefined' ? window.location.origin : '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span>Email sent via</span>
-                  <span className="font-semibold text-primary underline">Lekvya</span>
-                </a>
-              </div>
+              <p className="mt-6 border-t border-border/60 pt-3 text-center text-xs text-muted-foreground">
+                Email sent via <span className="font-semibold text-primary">Lekvya</span>
+              </p>
             </div>
-
-            {/* Footer actions */}
-            <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">{recipientsLabel(recipientCount)}</p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="text-xs h-8 rounded-lg" onClick={() => onOpenChange(false)}>
-                  Close
-                </Button>
-                <Button size="sm" className="text-xs h-8 rounded-lg gap-1.5" disabled={sendDisabled} onClick={onSendNow}>
-                  <Send01 className="h-3.5 w-3.5" />
-                  Send Now
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+          </div>
+        </>
+      )}
+    </section>
   )
 }
 
@@ -170,6 +106,7 @@ export function SendConfirmDialog({
   recipientCount,
   cc,
   bcc,
+  warnings = [],
   isSending,
   onConfirm,
 }: {
@@ -178,6 +115,8 @@ export function SendConfirmDialog({
   recipientCount: number
   cc: string
   bcc: string
+  /** e.g. variables that will be blank for some recipients */
+  warnings?: string[]
   isSending: boolean
   onConfirm: () => void
 }) {
@@ -193,12 +132,17 @@ export function SendConfirmDialog({
               <DialogTitle>Send Emails?</DialogTitle>
               <DialogDescription className="mt-0.5">
                 To <strong>{recipientsLabel(recipientCount)}</strong>
-                {cc && <span className="block text-[11px] text-muted-foreground mt-0.5 truncate max-w-[260px]">CC: {cc}</span>}
-                {bcc && <span className="block text-[11px] text-muted-foreground mt-0.5 truncate max-w-[260px]">BCC: {bcc}</span>}
+                {cc && <span className="block text-xs text-muted-foreground mt-0.5 truncate max-w-[260px]">CC: {cc}</span>}
+                {bcc && <span className="block text-xs text-muted-foreground mt-0.5 truncate max-w-[260px]">BCC: {bcc}</span>}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
+        {warnings.length > 0 && (
+          <ul className="p-3 rounded-xl border border-border bg-muted/40 text-xs text-foreground space-y-1 list-disc pl-6">
+            {warnings.map((w) => <li key={w}>{w}</li>)}
+          </ul>
+        )}
         <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800/40 text-xs text-amber-700 dark:text-amber-400">
           Use <strong>Schedule</strong> to send at a specific time instead.
         </div>

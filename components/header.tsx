@@ -70,7 +70,6 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
   const [user, setUser] = useState<User | null>(null)
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [emailDropdownOpen, setEmailDropdownOpen] = useState(false)
   const emailDropdownRef = useRef<HTMLDivElement>(null)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
@@ -130,11 +129,6 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
     // Load user and organization data on mount
     loadUserData()
 
-    // Check if desktop on mount and resize
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
-    checkIsDesktop()
 
     // Listen for storage changes (when data is updated in another tab/window)
     const handleStorageChange = (e: StorageEvent) => {
@@ -150,7 +144,6 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
 
     window.addEventListener('storage', handleStorageChange)
     window.addEventListener('userDataUpdated', handleCustomStorage)
-    window.addEventListener('resize', checkIsDesktop)
 
     // Also refresh on window focus (in case data was updated)
     const handleFocus = () => {
@@ -168,7 +161,6 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
     return () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('userDataUpdated', handleCustomStorage)
-      window.removeEventListener('resize', checkIsDesktop)
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('mousedown', handleClickOutside)
     }
@@ -196,35 +188,8 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
       .catch(() => {})
   })
 
-  // Calculate header position based on sidebar state
-  // On mobile (< lg), header is full width (sidebar is a menu)
-  // On desktop (>= lg), header starts after sidebar
-  const getHeaderStyle = () => {
-    if (isDesktop) {
-      // Desktop: header should be beside sidebar
-      return {
-        left: sidebarCollapsed ? '60px' : '240px',
-        right: 0,
-        width: sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)',
-      }
-    }
-    // Mobile: header is full width
-    return {
-      left: 0,
-      right: 0,
-      width: '100%',
-    }
-  }
-
   return (
-    <header 
-      className="fixed top-0 z-50 bg-background text-foreground border-b border-border flex items-center justify-between gap-3 px-3 sm:px-4 transition-[left,width] duration-300 ease-out"
-      style={{ 
-        minHeight: "52px",
-        marginBottom: "2px",
-        ...getHeaderStyle()
-      }}
-    >
+    <header className="sticky top-0 z-40 h-16 shrink-0 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 text-foreground border-b border-border flex items-center justify-between gap-3 px-3 sm:px-6">
       {/* Left: menu, sidebar toggle, breadcrumb (example style – Home icon, teal links, gray chevrons) */}
       <div className="flex flex-1 min-w-0 overflow-hidden items-center gap-2">
         {onMenuClick && (
@@ -233,7 +198,7 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
             className="lg:hidden p-2 rounded-md hover:bg-muted transition-colors shrink-0"
             aria-label="Open menu"
           >
-            <Menu className="w-4 h-4" />
+            <Menu className="w-5 h-5" />
           </button>
         )}
         {onSidebarToggle && (
@@ -243,11 +208,11 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <PanelLeft className="w-4 h-4" />
+            <PanelLeft className="w-5 h-5" />
           </button>
         )}
         <Breadcrumb className="hidden sm:block min-w-0">
-          <BreadcrumbList className="gap-1.5 text-sm font-medium [&_[data-slot=breadcrumb-separator]]:text-muted-foreground [&_[data-slot=breadcrumb-separator]>svg]:size-4">
+          <BreadcrumbList className="flex-nowrap whitespace-nowrap gap-1.5 text-sm font-medium [&_[data-slot=breadcrumb-separator]]:text-muted-foreground [&_[data-slot=breadcrumb-separator]>svg]:size-4">
             {/* Home icon as first item */}
             <BreadcrumbItem className="inline-flex items-center gap-1.5">
               <BreadcrumbLink asChild>
@@ -320,13 +285,6 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
         </Breadcrumb>
       </div>
 
-      {/* Center: Company name (fixed in the middle) */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-        <h1 className="text-sm font-bold truncate max-w-[180px] sm:max-w-[240px]" title={organization?.name ?? ""}>
-          {organization?.name ?? ""}
-        </h1>
-      </div>
-
       {/* Right: Help, theme, user */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Help button */}
@@ -334,13 +292,13 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
         {/* Notification bell */}
         <Link
           href="/notifications"
-          className="relative p-1 rounded-md hover:bg-muted transition-colors"
+          className="relative p-2 rounded-lg hover:bg-muted transition-colors"
           aria-label="Notifications"
           title="Notifications"
         >
-          <Bell className="w-4 h-4 text-foreground" />
+          <Bell className="w-5 h-5 text-foreground" />
           {(unreadNotifications + (subscriptionExpiringSoon ? 1 : 0)) > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground leading-none">
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground leading-none">
               {unreadNotifications + (subscriptionExpiringSoon ? 1 : 0) > 99 ? "99+" : unreadNotifications + (subscriptionExpiringSoon ? 1 : 0)}
             </span>
           )}
@@ -349,40 +307,45 @@ export function Header({ onMenuClick, onSidebarToggle, sidebarCollapsed = false 
         {/* Dark Mode toggle */}
         <button
           onClick={toggleTheme}
-          className="p-1 rounded-md hover:bg-muted transition-colors"
+          className="p-2 rounded-lg hover:bg-muted transition-colors"
           aria-label="Toggle theme"
           title={mounted && theme === "light" ? "Dark Mode" : "Light Mode"}
           suppressHydrationWarning
         >
           {mounted && theme === "light" ? (
-            <Moon className="w-4 h-4 text-foreground" />
+            <Moon className="w-5 h-5 text-foreground" />
           ) : mounted && theme === "dark" ? (
-            <Sun className="w-4 h-4 text-foreground" />
+            <Sun className="w-5 h-5 text-foreground" />
           ) : (
-            <Moon className="w-4 h-4 text-foreground" />
+            <Moon className="w-5 h-5 text-foreground" />
           )}
         </button>
 
         {/* User icon, name, and logout */}
         {user && (
-          <div className="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-0 border-l border-border">
-            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-              <UserIcon className="w-3.5 h-3.5 text-primary-foreground" />
+          <div className="flex items-center gap-2 pl-2 ml-1 border-l border-border">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <UserIcon className="w-5 h-5 text-primary" />
             </div>
-            <span className="text-xs font-semibold text-foreground hidden sm:inline truncate max-w-[120px] lg:max-w-[180px]">
-              {(user as any).name ?? (user as any).full_name ?? user.email ?? 'User'}
-            </span>
+            <div className="hidden sm:flex flex-col leading-tight min-w-0">
+              <span className="text-sm font-semibold text-foreground truncate max-w-[180px]">
+                {(user as any).name ?? (user as any).full_name ?? user.email ?? 'User'}
+              </span>
+              {organization?.name && (
+                <span className="text-xs text-muted-foreground truncate max-w-[180px]" title={organization.name}>{organization.name}</span>
+              )}
+            </div>
             {/* Logout button */}
             <button
               onClick={async () => {
                 await logout()
                 window.location.replace("/login")
               }}
-              className="p-1 rounded-md hover:bg-muted hover:text-destructive transition-colors"
+              className="p-2 rounded-lg hover:bg-muted hover:text-destructive transition-colors"
               aria-label="Logout"
               title="Logout"
             >
-              <LogOut className="w-4 h-4 text-foreground" />
+              <LogOut className="w-5 h-5 text-foreground" />
             </button>
           </div>
         )}
