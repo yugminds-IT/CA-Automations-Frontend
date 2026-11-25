@@ -1,7 +1,5 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { EmptyState } from "@/components/ui/empty-state"
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -98,17 +96,17 @@ function LogRow({ log }: { log: ActivityLog }) {
         {/* Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.badge}`}>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.badge}`}>
               {cfg.label}
             </span>
             {log.userEmail && (
               <span className="text-xs font-medium text-foreground truncate">{log.userEmail}</span>
             )}
             {log.orgName && (
-              <span className="text-[10px] text-muted-foreground dark:text-muted-foreground truncate">({log.orgName})</span>
+              <span className="text-xs text-muted-foreground dark:text-muted-foreground truncate">({log.orgName})</span>
             )}
             {log.userRole && (
-              <span className="text-[10px] bg-muted dark:bg-[#334155] text-muted-foreground dark:text-muted-foreground px-1.5 py-0.5 rounded">{log.userRole}</span>
+              <span className="text-xs bg-muted dark:bg-[#334155] text-muted-foreground dark:text-muted-foreground px-1.5 py-0.5 rounded">{log.userRole}</span>
             )}
           </div>
           <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5 truncate">
@@ -120,15 +118,15 @@ function LogRow({ log }: { log: ActivityLog }) {
         <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
           <div className="flex items-center gap-1.5">
             {log.statusCode != null && (
-              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${log.statusCode >= 400 ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" : "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"}`}>
+              <span className={`text-xs font-mono px-1.5 py-0.5 rounded ${log.statusCode >= 400 ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" : "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"}`}>
                 {log.statusCode}
               </span>
             )}
             {log.durationMs != null && log.type === "logout" && (
-              <span className="text-[10px] text-muted-foreground">{formatDuration(log.durationMs)}</span>
+              <span className="text-xs text-muted-foreground">{formatDuration(log.durationMs)}</span>
             )}
           </div>
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="w-3 h-3" />
             {formatTimestamp(log.createdAt)}
           </div>
@@ -153,9 +151,6 @@ function LogRow({ log }: { log: ActivityLog }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MasterAdminActivity() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [total, setTotal] = useState(0)
@@ -176,21 +171,6 @@ export default function MasterAdminActivity() {
     }
     setIsCheckingAuth(false)
   }, [router, toast])
-
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed")
-    setSidebarCollapsed(saved !== null ? saved === "true" : true)
-  }, [])
-
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024)
-    check(); window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
 
   const fetchLogs = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true)
@@ -241,22 +221,12 @@ export default function MasterAdminActivity() {
   const activeUsers   = [...new Set(logs.filter((l) => l.type === "login" && new Date(l.createdAt) >= today).map((l) => l.userEmail))].length
 
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} collapsed={sidebarCollapsed} />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0" }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        <div className="overflow-auto flex-1" style={{ marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-4 sm:p-6 space-y-4 max-w-5xl mx-auto">
 
             {/* Header */}
@@ -344,12 +314,12 @@ export default function MasterAdminActivity() {
                 </div>
                 <div className="flex items-center gap-2">
                   {isLive && (
-                    <span className="flex items-center gap-1 text-[10px] text-green-700 dark:text-green-400">
+                    <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                       Polling every 10s
                     </span>
                   )}
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {filteredLogs.length} shown
                   </span>
                 </div>
@@ -376,7 +346,6 @@ export default function MasterAdminActivity() {
 
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }

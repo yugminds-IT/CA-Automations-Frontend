@@ -2,11 +2,13 @@
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: false,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     unoptimized: true,
+  },
+  experimental: {
+    // next dev's on-disk cache (on by default since 16.1) corrupts on Windows here: ".sst" files vanish,
+    // Turbopack panics and grows to 6 GB. Dev only; production builds don't use it.
+    turbopackFileSystemCacheForDev: false,
   },
   async rewrites() {
     return [

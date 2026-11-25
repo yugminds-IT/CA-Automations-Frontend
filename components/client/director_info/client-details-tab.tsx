@@ -26,9 +26,9 @@ interface ClientDetailsTabProps {
 
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1 min-w-0">
       <p className="text-xs text-muted-foreground font-medium">{label}</p>
-      <p className="text-sm">{value || '—'}</p>
+      <p className="text-sm font-medium text-foreground break-words">{value || '—'}</p>
     </div>
   )
 }
@@ -308,7 +308,7 @@ export function ClientDetailsTab({ clientId, onClientUpdated }: ClientDetailsTab
           </Button>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0 sm:px-6 sm:pb-5">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-5">
             <DetailRow label="Client Name" value={client.name} />
             <DetailRow label="Company" value={client.companyName} />
             <DetailRow label="Email" value={client.email} />

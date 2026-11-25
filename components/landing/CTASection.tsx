@@ -32,7 +32,7 @@ export default function CTASection() {
               Join hundreds of professionals who save 10+ hours every week with Lekvya AI Automation.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button size="lg" className="bg-background text-foreground hover:bg-background/90 gap-2 text-base px-8 h-12" onClick={() => router.push("/login")}>
+              <Button size="lg" className="bg-background text-foreground hover:bg-background/90 gap-2 text-base px-8 h-12" onClick={() => router.push("/signup")}>
                 Start Free Trial <ArrowRight className="w-4 h-4" />
               </Button>
               <Button size="lg" className="bg-background text-foreground hover:bg-background/90 border-0 text-base px-8 h-12" onClick={goToContact}>

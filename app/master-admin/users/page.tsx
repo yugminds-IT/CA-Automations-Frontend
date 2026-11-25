@@ -1,7 +1,5 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
@@ -33,9 +31,6 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function MasterAdminUsers() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false)
@@ -347,56 +342,13 @@ export default function MasterAdminUsers() {
     )
   }, [users, searchQuery])
 
-  useEffect(() => {
-    const savedState = localStorage.getItem('sidebarCollapsed')
-    if (savedState !== null) {
-      setSidebarCollapsed(savedState === 'true')
-    } else {
-      setSidebarCollapsed(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
-    checkIsDesktop()
-    window.addEventListener('resize', checkIsDesktop)
-    return () => window.removeEventListener('resize', checkIsDesktop)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed)
-  }
-
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{
-          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '240px') : '0',
-          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)') : '100%',
-        }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={toggleSidebar}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 56px)", marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-6 space-y-6 max-w-7xl mx-auto">
             {/* ── Page Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -726,7 +678,7 @@ export default function MasterAdminUsers() {
                               {user.email}
                             </TableCell>
                             <TableCell>
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
                                 {roleName}
                               </span>
                             </TableCell>
@@ -734,7 +686,7 @@ export default function MasterAdminUsers() {
                               {(org?.name ?? user.organization?.name) || "—"}
                             </TableCell>
                             <TableCell>
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 dark:bg-green-900/30 dark:bg-green-900/30 text-green-500 dark:text-green-400">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 dark:bg-green-900/30 dark:bg-green-900/30 text-green-500 dark:text-green-400">
                                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
                                 Active
                               </span>
@@ -773,8 +725,7 @@ export default function MasterAdminUsers() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }
 

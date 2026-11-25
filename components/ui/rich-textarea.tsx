@@ -12,26 +12,44 @@ import {
   AlignCenter,
   AlignRight,
   Minus,
+  Link2,
 } from "lucide-react"
+import type { TemplateVar } from "@/lib/template-variables"
+import { chipify, relabelChips, useVarTags, type VarTagOptions } from "@/components/email-management/var-tags"
+import { stripChips } from "@/components/email-management/send-mails-utils"
+import { isHtmlBody } from "@/lib/utils/email-template"
 
 export interface RichTextareaRef {
   insert: (text: string) => void
   focus: () => void
 }
 
-interface RichTextareaProps {
+interface RichTextareaProps extends VarTagOptions {
   value: string
   onChange: (value: string) => void
   placeholder?: string
   id?: string
   minHeight?: number
+  /** When given, {{variables}} show as tags, "@" opens a picker, and `value` stays raw {{token}} HTML. */
+  variables?: TemplateVar[]
+  /** Email-safe toolbar only: bold, italic, underline, lists, link */
+  simple?: boolean
+  /** Extra controls at the right end of the toolbar */
+  toolbarEnd?: React.ReactNode
 }
 
 export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
-  function RichTextarea({ value, onChange, placeholder, id, minHeight = 260 }, ref) {
+  function RichTextarea({ value, onChange, placeholder, id, minHeight = 260, variables, simple, toolbarEnd, onCreateVariable, onTagClick }, ref) {
     const divRef = useRef<HTMLDivElement>(null)
     const isInternalChange = useRef(false)
     const savedRange = useRef<Range | null>(null)
+    const tags = useVarTags(variables ?? [], { onCreateVariable, onTagClick })
+    // a plain-text body (no tags) keeps its line breaks, as the email itself does
+    const toHtml = (v: string) => {
+      const h = isHtmlBody(v) ? v : v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\r?\n/g, "<br>")
+      return variables ? chipify(h, variables) : h
+    }
+    const fromHtml = (h: string) => (variables ? stripChips(h) : h)
 
     // Sync external value → innerHTML (e.g. loading a template into the editor)
     useEffect(() => {
@@ -40,14 +58,16 @@ export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
         isInternalChange.current = false
         return
       }
-      if (divRef.current.innerHTML !== (value || "")) {
-        divRef.current.innerHTML = value || ""
+      if (fromHtml(divRef.current.innerHTML) !== (value || "")) {
+        divRef.current.innerHTML = toHtml(value || "")
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [value])
+    useEffect(() => { if (variables) relabelChips(divRef.current, variables) }, [variables])
 
     const syncValue = () => {
       isInternalChange.current = true
-      if (divRef.current) onChange(divRef.current.innerHTML)
+      if (divRef.current) onChange(fromHtml(divRef.current.innerHTML))
     }
 
     const saveRange = () => {
@@ -81,6 +101,12 @@ export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
       insert(text: string) {
         const div = divRef.current
         if (!div) return
+        if (variables && /^\{\{\s*\w+\s*\}\}$/.test(text)) {
+          div.focus()
+          restoreRange()
+          tags.insert(text, div) // fires input -> syncValue
+          return
+        }
         div.focus()
         const sel = window.getSelection()
         if (sel?.rangeCount) {
@@ -118,7 +144,7 @@ export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
           e.preventDefault() // keep focus in contenteditable
           onClick()
         }}
-        className="h-7 w-7 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+        className="h-7 w-7 flex items-center justify-center rounded hover:bg-background text-foreground/75 hover:text-foreground transition-colors"
       >
         {children}
       </button>
@@ -126,12 +152,18 @@ export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
 
     const Sep = () => <span className="w-px h-4 bg-border mx-0.5 shrink-0" />
 
+    const addLink = () => {
+      saveRange()
+      const url = window.prompt("Link address", "https://")?.trim()
+      if (url && url !== "https://") exec("createLink", url)
+    }
+
     const isEmpty = !value || value === "<br>" || value === "<div><br></div>" || value === "<p><br></p>"
 
     return (
       <div className="border border-input rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ring-offset-background">
         {/* Toolbar */}
-        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-muted/40 flex-wrap">
+        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-input bg-muted flex-wrap">
           <ToolBtn onClick={() => exec("bold")} title="Bold">
             <Bold className="w-3.5 h-3.5" />
           </ToolBtn>
@@ -141,22 +173,24 @@ export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
           <ToolBtn onClick={() => exec("underline")} title="Underline">
             <Underline className="w-3.5 h-3.5" />
           </ToolBtn>
+          {!simple && <>
           <ToolBtn onClick={() => exec("strikeThrough")} title="Strikethrough">
             <Strikethrough className="w-3.5 h-3.5" />
           </ToolBtn>
           <Sep />
           <ToolBtn onClick={() => exec("formatBlock", "H1")} title="Heading 1">
-            <span className="text-[11px] font-bold leading-none">H1</span>
+            <span className="text-xs font-bold leading-none">H1</span>
           </ToolBtn>
           <ToolBtn onClick={() => exec("formatBlock", "H2")} title="Heading 2">
-            <span className="text-[11px] font-bold leading-none">H2</span>
+            <span className="text-xs font-bold leading-none">H2</span>
           </ToolBtn>
           <ToolBtn onClick={() => exec("formatBlock", "H3")} title="Heading 3">
-            <span className="text-[11px] font-bold leading-none">H3</span>
+            <span className="text-xs font-bold leading-none">H3</span>
           </ToolBtn>
           <ToolBtn onClick={() => exec("formatBlock", "P")} title="Paragraph">
-            <span className="text-[11px] font-medium leading-none">P</span>
+            <span className="text-xs font-medium leading-none">P</span>
           </ToolBtn>
+          </>}
           <Sep />
           <ToolBtn onClick={() => exec("insertUnorderedList")} title="Bullet list">
             <List className="w-3.5 h-3.5" />
@@ -164,6 +198,10 @@ export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
           <ToolBtn onClick={() => exec("insertOrderedList")} title="Numbered list">
             <ListOrdered className="w-3.5 h-3.5" />
           </ToolBtn>
+          <ToolBtn onClick={addLink} title="Add link">
+            <Link2 className="w-3.5 h-3.5" />
+          </ToolBtn>
+          {!simple && <>
           <Sep />
           <ToolBtn onClick={() => exec("justifyLeft")} title="Align left">
             <AlignLeft className="w-3.5 h-3.5" />
@@ -218,6 +256,8 @@ export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
             <option value="Times New Roman">Times New Roman</option>
             <option value="Verdana">Verdana</option>
           </select>
+          </>}
+          {toolbarEnd && <div className="ml-auto">{toolbarEnd}</div>}
         </div>
 
         {/* Editable area */}
@@ -232,12 +272,18 @@ export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
             id={id}
             contentEditable
             suppressContentEditableWarning
-            onInput={syncValue}
-            onBlur={saveRange}
+            onInput={(e) => { syncValue(); if (variables) tags.update(e.currentTarget) }}
+            onKeyDown={(e) => { if (variables) tags.onKeyDown(e) }}
+            onKeyUp={(e) => { if (variables && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) tags.update(e.currentTarget) }}
+            onClick={(e) => { if (variables) tags.click(e) }}
+            onBlur={(e) => { saveRange(); if (variables) tags.blur(e.currentTarget); else tags.close() }}
+            onDragOver={variables ? tags.dragOver : undefined}
+            onDrop={variables ? tags.drop : undefined}
             className="w-full text-sm px-3 py-2.5 bg-background outline-none overflow-y-auto"
             style={{ minHeight }}
           />
         </div>
+        {tags.popup}
       </div>
     )
   },

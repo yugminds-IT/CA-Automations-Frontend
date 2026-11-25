@@ -110,8 +110,8 @@ export default function ContactSection() {
                     <div>
                       <p className="font-medium">Visit Us</p>
                       <p className="text-muted-foreground">
-                        Shyamlal Buildings,Begumpet,<br />
-                         Hyderabad,Telangana,India
+                        Shyamlal Buildings, Begumpet,<br />
+                         Hyderabad, Telangana, India
                       </p>
                     </div>
                   </div>

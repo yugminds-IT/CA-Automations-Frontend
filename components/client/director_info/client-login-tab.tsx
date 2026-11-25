@@ -15,7 +15,11 @@ import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
 import { ApiError, getUserData, getOrganizationData } from '@/lib/api/client'
 import { listTemplates, sendEmail } from '@/lib/api/email-templates'
-import { substituteTemplatePlaceholders } from '@/lib/utils/email-template'
+import { renderEmailPreview } from '@/lib/utils/email-template'
+import { customValuesFor, humanize, systemVariables, usedVariables, useTemplateVariables, type TemplateVar } from '@/lib/template-variables'
+import { SaveVariableDialog } from '@/components/email-management/custom-variables-dialog'
+import { chipify, relabelChips, useVarTags, VarLineInput, VarPickerButton, type VarLineInputHandle } from '@/components/email-management/var-tags'
+import { stripChips } from '@/components/email-management/send-mails-utils'
 import { cn } from '@/lib/utils'
 
 const DEFAULT_LOGIN_PORTAL_URL = 'https://ca.navedhana.com'
@@ -48,37 +52,6 @@ interface ClientLoginTabProps {
   }
 }
 
-/* ─────────────────── variable definitions ────────────── */
-
-const VAR_GROUPS = [
-  {
-    label: 'Client',
-    vars: [
-      { label: 'Client Name',    value: '{{client_name}}' },
-      { label: 'Client Email',   value: '{{client_email}}' },
-      { label: 'Client Phone',   value: '{{client_phone}}' },
-      { label: 'Company Name',   value: '{{company_name}}' },
-    ],
-  },
-  {
-    label: 'Organization',
-    vars: [
-      { label: 'Org Name',       value: '{{org_name}}' },
-      { label: 'Org Admin Name', value: '{{org_admin_name}}' },
-      { label: 'Org Email',      value: '{{org_email}}' },
-      { label: 'Org Phone',      value: '{{org_phone}}' },
-    ],
-  },
-  {
-    label: 'Credentials',
-    vars: [
-      { label: 'Login Email',    value: '{{login_email}}' },
-      { label: 'Login Password', value: '{{login_password}}' },
-      { label: 'Login URL',      value: '{{login_url}}' },
-    ],
-  },
-]
-
 const FONT_SIZES = ['10', '12', '14', '16', '18', '20', '24', '28', '32', '36']
 const FONT_FAMILIES = ['Default', 'Arial', 'Georgia', 'Times New Roman', 'Courier New', 'Verdana', 'Trebuchet MS']
 
@@ -87,9 +60,11 @@ const FONT_FAMILIES = ['Default', 'Arial', 'Georgia', 'Times New Roman', 'Courie
 interface RichEditorProps {
   editorRef: React.RefObject<HTMLDivElement | null>
   placeholder?: string
+  tags: ReturnType<typeof useVarTags>
+  onChange: (raw: string) => void
 }
 
-function RichEditor({ editorRef, placeholder = 'Write your message here…' }: RichEditorProps) {
+function RichEditor({ editorRef, placeholder = 'Write your message here…', tags, onChange }: RichEditorProps) {
   const [isEmpty, setIsEmpty] = useState(true)
 
   const checkEmpty = useCallback(() => {
@@ -107,8 +82,12 @@ function RichEditor({ editorRef, placeholder = 'Write your message here…' }: R
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
-        onInput={checkEmpty}
+        onInput={(e) => { checkEmpty(); onChange(stripChips(e.currentTarget.innerHTML)); tags.update(e.currentTarget) }}
         onFocus={checkEmpty}
+        onKeyDown={(e) => { tags.onKeyDown(e) }}
+        onKeyUp={(e) => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) tags.update(e.currentTarget) }}
+        onClick={tags.click}
+        onBlur={(e) => tags.blur(e.currentTarget)}
         className="min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring [&_b]:font-bold [&_i]:italic [&_u]:underline [&_s]:line-through"
         style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
       />
@@ -145,22 +124,13 @@ function ToolbarButton({
 
 function Toolbar({
   editorRef,
+  vars,
   onInsertVariable,
 }: {
   editorRef: React.RefObject<HTMLDivElement | null>
+  vars: TemplateVar[]
   onInsertVariable: (v: string) => void
 }) {
-  const [varOpen, setVarOpen] = useState(false)
-  const varRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (varRef.current && !varRef.current.contains(e.target as Node)) setVarOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
   function exec(cmd: string, value?: string) {
     editorRef.current?.focus()
     document.execCommand(cmd, false, value)
@@ -195,28 +165,7 @@ function Toolbar({
         <input type="color" defaultValue="#fef08a" className="sr-only" onMouseDown={(e) => e.stopPropagation()} onChange={(e) => { editorRef.current?.focus(); exec('hiliteColor', e.target.value) }} />
       </label>
       <span className="w-px h-4 bg-border mx-1" />
-      <div className="relative" ref={varRef}>
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); setVarOpen((v) => !v) }} className="h-7 inline-flex items-center gap-1 px-2 rounded text-xs font-medium border border-input bg-background hover:bg-muted transition-colors">
-          <span className="text-primary font-mono text-[10px]">{'{{}}'}</span>
-          Variables
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
-        </button>
-        {varOpen && (
-          <div className="absolute top-full left-0 mt-1 w-48 rounded-lg border border-border bg-popover shadow-lg z-50 py-1 max-h-52 overflow-y-auto">
-            {VAR_GROUPS.map((group) => (
-              <div key={group.label}>
-                <p className="px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-                {group.vars.map((v) => (
-                  <button key={v.value} type="button" onMouseDown={(e) => { e.preventDefault(); onInsertVariable(v.value); setVarOpen(false) }} className="w-full text-left px-2.5 py-1 text-[11px] hover:bg-muted flex items-center justify-between gap-1">
-                    <span>{v.label}</span>
-                    <span className="text-[9px] font-mono text-primary/70 shrink-0">{v.value}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <VarPickerButton vars={vars} label="Variables" align="start" onPick={onInsertVariable} />
     </div>
   )
 }
@@ -242,23 +191,33 @@ export function ClientLoginTab({
   // Compose state
   const [composeOpen, setComposeOpen] = useState(false)
   const [subject, setSubject] = useState('')
-  const [subjectVarOpen, setSubjectVarOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
-  const subjectInputRef = useRef<HTMLInputElement>(null)
-  const subjectVarRef = useRef<HTMLDivElement>(null)
-
-  // Close subject var dropdown on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (subjectVarRef.current && !subjectVarRef.current.contains(e.target as Node)) {
-        setSubjectVarOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  const subjectInputRef = useRef<VarLineInputHandle>(null)
+  const { vars, custom, reloadCustom } = useTemplateVariables()
+  // drafting helpers: "@xyz" -> Create / click an unknown tag -> offer to save it as a custom variable
+  const [saveKey, setSaveKey] = useState<string | null>(null)
+  const tagOptions = {
+    onCreateVariable: (key: string) => setSaveKey(key),
+    onTagClick: (key: string, known: boolean) => {
+      const el = document.getElementById(`lv-${key}`) as HTMLInputElement | null
+      if (el) el.focus()
+      else if (!known) setSaveKey(key)
+    },
+  }
+  const tags = useVarTags(vars, tagOptions)
+  // values asked for this send: "asked when sending" variables and one-off (unsaved) ones
+  const [bodyRaw, setBodyRaw] = useState('')
+  const [sendValues, setSendValues] = useState<Record<string, string>>({})
+  const askKeys = vars.length
+    ? usedVariables(`${subject} ${bodyRaw}`).filter((k) => {
+        const v = vars.find((x) => x.key === k)
+        return !v || v.source === 'send'
+      })
+    : []
+  const missingAsk = askKeys.filter((k) => !sendValues[k]?.trim())
+  useEffect(() => relabelChips(editorRef.current, vars), [vars])
 
   // The email to use — client's registered email takes priority
   const clientEmail =
@@ -321,7 +280,7 @@ export function ClientLoginTab({
         if (!tpl) return
         setSubject(tpl.subject ?? '')
         if (editorRef.current) {
-          editorRef.current.innerHTML = tpl.body ?? ''
+          editorRef.current.innerHTML = chipify(tpl.body ?? '', vars)
           // fire the empty-check in RichEditor
           editorRef.current.dispatchEvent(new Event('input', { bubbles: true }))
         }
@@ -369,55 +328,11 @@ export function ClientLoginTab({
     )
   }
 
-  /* ── insert variable into subject at cursor ── */
-  function insertSubjectVar(varStr: string) {
-    const el = subjectInputRef.current
-    if (!el) { setSubject((s) => s + varStr); return }
-    const start = el.selectionStart ?? subject.length
-    const end = el.selectionEnd ?? subject.length
-    const next = subject.slice(0, start) + varStr + subject.slice(end)
-    setSubject(next)
-    requestAnimationFrame(() => {
-      el.focus()
-      el.setSelectionRange(start + varStr.length, start + varStr.length)
-    })
-    setSubjectVarOpen(false)
-  }
+  const insertVariable = (token: string) => tags.insert(token, editorRef.current)
 
-  function insertVariable(varStr: string) {
-    editorRef.current?.focus()
-    const sel = window.getSelection()
-    if (!sel || sel.rangeCount === 0) { document.execCommand('insertText', false, varStr); return }
-    const range = sel.getRangeAt(0)
-    range.deleteContents()
-    const span = document.createElement('span')
-    span.className = 'inline-flex items-center px-1 py-0.5 rounded text-[11px] font-mono bg-primary/10 text-primary mx-0.5'
-    span.textContent = varStr
-    span.contentEditable = 'false'
-    range.insertNode(span)
-    range.setStartAfter(span)
-    range.collapse(true)
-    sel.removeAllRanges()
-    sel.addRange(range)
-  }
-
-  /** Strip editor chip spans back to their {{var}} text — backend resolves all variables. */
-  function cleanBodyForSend(rawHtml: string): string {
-    const tmp = document.createElement('div')
-    tmp.innerHTML = rawHtml
-    tmp.querySelectorAll('span[contenteditable="false"]').forEach((span) => {
-      span.replaceWith(document.createTextNode(span.textContent ?? ''))
-    })
-    return tmp.innerHTML
-  }
-
-  function getPreviewHtml() {
-    return substituteTemplatePlaceholders(editorRef.current?.innerHTML ?? '', templateVariables)
-  }
-
-  function resolvedSubject() {
-    return substituteTemplatePlaceholders(subject, templateVariables)
-  }
+  // Same rules as the server: tags -> {{tokens}}, system values, values escaped, unknown -> blank
+  const renderPreview = () =>
+    renderEmailPreview(subject, stripChips(editorRef.current?.innerHTML ?? ''), { ...systemVariables(), ...customValuesFor(custom), ...templateVariables, ...sendValues }) // the server also fills this client's own custom values
 
   const handleSend = async () => {
     const to = currentLogin?.email
@@ -428,8 +343,8 @@ export function ClientLoginTab({
       await sendEmail({
         to,
         subject: subject.trim(),
-        body: cleanBodyForSend(editorRef.current!.innerHTML),
-        variables: templateVariables,
+        body: stripChips(editorRef.current!.innerHTML),
+        variables: { ...templateVariables, ...sendValues },
       })
       toast({ title: 'Sent!', description: `Email sent to ${to}`, variant: 'success' })
       setComposeOpen(false)
@@ -457,7 +372,7 @@ export function ClientLoginTab({
               </CardDescription>
             </div>
             {hasCredentials && (
-              <Badge variant="secondary" className="ml-auto text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+              <Badge variant="secondary" className="ml-auto text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                 <CheckCircle2 className="h-3 w-3 mr-1" />Active
               </Badge>
             )}
@@ -486,7 +401,7 @@ export function ClientLoginTab({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground font-medium">Password</Label>
-                <Badge variant="outline" className="text-[10px]">System Generated</Badge>
+                <Badge variant="outline" className="text-xs">System Generated</Badge>
               </div>
               <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted/40">
                 <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -510,7 +425,7 @@ export function ClientLoginTab({
               size="sm"
               onClick={handleGeneratePassword}
               disabled={isGenerating || !clientEmail}
-              className="gap-1.5 h-8"
+              className="gap-1.5 h-9"
             >
               {isGenerating
                 ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generating…</>
@@ -527,7 +442,7 @@ export function ClientLoginTab({
                 size="sm"
                 onClick={handleRemove}
                 disabled={isRemoving}
-                className="gap-1.5 h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="gap-1.5 h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 {isRemoving
                   ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Removing…</>
@@ -559,7 +474,7 @@ export function ClientLoginTab({
                   <CardDescription className="text-xs mt-0.5">Email login details to the client</CardDescription>
                 </div>
               </div>
-              <Button type="button" variant="outline" size="sm" className="gap-1.5 h-8" onClick={() => setComposeOpen((v) => !v)}>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => setComposeOpen((v) => !v)}>
                 <Pencil className="h-3.5 w-3.5" />
                 {composeOpen ? 'Close' : 'Compose'}
               </Button>
@@ -572,57 +487,55 @@ export function ClientLoginTab({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-medium">Subject</Label>
-                    <div className="relative" ref={subjectVarRef}>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => { e.preventDefault(); setSubjectVarOpen((v) => !v) }}
-                        className="h-6 inline-flex items-center gap-1 px-2 rounded text-[10px] font-medium border border-input bg-background hover:bg-muted transition-colors"
-                      >
-                        <span className="text-primary font-mono text-[9px]">{'{{}}'}</span>
-                        Variables
-                        <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
-                      </button>
-                      {subjectVarOpen && (
-                        <div className="absolute top-full right-0 mt-1 w-52 rounded-lg border border-border bg-popover shadow-lg z-50 py-1 text-sm max-h-56 overflow-y-auto">
-                          {VAR_GROUPS.map((group) => (
-                            <div key={group.label}>
-                              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-                              {group.vars.map((v) => (
-                                <button key={v.value} type="button" onMouseDown={(e) => { e.preventDefault(); insertSubjectVar(v.value) }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center justify-between gap-2">
-                                  <span>{v.label}</span>
-                                  <span className="text-[10px] font-mono text-primary/70 shrink-0">{v.value}</span>
-                                </button>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <VarPickerButton vars={vars} label="Variables" onPick={(t) => subjectInputRef.current?.insert(t)} />
                   </div>
-                  <Input ref={subjectInputRef} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Email subject…" className="h-8 text-sm" />
+                  <VarLineInput ref={subjectInputRef} {...tagOptions} value={subject} onChange={setSubject} vars={vars} ariaLabel="Subject" placeholder="Email subject… (type @ to add a variable)" className="h-8 py-1 leading-6" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Message</Label>
                   <div className="rounded-md border border-input overflow-hidden">
-                    <Toolbar editorRef={editorRef} onInsertVariable={insertVariable} />
-                    <RichEditor editorRef={editorRef} />
+                    <Toolbar editorRef={editorRef} vars={vars} onInsertVariable={insertVariable} />
+                    <RichEditor editorRef={editorRef} tags={tags} onChange={setBodyRaw} />
+                    {tags.popup}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5 max-h-[72px] overflow-y-auto">
-                  {VAR_GROUPS.flatMap((g) => g.vars).map((v) => (
-                    <button key={v.value} type="button" onMouseDown={(e) => { e.preventDefault(); insertVariable(v.value) }} className="inline-flex items-center px-2 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-[10px] font-mono text-primary/80 hover:bg-primary/15 transition-colors">
-                      {v.value}
+                  {vars.filter((v) => ['client', 'org', 'login'].includes(v.source)).map((v) => (
+                    <button key={v.key} type="button" title={v.token} onMouseDown={(e) => { e.preventDefault(); insertVariable(v.token) }} className="inline-flex items-center px-2 py-0.5 rounded-full border border-primary/20 bg-primary/5 text-xs font-medium text-primary/80 hover:bg-primary/15 transition-colors">
+                      {v.label}
                     </button>
                   ))}
                 </div>
               </div>
 
+              {askKeys.length > 0 && (
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-medium">Values for this email</p>
+                  {askKeys.map((k) => {
+                    const v = vars.find((x) => x.key === k)
+                    return (
+                      <div key={k} className="space-y-1">
+                        <label htmlFor={`lv-${k}`} className="text-xs">
+                          {v?.label ?? humanize(k)} <span className="text-destructive">*</span>
+                          {!v && (
+                            <button type="button" className="ml-2 text-primary underline" onClick={() => setSaveKey(k)}>Save as custom variable</button>
+                          )}
+                        </label>
+                        <Input id={`lv-${k}`} className="h-8 text-sm" value={sendValues[k] ?? ''} placeholder={v?.example || `Value for {{${k}}}`}
+                          onChange={(e) => setSendValues((s) => ({ ...s, [k]: e.target.value }))} />
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <SaveVariableDialog keyName={saveKey} onClose={() => setSaveKey(null)} onSaved={reloadCustom} />
+
               {/* Send actions */}
               <div className="flex items-center gap-2 pt-2 border-t border-border">
-                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-8" onClick={() => setPreviewOpen(true)}>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-9" onClick={() => setPreviewOpen(true)}>
                   <Eye className="h-3.5 w-3.5" />Preview
                 </Button>
-                <Button type="button" size="sm" className="gap-1.5 h-8" onClick={handleSend} disabled={isSending}>
+                <Button type="button" size="sm" className="gap-1.5 h-9" onClick={handleSend} disabled={isSending || missingAsk.length > 0}>
                   {isSending ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Sending…</> : <><Send className="h-3.5 w-3.5" />Send Now</>}
                 </Button>
                 <span className="ml-auto text-xs text-muted-foreground">To: {currentLogin?.email ?? '—'}</span>
@@ -642,13 +555,13 @@ export function ClientLoginTab({
             </div>
             {subject && (
               <div className="px-5 py-2 border-b border-border bg-muted/30 shrink-0">
-                <p className="text-xs text-muted-foreground">Subject: <span className="text-foreground font-medium">{resolvedSubject()}</span></p>
+                <p className="text-xs text-muted-foreground">Subject: <span className="text-foreground font-medium">{renderPreview().subject}</span></p>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto px-5 py-4 prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: getPreviewHtml() }} />
+            <div className="flex-1 overflow-y-auto px-5 py-4 prose prose-sm max-w-none text-sm" dangerouslySetInnerHTML={{ __html: renderPreview().bodyHtml }} />
             <div className="flex justify-end gap-2 px-5 py-4 border-t border-border shrink-0">
               <Button type="button" variant="outline" size="sm" onClick={() => setPreviewOpen(false)}>Close</Button>
-              <Button type="button" size="sm" onClick={() => { setPreviewOpen(false); handleSend() }} disabled={isSending}>
+              <Button type="button" size="sm" onClick={() => { setPreviewOpen(false); handleSend() }} disabled={isSending || missingAsk.length > 0}>
                 <Send className="h-3.5 w-3.5 mr-1.5" />Send Now
               </Button>
             </div>

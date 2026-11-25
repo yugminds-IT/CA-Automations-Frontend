@@ -136,13 +136,13 @@ const planStructuredData = {
 
 export default function PlanPage() {
   return (
-    <>
+    <div className="landing-page min-h-screen">
       <JsonLd data={planStructuredData} />
       <Navbar />
       <main className="pt-16">
         <PlanView />
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

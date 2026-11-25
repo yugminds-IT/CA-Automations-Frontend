@@ -56,13 +56,13 @@ export function Directors({ client, isOpen, onClose }: DirectorsProps) {
           <Tabs defaultValue="directors" className="w-full">
             <div className="w-full overflow-x-auto sm:overflow-x-visible" style={{ WebkitOverflowScrolling: 'touch' }}>
               <TabsList className="inline-flex w-max min-w-full sm:grid sm:w-full sm:grid-cols-3 sm:min-w-0 h-auto p-0 gap-0 border-b border-border">
-                <TabsTrigger value="directors" className="text-[10px] sm:text-sm py-2 px-3 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
+                <TabsTrigger value="directors" className="text-xs sm:text-sm py-2 px-3 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
                   Directors
                 </TabsTrigger>
-                <TabsTrigger value="login" className="text-[10px] sm:text-sm py-2 px-3 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
+                <TabsTrigger value="login" className="text-xs sm:text-sm py-2 px-3 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
                   Login
                 </TabsTrigger>
-                <TabsTrigger value="email" className="text-[10px] sm:text-sm py-2 px-3 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
+                <TabsTrigger value="email" className="text-xs sm:text-sm py-2 px-3 sm:px-4 whitespace-nowrap flex-shrink-0 flex-1 sm:flex-none min-w-0">
                   Email
                 </TabsTrigger>
               </TabsList>

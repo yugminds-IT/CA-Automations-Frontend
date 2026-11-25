@@ -1,6 +1,6 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { NetworkStatus } from "@/components/network-status";
@@ -14,6 +14,12 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+// Logged-in app font (applied via body.app-ui)
+const appFont = Plus_Jakarta_Sans({
+  variable: "--font-app",
   subsets: ["latin"],
 });
 
@@ -120,7 +126,7 @@ const organizationSchema = {
       contactPoint: {
         "@type": "ContactPoint",
         contactType: "customer support",
-        email: "support@navedhana.com",
+        email: "contact@navedhana.com",
         availableLanguage: ["English", "Hindi"]
       }
     },
@@ -162,12 +168,12 @@ export default function RootLayout({
         <JsonLd data={organizationSchema} />
       </head>
       <body
-        className={`${geistSans.className} ${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.className} ${geistSans.variable} ${geistMono.variable} ${appFont.variable} antialiased`}
         suppressHydrationWarning
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >

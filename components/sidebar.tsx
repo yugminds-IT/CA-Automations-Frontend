@@ -1,51 +1,19 @@
 "use client"
 
-/**
- * Sidebar Component - DO NOT MODIFY MENU ITEMS
- * 
- * This sidebar is configured with only 3 main menu items:
- * - Dashboard (active by default)
- * - Notifications
- * - Settings
- * 
- * DO NOT add: AI Models, Interactions, or Relations
- * These items have been permanently removed from the project.
- */
-
-import {
-  LayoutDashboard,
-  Settings,
-  Bell,
-  Users,
-  Upload,
-  Mail,
-  Send,
-  FileText,
-  Clock,
-  ChevronDown,
-  ChevronRight,
-  GraduationCap,
-  KeyRound,
-  Inbox,
-  Code2,
-  ListOrdered,
-  ShoppingCart,
-  HeartPulse,
-  Rocket,
-  Globe,
-  Webhook,
-  ShieldCheck,
-} from "lucide-react"
+import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { Search, SquarePen } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useState, useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Kbd } from "@/components/ui/kbd"
 import { getUserData, getRoleFromUser, getOrganizationData } from "@/lib/api/index"
+import { getFormSubmissions } from "@/lib/api/developer"
+import { listSchedules } from "@/lib/api/mail-management"
+import { COMPOSE_PATH, SECTIONS, activePageId, pagesFor, toIndustry, type BadgeKey, type NavPage } from "@/lib/nav"
+import { cn } from "@/lib/utils"
 
 interface SidebarProps {
   mobileMenuOpen?: boolean
@@ -53,518 +21,243 @@ interface SidebarProps {
   collapsed?: boolean
 }
 
-type NavItem =
-  | { type: 'item'; icon: React.ElementType; label: string; path: string }
-  | { type: 'group'; icon: React.ElementType; label: string; children: { icon: React.ElementType; label: string; path: string }[] }
+const WEEK = 7 * 86_400_000
+const asList = (r: unknown): any[] => (Array.isArray(r) ? r : ((r as any)?.schedules ?? (r as any)?.data ?? []))
 
-function getMenuItemsForIndustry(industry: string, role?: string): NavItem[] {
-  if (role === 'client') {
-    return [{ type: 'item', icon: Upload, label: 'Uploads', path: '/uploads' }]
-  }
-
-  const dashboardItem: NavItem = { type: 'item', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' }
-  const notificationsItem: NavItem = { type: 'item', icon: Bell, label: 'Notifications', path: '/notifications' }
-  const settingsItem: NavItem = {
-    type: 'group',
-    icon: Settings,
-    label: 'Settings',
-    children: [
-      { icon: Settings, label: 'General & SMTP', path: '/settings' },
-      { icon: Globe, label: 'Sending Domains', path: '/settings/domains' },
-    ],
-  }
-
-  switch (industry) {
-    case 'school':
-    case 'education':
-      return [
-        dashboardItem,
-        {
-          type: 'group',
-          icon: GraduationCap,
-          label: 'Students & Parents',
-          children: [
-            { icon: Users, label: 'Student Directory & Batches', path: '/client-management' },
-            { icon: Send, label: 'Send Fees & Exam Notices', path: '/all-clients-mail-setup' },
-            { icon: FileText, label: 'Student Notice Templates', path: '/email-templates' },
-            { icon: Clock, label: 'Scheduled Notices', path: '/email-management/scheduled-mails' },
-          ],
-        },
-        {
-          type: 'group',
-          icon: Globe,
-          label: 'Faculty & Administration',
-          children: [
-            { icon: Users, label: 'Lecturers, Teachers & Staff', path: '/client-management' },
-            { icon: Send, label: 'Director & HOD Circulars', path: '/all-clients-mail-setup' },
-            { icon: FileText, label: 'Faculty Council Templates', path: '/email-templates' },
-          ],
-        },
-        notificationsItem,
-        settingsItem,
-      ]
-
-    case 'website_developer':
-      return [
-        dashboardItem,
-        { type: 'item', icon: Users, label: 'Clients & Contacts', path: '/client-management' },
-        { type: 'item', icon: Inbox, label: 'Form Inquiries', path: '/developer/inbox' },
-        {
-          type: 'group',
-          icon: KeyRound,
-          label: 'Developer API',
-          children: [
-            { icon: KeyRound, label: 'API Keys', path: '/developer/keys' },
-            { icon: Code2, label: 'HTML Form Code', path: '/developer/quickstart' },
-            { icon: Webhook, label: 'Webhooks', path: '/developer/webhooks' },
-            { icon: ListOrdered, label: 'Delivery Logs', path: '/developer/logs' },
-          ],
-        },
-        {
-          type: 'group',
-          icon: Mail,
-          label: 'Email & Templates',
-          children: [
-            { icon: FileText, label: 'Auto-Responders', path: '/email-templates' },
-            { icon: Send, label: 'Broadcast Mailer', path: '/all-clients-mail-setup' },
-            { icon: Clock, label: 'Scheduled Mails', path: '/email-management/scheduled-mails' },
-          ],
-        },
-        notificationsItem,
-        settingsItem,
-      ]
-
-    case 'ecommerce':
-      return [
-        dashboardItem,
-        {
-          type: 'group',
-          icon: ShoppingCart,
-          label: 'Commerce & Orders',
-          children: [
-            { icon: Users, label: 'Customer Directory', path: '/client-management' },
-            { icon: Send, label: 'Order Notifications', path: '/all-clients-mail-setup' },
-            { icon: FileText, label: 'Store Templates', path: '/email-templates' },
-            { icon: Clock, label: 'Scheduled Drips', path: '/email-management/scheduled-mails' },
-          ],
-        },
-        {
-          type: 'group',
-          icon: KeyRound,
-          label: 'Developer API',
-          children: [
-            { icon: KeyRound, label: 'Store API Keys', path: '/developer/keys' },
-            { icon: ListOrdered, label: 'Order Email Logs', path: '/developer/logs' },
-          ],
-        },
-        notificationsItem,
-        settingsItem,
-      ]
-
-    case 'healthcare':
-      return [
-        dashboardItem,
-        {
-          type: 'group',
-          icon: HeartPulse,
-          label: 'Clinic & Patients',
-          children: [
-            { icon: Users, label: 'Patient Directory', path: '/client-management' },
-            { icon: Send, label: 'Appointment Reminders', path: '/all-clients-mail-setup' },
-            { icon: FileText, label: 'Clinical Templates', path: '/email-templates' },
-            { icon: Clock, label: 'Scheduled Reminders', path: '/email-management/scheduled-mails' },
-          ],
-        },
-        notificationsItem,
-        settingsItem,
-      ]
-
-    case 'saas':
-      return [
-        dashboardItem,
-        {
-          type: 'group',
-          icon: Rocket,
-          label: 'App & Users',
-          children: [
-            { icon: Users, label: 'User Base', path: '/client-management' },
-            { icon: KeyRound, label: 'Developer API Keys', path: '/developer/keys' },
-            { icon: Webhook, label: 'Webhooks', path: '/developer/webhooks' },
-            { icon: Code2, label: 'API Quickstart', path: '/developer/quickstart' },
-            { icon: ListOrdered, label: 'Event Logs', path: '/developer/logs' },
-          ],
-        },
-        {
-          type: 'group',
-          icon: Mail,
-          label: 'Email Campaigns',
-          children: [
-            { icon: FileText, label: 'Lifecycle Templates', path: '/email-templates' },
-            { icon: Send, label: 'Broadcast Mailer', path: '/all-clients-mail-setup' },
-            { icon: Clock, label: 'Scheduled Drips', path: '/email-management/scheduled-mails' },
-          ],
-        },
-        notificationsItem,
-        settingsItem,
-      ]
-
-    case 'financial_services':
-    default:
-      return [
-        dashboardItem,
-        { type: 'item', icon: Users, label: 'Client Management', path: '/client-management' },
-        { type: 'item', icon: Inbox, label: 'Form Inquiries', path: '/developer/inbox' },
-        {
-          type: 'group',
-          icon: Mail,
-          label: 'Email Management',
-          children: [
-            { icon: Send, label: 'Send Mails', path: '/all-clients-mail-setup' },
-            { icon: FileText, label: 'Templates', path: '/email-templates' },
-            { icon: Clock, label: 'Scheduled Mails', path: '/email-management/scheduled-mails' },
-          ],
-        },
-        {
-          type: 'group',
-          icon: KeyRound,
-          label: 'Developer API',
-          children: [
-            { icon: KeyRound, label: 'API Keys', path: '/developer/keys' },
-            { icon: Webhook, label: 'Webhooks', path: '/developer/webhooks' },
-            { icon: ListOrdered, label: 'Delivery Logs', path: '/developer/logs' },
-          ],
-        },
-        notificationsItem,
-        settingsItem,
-      ]
-  }
+/** Counts that need attention: new form inquiries, sends that failed in the last 7 days */
+function useBadges(pages: NavPage[], pathname: string) {
+  const [badges, setBadges] = useState<Partial<Record<BadgeKey, number>>>({})
+  const wanted = pages.map((p) => p.badge).filter(Boolean).join()
+  useEffect(() => {
+    let live = true
+    const jobs: Promise<[BadgeKey, number]>[] = []
+    if (wanted.includes("newInquiries"))
+      jobs.push(getFormSubmissions("new").then((l) => ["newInquiries", Array.isArray(l) ? l.length : 0] as [BadgeKey, number]))
+    if (wanted.includes("failedSends"))
+      jobs.push(listSchedules("failed").then((r) => {
+        const since = Date.now() - WEEK
+        return ["failedSends", asList(r).filter((s) => Date.parse(s.updatedAt ?? s.scheduledAt ?? 0) >= since).length] as [BadgeKey, number]
+      }))
+    Promise.allSettled(jobs).then((res) => {
+      if (!live) return
+      setBadges(Object.fromEntries(res.flatMap((x) => (x.status === "fulfilled" ? [x.value] : []))))
+    })
+    return () => { live = false }
+  }, [wanted, pathname]) // refreshed on navigation, e.g. after reading an inquiry
+  return badges
 }
 
-export function Sidebar({ mobileMenuOpen: externalMobileMenuOpen, setMobileMenuOpen: setExternalMobileMenuOpen, collapsed = false }: SidebarProps = {}) {
+const badgeText = (key: BadgeKey, n: number) => (key === "failedSends" ? `${n} failed` : String(n))
+
+export function Sidebar({ mobileMenuOpen: externalOpen, setMobileMenuOpen: setExternalOpen, collapsed = false }: SidebarProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
-  const DEFAULT_EXPANDED_GROUPS = [
-    'Email & Templates',
-    'Email Management',
-    'Email Campaigns',
-    'Developer API',
-    'Students & Parents',
-    'Faculty & Administration',
-    'Commerce & Orders',
-    'Clinic & Patients',
-    'App & Users',
-    'School & Notices',
-    'Settings',
-  ]
-
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(DEFAULT_EXPANDED_GROUPS))
-  const [internalMobileMenuOpen, setInternalMobileMenuOpen] = useState(false)
-  const [industry, setIndustry] = useState<string>('financial_services')
-  const [userRole, setUserRole] = useState<string | undefined>(undefined)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const mobileOpen = externalOpen ?? internalOpen
+  const setMobileOpen = setExternalOpen ?? setInternalOpen
+  const [industry, setIndustry] = useState(() => toIndustry(null))
+  const [role, setRole] = useState<string | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sidebar_expanded_groups')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) {
-          setExpandedGroups(new Set([...parsed, 'Email & Templates']))
-        }
-      }
-    } catch (e) {}
-  }, [])
-
-  useEffect(() => {
-    const refreshData = () => {
-      const user = getUserData()
-      const org = getOrganizationData()
-      const role = getRoleFromUser(user)?.toLowerCase()
-      setUserRole(role)
-      setIndustry(org?.industry || user?.organization?.industry || 'financial_services')
+    const refresh = () => {
+      const user = getUserData() as any
+      setRole(getRoleFromUser(user))
+      setIndustry(toIndustry(getOrganizationData()?.industry || user?.organization?.industry))
     }
-    refreshData()
-    window.addEventListener('userDataUpdated', refreshData)
-    return () => window.removeEventListener('userDataUpdated', refreshData)
+    refresh()
+    window.addEventListener("userDataUpdated", refresh)
+    return () => window.removeEventListener("userDataUpdated", refresh)
   }, [])
 
-  const mobileMenuOpen = externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen
-  const setMobileMenuOpen = setExternalMobileMenuOpen || setInternalMobileMenuOpen
+  // Ctrl+K / ⌘K opens search from anywhere
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setSearchOpen((o) => !o) }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
 
-  const toggleGroup = (label: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(label)) next.delete(label)
-      else next.add(label)
-      try {
-        localStorage.setItem('sidebar_expanded_groups', JSON.stringify(Array.from(next)))
-      } catch (e) {}
-      return next
-    })
+  const isClient = role?.toLowerCase() === "client"
+  const pages = useMemo(() => pagesFor(industry, role), [industry, role])
+  const active = activePageId(pages, pathname)
+  const composing = pathname === COMPOSE_PATH
+  const badges = useBadges(isClient ? [] : pages, pathname)
+  const sections = SECTIONS.map((s) => ({ ...s, pages: pages.filter((p) => p.section === s.id) })).filter((s) => s.pages.length)
+  const go = (path: string) => { setSearchOpen(false); setMobileOpen(false); router.push(path) }
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
+
+  const row = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+  const rowState = (on: boolean) => (on
+    ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
+    : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground dark:hover:bg-white/5 dark:hover:text-foreground")
+
+  const Badge = ({ p }: { p: NavPage }) => {
+    const n = p.badge ? badges[p.badge] : 0
+    if (!n || !p.badge) return null
+    return (
+      <span className={cn("ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
+        p.badge === "failedSends" ? "bg-destructive/10 text-destructive" : "bg-primary/15 text-primary")}>
+        {badgeText(p.badge, n)}
+      </span>
+    )
   }
 
-  const menuItems: NavItem[] = getMenuItemsForIndustry(industry, userRole)
+  /** Labelled list: used by the wide sidebar and the phone menu */
+  const fullNav = (
+    <>
+      {!isClient && (
+        <div className="space-y-1.5 px-3 pt-3">
+          <Link href={COMPOSE_PATH} onClick={() => setMobileOpen(false)} aria-current={composing ? "page" : undefined}
+            className={cn("flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+              "bg-primary text-primary-foreground hover:bg-primary/90", composing && "ring-2 ring-primary/30")}>
+            <SquarePen className="h-4 w-4" />Compose email
+          </Link>
+          <button type="button" onClick={() => setSearchOpen(true)}
+            className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background/60 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+            <Search className="h-4 w-4" />Search
+            <Kbd className="ml-auto hidden lg:inline-flex">{isMac ? "⌘" : "Ctrl"} K</Kbd>
+          </button>
+        </div>
+      )}
+      <nav aria-label="Main navigation" className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-3 [scrollbar-width:thin]">
+        {sections.map((s) => (
+          <div key={s.id} className={s.id === "bottom" ? "mt-auto border-t border-sidebar-border pt-2" : "pt-4"}>
+            {s.id !== "bottom" && <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{s.label}</p>}
+            <ul className="space-y-0.5">
+              {s.pages.map((p) => (
+                <li key={p.id}>
+                  <Link href={p.path} onClick={() => setMobileOpen(false)} aria-current={active === p.id ? "page" : undefined}
+                    className={cn(row, "relative", rowState(active === p.id), active === p.id && "before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-primary")}>
+                    <p.icon className="h-[18px] w-[18px] shrink-0" />
+                    <span className="truncate">{p.label}</span>
+                    <Badge p={p} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </nav>
+    </>
+  )
 
-  useEffect(() => {
-    for (const item of menuItems) {
-      if (item.type === 'group') {
-        const hasActiveChild = item.children.some(
-          (c) => pathname === c.path || (c.path !== '/dashboard' && pathname.startsWith(c.path + '/'))
+  /** Icon rail: same order, dividers between sections; Developers folds into one menu */
+  const railIcon = (label: string, el: React.ReactNode) => (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>{el}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={10}>{label}</TooltipContent>
+    </Tooltip>
+  )
+  const railBtn = "relative mx-auto flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+  const dot = (p: NavPage) => p.badge && badges[p.badge]
+    ? <span className={cn("absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2 ring-sidebar", p.badge === "failedSends" ? "bg-destructive" : "bg-primary")} />
+    : null
+  const railNav = (
+    <nav aria-label="Main navigation" className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-3 [scrollbar-width:none]">
+      {!isClient && (
+        <>
+          {railIcon("Compose email", (
+            <Link href={COMPOSE_PATH} aria-label="Compose email" className={cn(railBtn, "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90")}>
+              <SquarePen className="h-[18px] w-[18px]" />
+            </Link>
+          ))}
+          {railIcon(`Search (${isMac ? "⌘" : "Ctrl"} K)`, (
+            <button type="button" aria-label="Search" onClick={() => setSearchOpen(true)} className={cn(railBtn, rowState(false))}>
+              <Search className="h-[18px] w-[18px]" />
+            </button>
+          ))}
+        </>
+      )}
+      {sections.map((s) => {
+        const fold = s.id === "developers" && s.pages.length > 1
+        const on = s.pages.some((p) => p.id === active)
+        return (
+          <div key={s.id} className={cn("flex w-full flex-col items-center gap-1", s.id === "bottom" && "mt-auto")}>
+            <span className="my-1 h-px w-8 bg-sidebar-border" aria-hidden />
+            {fold ? (
+              <DropdownMenu>
+                {railIcon(s.label, (
+                  <DropdownMenuTrigger aria-label={s.label} className={cn(railBtn, rowState(on))}>
+                    <s.icon className="h-[18px] w-[18px]" />
+                  </DropdownMenuTrigger>
+                ))}
+                <DropdownMenuContent side="right" align="start" sideOffset={10} className="w-52">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">{s.label}</DropdownMenuLabel>
+                  {s.pages.map((p) => (
+                    <DropdownMenuItem key={p.id} onSelect={() => go(p.path)} className={cn("gap-2 py-2", active === p.id && "bg-sidebar-accent text-sidebar-accent-foreground")}>
+                      <p.icon className="h-4 w-4" />{p.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : s.pages.map((p) => (
+              <div key={p.id}>
+                {railIcon(p.badge && badges[p.badge] ? `${p.label} · ${badgeText(p.badge, badges[p.badge]!)}` : p.label, (
+                  <Link href={p.path} aria-label={p.label} aria-current={active === p.id ? "page" : undefined} className={cn(railBtn, rowState(active === p.id))}>
+                    <p.icon className="h-[18px] w-[18px]" />
+                    {dot(p)}
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </div>
         )
-        if (hasActiveChild) {
-          setExpandedGroups((prev) => {
-            if (prev.has(item.label)) return prev
-            const next = new Set(prev)
-            next.add(item.label)
-            try {
-              localStorage.setItem('sidebar_expanded_groups', JSON.stringify(Array.from(next)))
-            } catch (e) {}
-            return next
-          })
-        }
-      }
-    }
-  }, [pathname, menuItems])
-
-  const getActivePage = () => {
-    // 1. Exact match takes highest priority
-    for (const item of menuItems) {
-      if (item.type === 'item') {
-        if (pathname === item.path) return item.label
-      } else {
-        for (const child of item.children) {
-          if (pathname === child.path) return child.label
-        }
-      }
-    }
-
-    // 2. Prefix match for nested sub-routes (e.g. /settings/sub-page)
-    let bestMatch: { label: string; path: string } | null = null
-    for (const item of menuItems) {
-      if (item.type === 'item') {
-        if (item.path !== '/dashboard' && pathname.startsWith(item.path + '/')) {
-          if (!bestMatch || item.path.length > bestMatch.path.length) {
-            bestMatch = { label: item.label, path: item.path }
-          }
-        }
-      } else {
-        for (const child of item.children) {
-          if (pathname.startsWith(child.path + '/')) {
-            if (!bestMatch || child.path.length > bestMatch.path.length) {
-              bestMatch = { label: child.label, path: child.path }
-            }
-          }
-        }
-      }
-    }
-
-    if (bestMatch) return bestMatch.label
-    return 'Dashboard'
-  }
-
-  const activePage = getActivePage()
-
-  const isGroupActive = (item: NavItem) =>
-    item.type === 'group' && item.children.some((c) => pathname === c.path || (c.path !== '/dashboard' && pathname.startsWith(c.path + '/')))
-
-  const renderMenuItems = (isCollapsed: boolean = false) => (
-    <nav className="flex-1 py-4 overflow-y-auto" aria-label="Main navigation">
-      <ul className={isCollapsed ? 'space-y-0.5' : 'space-y-1'} role="list">
-        {menuItems.map((item) => {
-          if (item.type === 'item') {
-            const isActive = activePage === item.label
-            const btn = (
-              <li key={item.label}>
-                <button
-                  type="button"
-                  onClick={() => { setMobileMenuOpen(false); router.push(item.path) }}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`
-                    relative w-full flex items-center text-[13px] font-medium
-                    rounded-none transition-all duration-200 ease-out
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar
-                    ${isCollapsed ? 'px-2 justify-center py-3' : 'px-3 py-2.5 gap-3'}
-                    ${isActive
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent/50 dark:hover:bg-sidebar-accent/30'
-                    }
-                  `}
-                >
-                  {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-sidebar-primary" aria-hidden />}
-                  <item.icon className="w-5 h-5 shrink-0" />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
-                </button>
-              </li>
-            )
-            if (isCollapsed) {
-              return (
-                <Tooltip key={item.label} delayDuration={300}>
-                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8} className="text-xs">{item.label}</TooltipContent>
-                </Tooltip>
-              )
-            }
-            return btn
-          }
-
-          // Group item
-          const groupActive = isGroupActive(item)
-          const isExpanded = expandedGroups.has(item.label)
-
-          if (isCollapsed) {
-            return (
-              <li key={item.label}>
-                <Tooltip delayDuration={300}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => toggleGroup(item.label)}
-                      className={`
-                        relative w-full flex items-center justify-center py-3 px-2
-                        rounded-none transition-all duration-200 ease-out
-                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring
-                        ${groupActive ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm' : 'text-sidebar-foreground hover:bg-sidebar-accent/50'}
-                      `}
-                    >
-                      {groupActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-sidebar-primary" aria-hidden />}
-                      <item.icon className="w-5 h-5 shrink-0" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8} className="text-xs">{item.label}</TooltipContent>
-                </Tooltip>
-                {isExpanded && (
-                  <ul className="space-y-0.5">
-                    {item.children.map((child) => {
-                      const childActive = activePage === child.label
-                      return (
-                        <Tooltip key={child.label} delayDuration={300}>
-                          <TooltipTrigger asChild>
-                            <li>
-                              <button
-                                type="button"
-                                onClick={() => { setMobileMenuOpen(false); router.push(child.path) }}
-                                className={`
-                                  relative w-full flex items-center justify-center py-2.5 px-2
-                                  rounded-none transition-all duration-200 ease-out
-                                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring
-                                  ${childActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground'}
-                                `}
-                              >
-                                <child.icon className="w-4 h-4 shrink-0" />
-                              </button>
-                            </li>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={8} className="text-xs">{child.label}</TooltipContent>
-                        </Tooltip>
-                      )
-                    })}
-                  </ul>
-                )}
-              </li>
-            )
-          }
-
-          return (
-            <li key={item.label}>
-              <button
-                type="button"
-                onClick={() => toggleGroup(item.label)}
-                className={`
-                  relative w-full flex items-center text-[13px] font-medium
-                  rounded-none transition-all duration-200 ease-out px-3 py-2.5 gap-3
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring
-                  ${groupActive ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm' : 'text-sidebar-foreground hover:bg-sidebar-accent/50 dark:hover:bg-sidebar-accent/30'}
-                `}
-              >
-                {groupActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-sidebar-primary" aria-hidden />}
-                <item.icon className="w-5 h-5 shrink-0" />
-                <span className="truncate flex-1 text-left">{item.label}</span>
-                {isExpanded ? <ChevronDown className="w-4 h-4 shrink-0 opacity-60" /> : <ChevronRight className="w-4 h-4 shrink-0 opacity-60" />}
-              </button>
-              {isExpanded && (
-                <ul className="space-y-0.5 mt-0.5">
-                  {item.children.map((child) => {
-                    const childActive = activePage === child.label
-                    return (
-                      <li key={child.label}>
-                        <button
-                          type="button"
-                          onClick={() => { setMobileMenuOpen(false); router.push(child.path) }}
-                          aria-current={childActive ? 'page' : undefined}
-                          className={`
-                            relative w-full flex items-center text-[12px] font-medium
-                            rounded-none transition-all duration-200 ease-out
-                            pl-9 pr-3 py-2 gap-2.5
-                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring
-                            ${childActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground'}
-                          `}
-                        >
-                          {childActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-sidebar-primary" aria-hidden />}
-                          <child.icon className="w-4 h-4 shrink-0" />
-                          <span className="truncate">{child.label}</span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+      })}
     </nav>
   )
 
+  const logo = (small: boolean) => small
+    // collapsed: just the robot mark, cut from the wordmark (1818×667, mark at 1422,218 size 350)
+    ? <span role="img" aria-label="Lekvya" className="block h-8 w-8 bg-no-repeat"
+        style={{ backgroundImage: "url(/Light.png)", backgroundSize: `${(1818 * 32) / 350}px auto`, backgroundPosition: `-${(1422 * 32) / 350}px -${(218 * 32) / 350}px` }} />
+    : <img src="/Light.png" alt="Lekvya" className="h-9 w-auto max-w-[150px] object-contain" />
+
   return (
     <>
-      {/* Mobile/Tablet Menu Sheet */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent
-          side="right"
-          className="bg-sidebar text-sidebar-foreground w-[min(320px,100vw-2rem)] p-0 rounded-none border-sidebar-border shadow-xl"
-        >
-          <SheetHeader className="p-5 border-b border-sidebar-border/80">
-            <SheetTitle className="flex items-center">
-              <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
-              <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
-            </SheetTitle>
+      {/* Phones and tablets: slide-in menu */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="dark sidebar-navy w-[min(300px,100vw-2rem)] border-sidebar-border bg-sidebar p-0 text-sidebar-foreground">
+          <SheetHeader className="h-16 justify-center border-b border-sidebar-border px-5">
+            <SheetTitle className="flex items-center">{logo(false)}</SheetTitle>
           </SheetHeader>
-          <div className="h-[calc(100vh-5.5rem)] flex flex-col px-3 py-4 overflow-hidden">
-            {renderMenuItems()}
-          </div>
+          <div className="flex h-[calc(100dvh-4rem)] flex-col">{fullNav}</div>
         </SheetContent>
       </Sheet>
 
-      {/* Desktop: Sidebar — straight edges, no curves */}
-      <aside
-        role="navigation"
-        aria-label="Sidebar"
-        className="hidden lg:flex bg-sidebar text-sidebar-foreground flex-col h-screen fixed top-0 bottom-0 left-0 z-[51] transition-[width] duration-300 ease-out"
-        style={{
-          width: collapsed ? "60px" : "240px",
-          borderRight: "1px solid var(--sidebar-border)",
-        }}
-      >
-        {/* Brand / Header */}
-        <div
-          className={`shrink-0 border-b border-sidebar-border ${collapsed ? "py-4 px-2" : "py-5 px-3"}`}
-        >
-          <div className="flex items-center justify-center">
-            {collapsed ? (
-              <>
-                <img src="/Light.png" className="h-10 w-10 object-contain dark:hidden" alt="Lekvya" />
-                <img src="/Light.png" className="h-10 w-10 object-contain hidden dark:block" alt="Lekvya" />
-              </>
-            ) : (
-              <>
-                <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain dark:hidden" alt="Lekvya" />
-                <img src="/Light.png" className="h-12 w-auto max-w-[180px] object-contain hidden dark:block" alt="Lekvya" />
-              </>
-            )}
+      {/* Desktop: a rounded panel floating just inside the page edge */}
+      <aside aria-label="Sidebar"
+        className={cn("fixed inset-y-0 left-0 z-40 hidden p-2 pr-0 transition-[width] duration-200 ease-out lg:block", collapsed ? "w-[72px]" : "w-64")}>
+        <div className="dark sidebar-navy flex h-full flex-col overflow-hidden rounded-2xl border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm">
+          <div className={cn("flex h-14 shrink-0 items-center border-b border-sidebar-border", collapsed ? "justify-center" : "px-5")}>
+            {logo(collapsed)}
           </div>
+          {collapsed ? railNav : fullNav}
         </div>
-
-        {renderMenuItems(collapsed)}
       </aside>
+
+      {/* Jump to any page by name */}
+      <CommandDialog open={searchOpen} onOpenChange={setSearchOpen} title="Search" description="Go to a page">
+        <CommandInput placeholder="Go to a page…" />
+        <CommandList>
+          <CommandEmpty>No page matches.</CommandEmpty>
+          {!isClient && (
+            <CommandGroup heading="Actions">
+              <CommandItem onSelect={() => go(COMPOSE_PATH)}><SquarePen className="h-4 w-4" />Compose email</CommandItem>
+            </CommandGroup>
+          )}
+          {sections.map((s) => (
+            <CommandGroup key={s.id} heading={s.label}>
+              {s.pages.map((p) => (
+                <CommandItem key={p.id} value={`${p.label} ${s.label}`} onSelect={() => go(p.path)}>
+                  <p.icon className="h-4 w-4" />{p.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ))}
+        </CommandList>
+      </CommandDialog>
     </>
   )
 }

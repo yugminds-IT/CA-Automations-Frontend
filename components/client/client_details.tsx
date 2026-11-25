@@ -15,6 +15,7 @@ import { FilesTab } from './director_info/files_tab'
 import { TdsTab } from './director_info/tds_tab'
 import { GstTab } from './director_info/gst_tab'
 import { ClientDetailsTab } from './director_info/client-details-tab'
+import { ClientCustomFields } from './director_info/client-custom-fields'
 import { SettingsTab } from './director_info/settings-tab'
 import { getClientById, updateClientLogin, removeClientLogin, addDirector, updateDirector, deleteDirector, listDirectors } from '@/lib/api/clients'
 import { ApiError } from '@/lib/api/client'
@@ -414,7 +415,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
             <button
               key={item.value}
               onClick={() => setActiveSidebar(item.value)}
-              className={`flex-1 min-w-[60px] flex flex-col items-center gap-1 py-2 text-[10px] font-medium transition-colors ${
+              className={`flex-1 min-w-[60px] flex flex-col items-center gap-1 py-2 text-xs font-medium transition-colors ${
                 isActive ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
@@ -453,7 +454,7 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
         {activeSidebar === 'dashboard' && (
           <div className="flex flex-col h-full">
             {/* Horizontal tab list */}
-            <div className="flex border-b border-border overflow-x-auto scrollbar-none shrink-0 px-4 sm:px-6 gap-1">
+            <div className="flex flex-wrap border-b border-border shrink-0 px-4 sm:px-6 gap-1">
               {visibleDashboardTabs.map((tab) => {
                 const isActive = activeTab === tab.value
                 return (
@@ -476,10 +477,13 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
             {/* Tab content */}
             <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6">
               {activeTab === 'details' && (
-                <ClientDetailsTab
-                  clientId={clientId}
-                  onClientUpdated={() => setRefreshKey((k) => k + 1)}
-                />
+                <>
+                  <ClientDetailsTab
+                    clientId={clientId}
+                    onClientUpdated={() => setRefreshKey((k) => k + 1)}
+                  />
+                  <ClientCustomFields clientId={clientId} />
+                </>
               )}
 
               {activeTab === 'directors' && (

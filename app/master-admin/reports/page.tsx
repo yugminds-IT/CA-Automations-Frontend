@@ -1,7 +1,5 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -69,9 +67,6 @@ const reportTypes = [
 ]
 
 export default function MasterAdminReports() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const router = useRouter()
   const { toast } = useToast()
@@ -86,43 +81,13 @@ export default function MasterAdminReports() {
     setIsCheckingAuth(false)
   }, [router, toast])
 
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebarCollapsed")
-    setSidebarCollapsed(saved !== null ? saved === "true" : true)
-  }, [])
-
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{ marginLeft: isDesktop ? (sidebarCollapsed ? "60px" : "240px") : "0" }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        <div className="overflow-auto flex-1" style={{ marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-6 space-y-6 max-w-5xl mx-auto">
 
             <div>
@@ -142,7 +107,7 @@ export default function MasterAdminReports() {
                     <div className={`w-10 h-10 ${report.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
                       <report.icon className={`w-5 h-5 ${report.color}`} />
                     </div>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${report.statusColor}`}>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${report.statusColor}`}>
                       {report.status}
                     </span>
                   </div>
@@ -187,7 +152,6 @@ export default function MasterAdminReports() {
 
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }

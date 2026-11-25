@@ -258,12 +258,8 @@ export default function SignupPage() {
 
       {/* Header bar */}
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3 bg-white/85 backdrop-blur-md border-b border-border/80">
-        <a
+        <Link
           href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            router.push("/");
-          }}
           className="flex items-center"
         >
           <img
@@ -271,7 +267,7 @@ export default function SignupPage() {
             alt="Lekvya"
             className="h-9 w-auto object-contain"
           />
-        </a>
+        </Link>
 
         <div className="flex items-center gap-1 bg-secondary rounded-xl p-0.5">
           <button

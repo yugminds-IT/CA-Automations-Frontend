@@ -1,13 +1,10 @@
 "use client"
 
-import { MasterAdminSidebar } from "@/components/master-admin-sidebar"
-import { MasterAdminHeader } from "@/components/master-admin-header"
 import { LekvyaLoader } from "@/components/ui/lekvya-loader"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { getUserData, isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminCreateOrganization, masterAdminUpdateOrganization, masterAdminDeleteOrganization, masterAdminCreateUser, approveOrganization, rejectOrganization, extendOrganizationAccess, ApiError, type Organization, type CreateOrganizationRequest } from "@/lib/api/index"
+import { isAuthenticated, isMasterAdminUser, masterAdminGetOrganizations, masterAdminCreateOrganization, masterAdminUpdateOrganization, masterAdminDeleteOrganization, masterAdminCreateUser, approveOrganization, rejectOrganization, extendOrganizationAccess, ApiError, type Organization, type CreateOrganizationRequest } from "@/lib/api/index"
 import { UserRole } from "@/lib/api/types"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,11 +29,9 @@ import { Building2, Plus, Edit, Trash2, UserPlus, Shield, Check, X, CalendarCloc
 import { useToast } from "@/components/ui/use-toast"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Badge } from "@/components/ui/badge"
+import { OrganizationFormFields } from "@/components/master-admin/organization-form-fields"
 
 export default function MasterAdminOrganizations() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true)
@@ -202,32 +197,6 @@ export default function MasterAdminOrganizations() {
     } finally {
       setIsCreatingAdmin(false)
     }
-  }
-
-  useEffect(() => {
-    const savedState = localStorage.getItem('sidebarCollapsed')
-    if (savedState !== null) {
-      setSidebarCollapsed(savedState === 'true')
-    } else {
-      setSidebarCollapsed(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
-    checkIsDesktop()
-    window.addEventListener('resize', checkIsDesktop)
-    return () => window.removeEventListener('resize', checkIsDesktop)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', sidebarCollapsed.toString())
-  }, [sidebarCollapsed])
-
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed)
   }
 
   const handleDialogClose = (open: boolean) => {
@@ -525,29 +494,12 @@ export default function MasterAdminOrganizations() {
   }
 
   if (isCheckingAuth) {
-    return <LekvyaLoader className="min-h-screen" />
+    return <LekvyaLoader className="min-h-[60vh]" />
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <MasterAdminSidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        collapsed={sidebarCollapsed}
-      />
-      <div
-        className="flex flex-col flex-1 transition-all duration-300 overflow-hidden min-w-0"
-        style={{
-          marginLeft: isDesktop ? (sidebarCollapsed ? '60px' : '240px') : '0',
-          width: isDesktop ? (sidebarCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 240px)') : '100%',
-        }}
-      >
-        <MasterAdminHeader
-          onMenuClick={() => setMobileMenuOpen(true)}
-          onSidebarToggle={toggleSidebar}
-          sidebarCollapsed={sidebarCollapsed}
-        />
-        <div className="overflow-auto" style={{ height: "calc(100vh - 56px)", marginTop: "56px" }}>
+    <>
+        <div>
           <div className="p-6 space-y-6 max-w-7xl mx-auto">
             {/* ── Page Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -673,60 +625,7 @@ export default function MasterAdminOrganizations() {
                         Create a new organization. Organization name is required.
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="org-name">Organization Name *</Label>
-                        <Input
-                          id="org-name"
-                          type="text"
-                          placeholder="ABC Chartered Accountants"
-                          value={orgFormData.name}
-                          onChange={(e) => setOrgFormData({ ...orgFormData, name: e.target.value })}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="city">City</Label>
-                          <Input
-                            id="city"
-                            type="text"
-                            placeholder="Mumbai"
-                            value={orgFormData.city}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, city: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="state">State</Label>
-                          <Input
-                            id="state"
-                            type="text"
-                            placeholder="Maharashtra"
-                            value={orgFormData.state}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, state: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="country">Country</Label>
-                          <Input
-                            id="country"
-                            type="text"
-                            placeholder="India"
-                            value={orgFormData.country}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, country: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="pincode">Pincode</Label>
-                          <Input
-                            id="pincode"
-                            type="text"
-                            placeholder="400001"
-                            value={orgFormData.pincode}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, pincode: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <OrganizationFormFields values={orgFormData} onChange={setOrgFormData} nameRequired />
                     <DialogFooter>
                       <Button
                         variant="outline"
@@ -756,60 +655,7 @@ export default function MasterAdminOrganizations() {
                         Update organization information.
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-org-name">Organization Name</Label>
-                        <Input
-                          id="edit-org-name"
-                          type="text"
-                          placeholder="ABC Chartered Accountants"
-                          value={orgFormData.name}
-                          onChange={(e) => setOrgFormData({ ...orgFormData, name: e.target.value })}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-city">City</Label>
-                          <Input
-                            id="edit-city"
-                            type="text"
-                            placeholder="Mumbai"
-                            value={orgFormData.city}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, city: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-state">State</Label>
-                          <Input
-                            id="edit-state"
-                            type="text"
-                            placeholder="Maharashtra"
-                            value={orgFormData.state}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, state: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-country">Country</Label>
-                          <Input
-                            id="edit-country"
-                            type="text"
-                            placeholder="India"
-                            value={orgFormData.country}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, country: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-pincode">Pincode</Label>
-                          <Input
-                            id="edit-pincode"
-                            type="text"
-                            placeholder="400001"
-                            value={orgFormData.pincode}
-                            onChange={(e) => setOrgFormData({ ...orgFormData, pincode: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <OrganizationFormFields idPrefix="edit-" values={orgFormData} onChange={setOrgFormData} />
                     <DialogFooter>
                       <Button
                         variant="outline"
@@ -953,7 +799,7 @@ export default function MasterAdminOrganizations() {
                                     size="sm"
                                     onClick={() => handleApproveOrganization(org.id)}
                                     disabled={isApprovingId === org.id || isRejectingId === org.id || isDeletingOrg}
-                                    className="h-8 px-2 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                    className="h-8 px-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                                     title="Approve"
                                   >
                                     <Check className="w-3.5 h-3.5 mr-0.5" />
@@ -964,7 +810,7 @@ export default function MasterAdminOrganizations() {
                                     size="sm"
                                     onClick={() => handleRejectOrganization(org.id)}
                                     disabled={isApprovingId === org.id || isRejectingId === org.id || isDeletingOrg}
-                                    className="h-8 px-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    className="h-8 px-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                     title="Reject"
                                   >
                                     <X className="w-3.5 h-3.5 mr-0.5" />
@@ -978,7 +824,7 @@ export default function MasterAdminOrganizations() {
                                   size="sm"
                                   onClick={() => openExtendDialog(org)}
                                   disabled={isDeletingOrg}
-                                  className="h-8 px-2 text-[11px] font-semibold text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                                  className="h-8 px-2 text-xs font-semibold text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
                                   title="Extend access"
                                 >
                                   <CalendarClock className="w-3.5 h-3.5 mr-0.5" />
@@ -992,7 +838,7 @@ export default function MasterAdminOrganizations() {
                                   setSelectedOrgId(org.id)
                                   setCreateAdminDialogOpen(true)
                                 }}
-                                className="h-8 px-2.5 text-[11px] font-semibold text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                                className="h-8 px-2.5 text-xs font-semibold text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                                 disabled={isDeletingOrg}
                               >
                                 <UserPlus className="w-3.5 h-3.5 mr-1" />
@@ -1029,8 +875,7 @@ export default function MasterAdminOrganizations() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   )
 }
 

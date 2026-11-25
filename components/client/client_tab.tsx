@@ -1,9 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusIcon, Edit, Trash2, ChevronRight, ChevronDown, ExternalLink, Users } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronRight, ChevronDown, ExternalLink, Loader2, Tag, Users } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { TagChips, TagInput } from './tag-input'
 import {
   Table,
   TableBody,
@@ -17,64 +19,40 @@ import {
 } from '@/components/ui/table'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { EmptyState } from '@/components/ui/empty-state'
 import { InlineError } from '@/components/ui/inline-error'
 import { ClientOnboardForm } from './client_onboardform'
-import { getIndustryClientConfig } from '@/lib/industry-config'
+import { getIndustryClientConfig, suggestedTagsFor } from '@/lib/industry-config'
 import {
   onboardClient,
   getClients,
   getClientById,
   updateClient,
   deleteClient,
+  bulkTagClients,
   getServices,
-  addDirector,
 } from '@/lib/api/clients'
 import { getUserData, createBusinessType } from '@/lib/api/index'
 import { ApiError } from '@/lib/api/client'
 import type {
   Client as ApiClient,
-  OnboardClientRequest,
-  UpdateClientRequest,
   Service,
-  Director,
 } from '@/lib/api/types'
 
-// Client interface based on requirements
-export interface Client {
-  id: string | number
-  name: string
-  email: string
-  phone: string | null
-  companyName: string
-  directories: string[] | string
-  followUpDate: string | Date | null
-  onboardDate: string | Date | null
-  lastContactedDate: string | Date | null
-  status?: string
-  // Additional fields for full client data
-  panNumber?: string
-  gstNumber?: string
-  businessType?: string
-  address?: string
-  city?: string
-  state?: string
-  country?: string
-  pincode?: string
-  notes?: string
-  directors?: Array<{
-    name: string
-    email?: string
-    phone?: string
-    designation?: string
-    din?: string
-    pan?: string
-    aadhar?: string
-  }>
-}
+import {
+  type Client,
+  filterClients,
+  formatDate,
+  transformApiClientToComponent,
+  transformComponentToOnboardRequest,
+  transformComponentToUpdateRequest,
+  transformApiClientToFormValues,
+} from './client-transforms'
+
+export type { Client } from './client-transforms'
+export { transformApiClientToFormValues } from './client-transforms'
 
 interface ClientTabProps {
   clients?: Client[]
@@ -100,301 +78,6 @@ interface ClientTabProps {
   onFilteredClientsChange?: (clients: Client[]) => void
 }
 
-// Filter clients by search query and status (client-side; backend only supports organizationId)
-function filterClients(
-  clientsList: Client[],
-  query: string,
-  status: string
-): Client[] {
-  let filtered = clientsList
-  if (status !== 'all') {
-    filtered = filtered.filter(
-      (c) => (c.status ?? '').toLowerCase() === status.toLowerCase()
-    )
-  }
-  if (query.trim()) {
-    const lowerQuery = query.toLowerCase()
-    filtered = filtered.filter(
-      (c) =>
-        (c.name ?? '').toLowerCase().includes(lowerQuery) ||
-        (c.email ?? '').toLowerCase().includes(lowerQuery) ||
-        (c.phone ?? '').toLowerCase().includes(lowerQuery) ||
-        (c.companyName ?? '').toLowerCase().includes(lowerQuery) ||
-        (Array.isArray(c.directories)
-          ? c.directories.some((d) => String(d).toLowerCase().includes(lowerQuery))
-          : String(c.directories ?? '').toLowerCase().includes(lowerQuery))
-    )
-  }
-  return filtered
-}
-
-// Format date helper function
-function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return '—'
-  
-  try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date
-    if (isNaN(dateObj.getTime())) return '—'
-    
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(dateObj)
-  } catch {
-    return '—'
-  }
-}
-
-// Format directories helper
-function formatDirectories(directories: string[] | string | null | undefined): string {
-  if (!directories) return '—'
-  
-  if (Array.isArray(directories)) {
-    return directories.length > 0 ? directories.join(', ') : '—'
-  }
-  
-  return directories
-}
-
-// Transform API Client to component Client format
-// Backend returns camelCase (name, companyName, followupDate, onboardDate, phone) and businessType relation { id, name }
-function transformApiClientToComponent(apiClient: ApiClient & Record<string, unknown>): Client {
-  // Extract service names from services array
-  const serviceNames = (Array.isArray(apiClient.services) ? (apiClient.services as { name?: string }[]).map((s) => s.name).filter((n): n is string => n != null && n !== '') : [])
-  // Extract business type name (API may return relation object { id, name } or null)
-  const bt = (apiClient as any).businessType ?? (apiClient as any).business_type
-  const businessType =
-    typeof bt === 'object' && bt !== null && 'name' in bt
-      ? (bt as { name: string }).name
-      : typeof bt === 'string'
-        ? bt
-        : undefined
-
-  return {
-    id: apiClient.id,
-    name: (apiClient as any).name ?? apiClient.client_name ?? '',
-    email: apiClient.email ?? '',
-    phone: (apiClient as any).phone ?? apiClient.phone_number ?? null,
-    companyName: (apiClient as any).companyName ?? apiClient.company_name ?? '',
-    directories: serviceNames.length > 0 ? serviceNames : '—',
-    followUpDate: (apiClient as any).followupDate ?? apiClient.follow_date ?? null,
-    onboardDate: (apiClient as any).onboardDate ?? apiClient.onboard_date ?? null,
-    lastContactedDate: null, // API doesn't provide this field
-    status: apiClient.status ?? undefined,
-    businessType,
-  }
-}
-
-// Transform component Client data to API OnboardClientRequest format (camelCase for backend)
-function transformComponentToOnboardRequest(
-  clientData: Omit<Client, 'id' | 'lastContactedDate'>,
-  services: Service[],
-  organizationId?: number,
-  businessTypeId?: number | null
-): OnboardClientRequest {
-  const serviceIds = Array.isArray(clientData.directories)
-    ? clientData.directories
-        .map(dir => {
-          const service = services.find(s => s.name === dir)
-          return service?.id
-        })
-        .filter((id): id is number => id !== undefined)
-    : []
-
-  const onboardDate =
-    typeof clientData.onboardDate === 'string'
-      ? clientData.onboardDate
-      : clientData.onboardDate
-        ? new Date(clientData.onboardDate).toISOString().split('T')[0]
-        : undefined
-  const followupDate = clientData.followUpDate
-    ? typeof clientData.followUpDate === 'string'
-      ? clientData.followUpDate
-      : new Date(clientData.followUpDate).toISOString().split('T')[0]
-    : undefined
-
-  const directors: OnboardClientRequest['directors'] =
-    (clientData.directors ?? [])
-      .filter((d) => d?.name?.trim())
-      .map((d) => ({
-        directorName: d!.name!.trim(),
-        ...(d!.email?.trim() ? { email: d!.email.trim() } : {}),
-        ...(d!.phone?.trim() ? { phone: d!.phone.trim() } : {}),
-        ...(d!.designation?.trim() ? { designation: d!.designation.trim() } : {}),
-        ...(d!.din?.trim() ? { din: d!.din.trim() } : {}),
-        ...(d!.pan?.trim() ? { pan: d!.pan.trim() } : {}),
-        ...(d!.aadhar?.trim() ? { aadharNumber: d!.aadhar.trim() } : {}),
-      }))
-
-  return {
-    name: clientData.name,
-    email: clientData.email,
-    phone: clientData.phone || undefined,
-    companyName: clientData.companyName,
-    businessTypeId: businessTypeId ?? undefined,
-    panNumber: clientData.panNumber,
-    gstNumber: clientData.gstNumber,
-    status: (clientData.status as OnboardClientRequest['status']) || 'active',
-    address: clientData.address,
-    city: clientData.city,
-    state: clientData.state,
-    country: clientData.country,
-    pincode: clientData.pincode,
-    serviceIds: serviceIds.length > 0 ? serviceIds : undefined,
-    onboardDate,
-    followupDate,
-    additionalNotes: clientData.notes,
-    organizationId,
-    ...(directors.length > 0 ? { directors } : {}),
-  }
-}
-
-// Transform API Client to form defaultValues format
-// Backend returns camelCase (companyName, followupDate, onboardDate, additionalNotes, etc.)
-export function transformApiClientToFormValues(apiClient: ApiClient & Record<string, unknown>): {
-  name: string
-  email: string
-  phone: string
-  companyName: string
-  panNumber?: string
-  gstNumber?: string
-  businessType: string
-  customBusinessType?: string
-  status: string
-  addressLine1: string
-  city: string
-  state: string
-  country: string
-  pincode: string
-  directories: string[]
-  onboardDate: Date
-  followUpDate: Date | null
-  notes?: string
-  directors?: Array<{
-    name: string
-    email?: string
-    phone?: string
-    designation?: string
-    din?: string
-    pan?: string
-    aadhar?: string
-  }>
-} {
-  const c = apiClient as any
-  // Extract service names
-  const serviceNames = (Array.isArray(apiClient.services) ? (apiClient.services as { name?: string }[]).map((s) => s.name).filter((n): n is string => n != null && n !== '') : [])
-  
-  // Parse address - API returns address as a single string, form expects addressLine1
-  const addressLine1 = c.address ?? apiClient.address ?? ''
-  
-  // Handle business type - API may return relation object { id, name } or string
-  const bt = c.businessType ?? apiClient.business_type
-  const businessType = typeof bt === 'object' && bt !== null && 'name' in bt
-    ? (bt as { name: string }).name
-    : typeof bt === 'string'
-      ? bt
-      : ''
-  
-  // Transform directors - backend returns directorName / aadharNumber (camelCase)
-  const directorsList = Array.isArray(apiClient.directors) ? (apiClient.directors as Record<string, unknown>[]) : []
-  const directors = directorsList.map((dir: Record<string, unknown>) => ({
-    name: (dir.directorName ?? dir.name ?? dir.director_name ?? '') as string,
-    email: (dir.email ?? '') as string,
-    phone: (dir.phone ?? dir.phone_number ?? '') as string,
-    designation: (dir.designation ?? '') as string,
-    din: (dir.din ?? '') as string,
-    pan: (dir.pan ?? '') as string,
-    aadhar: (dir.aadharNumber ?? dir.aadhaar ?? dir.aadhar ?? '') as string,
-  }))
-
-  return {
-    name: c.name ?? apiClient.client_name ?? '',
-    email: apiClient.email ?? '',
-    phone: c.phone ?? apiClient.phone_number ?? '',
-    companyName: c.companyName ?? apiClient.company_name ?? '',
-    panNumber: c.panNumber ?? apiClient.pan_number ?? undefined,
-    gstNumber: c.gstNumber ?? apiClient.gst_number ?? undefined,
-    businessType: businessType,
-    customBusinessType: undefined, // Will be set if businessType is "Other"
-    status: c.status ?? apiClient.status ?? 'active',
-    addressLine1: addressLine1,
-    city: c.city ?? apiClient.city ?? '',
-    state: c.state ?? apiClient.state ?? '',
-    country: c.country ?? apiClient.country ?? '',
-    pincode: c.pincode ?? apiClient.pin_code ?? '',
-    directories: serviceNames,
-    onboardDate: (c.onboardDate ?? apiClient.onboard_date) ? new Date(c.onboardDate ?? apiClient.onboard_date) : new Date(),
-    followUpDate: (c.followupDate ?? apiClient.follow_date) ? new Date(c.followupDate ?? apiClient.follow_date) : null,
-    notes: c.additionalNotes ?? apiClient.additional_notes ?? undefined,
-    directors: directors,
-  }
-}
-
-// Transform component Client data to API UpdateClientRequest format (camelCase for backend)
-function transformComponentToUpdateRequest(
-  clientData: Omit<Client, 'id' | 'lastContactedDate'>,
-  services: Service[],
-  businessTypeId?: number | null
-): UpdateClientRequest {
-  const serviceIds = Array.isArray(clientData.directories)
-    ? clientData.directories
-        .map(dir => {
-          const service = services.find(s => s.name === dir)
-          return service?.id
-        })
-        .filter((id): id is number => id !== undefined)
-    : []
-
-  const onboardDate =
-    typeof clientData.onboardDate === 'string'
-      ? clientData.onboardDate
-      : clientData.onboardDate
-        ? new Date(clientData.onboardDate).toISOString().split('T')[0]
-        : undefined
-  const followupDate = clientData.followUpDate
-    ? typeof clientData.followUpDate === 'string'
-      ? clientData.followUpDate
-      : new Date(clientData.followUpDate).toISOString().split('T')[0]
-    : undefined
-
-  const directors: UpdateClientRequest['directors'] =
-    (clientData.directors ?? [])
-      .filter((d) => d?.name?.trim())
-      .map((d) => ({
-        directorName: d!.name!.trim(),
-        ...(d!.email?.trim() ? { email: d!.email.trim() } : {}),
-        ...(d!.phone?.trim() ? { phone: d!.phone.trim() } : {}),
-        ...(d!.designation?.trim() ? { designation: d!.designation.trim() } : {}),
-        ...(d!.din?.trim() ? { din: d!.din.trim() } : {}),
-        ...(d!.pan?.trim() ? { pan: d!.pan.trim() } : {}),
-        ...(d!.aadhar?.trim() ? { aadharNumber: d!.aadhar.trim() } : {}),
-      }))
-
-  const result: UpdateClientRequest = {
-    name: clientData.name,
-    email: clientData.email,
-    phone: clientData.phone || undefined,
-    companyName: clientData.companyName,
-    businessTypeId: businessTypeId ?? undefined,
-    panNumber: clientData.panNumber,
-    gstNumber: clientData.gstNumber,
-    status: clientData.status as UpdateClientRequest['status'],
-    address: clientData.address,
-    city: clientData.city,
-    state: clientData.state,
-    country: clientData.country,
-    pincode: clientData.pincode,
-    // Include serviceIds even when empty so update can clear services
-    serviceIds,
-    onboardDate,
-    followupDate,
-    additionalNotes: clientData.notes,
-    directors,
-  }
-  return result
-}
-
 type SortField = 'name' | 'email' | 'phone' | 'companyName' | 'followUpDate' | 'onboardDate' | 'lastContactedDate' | 'status' | null
 
 export function ClientTab({ 
@@ -415,7 +98,6 @@ export function ClientTab({
   statusFilter,
   onFilteredClientsChange,
 }: ClientTabProps) {
-  const router = useRouter()
   const { toast } = useToast()
   const [industry, setIndustry] = useState<string | null>(null)
 
@@ -539,8 +221,9 @@ export function ClientTab({
     }
   }, [useApi, clients.length, apiClients.length, isLoading, error])
 
+  const router = useRouter()
   const handleRowClick = (client: Client) => {
-    window.open(`/client-management/${client.id}`, '_blank')
+    router.push(`/client-management/${client.id}`)
   }
 
   const handleSort = (field: SortField) => {
@@ -611,6 +294,34 @@ export function ClientTab({
     })
   }
 
+  // ── Selecting clients to tag them in bulk ──
+  const [selected, setSelected] = useState<Set<string | number>>(new Set())
+  const [tagMode, setTagMode] = useState<'add' | 'remove' | null>(null)
+  const [tagDraft, setTagDraft] = useState<string[]>([])
+  const [tagSaving, setTagSaving] = useState(false)
+  const allTags = React.useMemo(() => [...new Set(clients.flatMap((c) => c.tags ?? []))].sort((a, b) => a.localeCompare(b)), [clients])
+  const selectedTags = [...new Set(clients.filter((c) => selected.has(c.id)).flatMap((c) => c.tags ?? []))]
+  const toggleSelected = (id: string | number) => setSelected((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+  const applyTags = async (mode: 'add' | 'remove') => {
+    setTagSaving(true)
+    try {
+      const { updated } = await bulkTagClients({ clientIds: [...selected].map(Number), [mode]: tagDraft })
+      toast({ title: `Tags ${mode === 'add' ? 'added' : 'removed'}`, description: `${updated} ${updated === 1 ? clientConfig.nameLabel.toLowerCase() : `${clientConfig.nameLabel.toLowerCase()}s`} changed.`, variant: 'success' })
+      setTagMode(null)
+      setTagDraft([])
+      await fetchClients()
+    } catch (err) {
+      toast({ title: 'Could not change tags', description: err instanceof ApiError ? err.detail : 'Please try again.', variant: 'destructive' })
+    } finally {
+      setTagSaving(false)
+    }
+  }
+
   // Apply search and status filter client-side (backend does not support these params)
   const filteredClients = React.useMemo(
     () => filterClients(clients, searchQuery, statusFilter ?? 'all'),
@@ -635,7 +346,7 @@ export function ClientTab({
         <CardContent>
           <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0">
             <Table>
-              <TableSkeleton rows={6} columns={9} />
+              <TableSkeleton rows={6} columns={8} />
             </Table>
           </div>
         </CardContent>
@@ -861,13 +572,12 @@ export function ClientTab({
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  form="client-onboard-form"
-                  size="sm"
-                >
-                  {editingClient ? clientConfig.editTitle : clientConfig.onboardButtonLabel}
-                </Button>
+                {/* New clients go through the form's own steps; edits can be saved from any step. */}
+                {editingClient && (
+                  <Button type="submit" form="client-onboard-form" size="sm">
+                    Save changes
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -900,6 +610,7 @@ export function ClientTab({
                       followUpDate: editingClient.followUpDate ? new Date(editingClient.followUpDate) : null,
                       onboardDate: editingClient.onboardDate ? new Date(editingClient.onboardDate) : new Date(),
                       notes: '',
+                      tags: editingClient.tags ?? [],
                       status: editingClient.status || '',
                       businessType: editingClient.businessType ?? '',
                       addressLine1: '',
@@ -913,6 +624,7 @@ export function ClientTab({
               businessTypes={businessTypes}
               clientStatuses={clientStatuses}
               industry={currentIndustry}
+              tagSuggestions={allTags}
             />
           )}
         </CardContent>
@@ -922,8 +634,8 @@ export function ClientTab({
 
   return (
     <>
-      <Card>
-        <CardContent>
+      <Card className="md:min-h-0 md:flex-1">
+        <CardContent className="flex flex-col md:min-h-0 md:flex-1">
           {displayClients.length === 0 ? (
             <EmptyState
               icon={Users}
@@ -935,13 +647,44 @@ export function ClientTab({
               }
             />
           ) : (
-            <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0">
+            <>
+            {selected.size > 0 && (
+              <div role="region" aria-label="Selected" className="mb-3 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                <span className="text-sm font-medium">{selected.size} selected</span>
+                {(['add', 'remove'] as const).map((mode) => (
+                  <Popover key={mode} open={tagMode === mode} onOpenChange={(o) => { setTagMode(o ? mode : null); setTagDraft([]) }}>
+                    <PopoverTrigger asChild>
+                      <Button type="button" size="sm" variant="outline" className="gap-1.5 bg-background" disabled={mode === 'remove' && !selectedTags.length}>
+                        <Tag className="h-4 w-4" />{mode === 'add' ? 'Add tags' : 'Remove tags'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-80 space-y-3">
+                      <p className="text-sm font-medium">{mode === 'add' ? 'Add tags to' : 'Remove tags from'} {selected.size} selected</p>
+                      <TagInput value={tagDraft} onChange={setTagDraft}
+                        suggestions={mode === 'add' ? [...allTags, ...suggestedTagsFor(currentIndustry)] : selectedTags} />
+                      <Button type="button" size="sm" className="w-full gap-1.5" disabled={!tagDraft.length || tagSaving} onClick={() => applyTags(mode)}>
+                        {tagSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {mode === 'add' ? 'Add' : 'Remove'} {tagDraft.length || ''} tag{tagDraft.length === 1 ? '' : 's'}
+                      </Button>
+                    </PopoverContent>
+                  </Popover>
+                ))}
+                <Button type="button" size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear selection</Button>
+              </div>
+            )}
+            <div className="overflow-x-auto -mx-6 sm:mx-0 px-6 sm:px-0 md:min-h-0 md:flex-1 md:overflow-y-auto [&>[data-slot=table-container]]:overflow-visible [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-card">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[36px] pr-0">
+                      <input type="checkbox" className="h-4 w-4 accent-primary align-middle"
+                        aria-label={`Select all ${filteredClients.length} shown`}
+                        checked={filteredClients.length > 0 && filteredClients.every((c) => selected.has(c.id))}
+                        onChange={(e) => setSelected(e.target.checked ? new Set(filteredClients.map((c) => c.id)) : new Set())} />
+                    </TableHead>
                     <TableHead className="w-[40px]" />
                     <SortableTableHead
-                      className="min-w-[120px]"
+                      className="min-w-[200px]"
                       sortable
                       sortDirection={sortField === 'name' ? sortDirection : null}
                       onSort={() => handleSort('name')}
@@ -957,15 +700,7 @@ export function ClientTab({
                       {clientConfig.companyLabel}
                     </SortableTableHead>
                     <SortableTableHead
-                      className="min-w-[180px]"
-                      sortable
-                      sortDirection={sortField === 'email' ? sortDirection : null}
-                      onSort={() => handleSort('email')}
-                    >
-                      Email
-                    </SortableTableHead>
-                    <SortableTableHead
-                      className="min-w-[140px]"
+                      className="min-w-[130px] hidden xl:table-cell"
                       sortable
                       sortDirection={sortField === 'phone' ? sortDirection : null}
                       onSort={() => handleSort('phone')}
@@ -997,7 +732,11 @@ export function ClientTab({
                     const isExpanded = expandedRows.has(client.id)
                     return (
                       <React.Fragment key={client.id}>
-                        <TableRow>
+                        <TableRow data-state={selected.has(client.id) ? 'selected' : undefined}>
+                          <TableCell className="w-[36px] pr-0">
+                            <input type="checkbox" className="h-4 w-4 accent-primary align-middle" aria-label={`Select ${client.name}`}
+                              checked={selected.has(client.id)} onChange={() => toggleSelected(client.id)} />
+                          </TableCell>
                           <TableCell className="w-[40px] pr-0">
                             <Button
                               variant="ghost"
@@ -1012,22 +751,21 @@ export function ClientTab({
                               }
                             </Button>
                           </TableCell>
-                          <TableCell className="font-medium">
-                            <span className="truncate block max-w-[120px]" title={client.name}>
+                          <TableCell>
+                            <span className="font-medium truncate block max-w-[240px]" title={client.name}>
                               {client.name}
                             </span>
+                            <span className="text-xs text-muted-foreground truncate block max-w-[240px]" title={client.email}>
+                              {client.email}
+                            </span>
+                            <TagChips tags={client.tags} className="mt-1 max-w-[280px]" />
                           </TableCell>
                           <TableCell>
                             <span className="truncate block max-w-[150px]" title={client.companyName}>
                               {client.companyName}
                             </span>
                           </TableCell>
-                          <TableCell>
-                            <span className="truncate block max-w-[180px]" title={client.email}>
-                              {client.email}
-                            </span>
-                          </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden xl:table-cell">
                             {client.phone || '—'}
                           </TableCell>
                           <TableCell>
@@ -1038,24 +776,13 @@ export function ClientTab({
                           <TableCell>
                             {client.status ? (
                               <span
-                                className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium"
-                                style={{
-                                  backgroundColor: client.status === 'Active' || client.status?.toLowerCase() === 'active'
-                                    ? '#22c55e'
-                                    : client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive'
-                                    ? '#000000'
-                                    : undefined,
-                                  color: (client.status === 'Active' || client.status?.toLowerCase() === 'active' ||
-                                          client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive')
-                                    ? '#ffffff'
-                                    : undefined,
-                                  borderColor: client.status === 'Active' || client.status?.toLowerCase() === 'active'
-                                    ? '#22c55e'
-                                    : client.status === 'Inactive' || client.status?.toLowerCase() === 'inactive'
-                                    ? '#000000'
-                                    : undefined,
-                                }}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+                                  client.status.toLowerCase() === 'active'
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
                               >
+                                <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
                                 {client.status}
                               </span>
                             ) : (
@@ -1078,7 +805,7 @@ export function ClientTab({
                                 title="View client details"
                               >
                                 <ExternalLink className="h-3.5 w-3.5" />
-                                More
+                                View
                               </Button>
                             </div>
                           </TableCell>
@@ -1153,6 +880,7 @@ export function ClientTab({
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
         
         {/* Pagination */}

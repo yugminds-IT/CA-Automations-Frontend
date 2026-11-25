@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Mail, Phone, MapPin } from "lucide-react";
 
 const LOGO_SRC = "/landing-assets/lekvya-logo-new.png";
@@ -14,20 +15,18 @@ export default function Footer() {
               Built for Educational Institutions, Healthcare Clinics, E-Commerce, Developers, and CA/Tax Firms.
             </p>
             <div className="flex gap-4 mt-6">
-              <a href="#" className="w-9 h-9 rounded-full bg-background/10 flex items-center justify-center hover:bg-background/20 transition-colors text-background/60 hover:text-background text-sm">in</a>
-              <a href="#" className="w-9 h-9 rounded-full bg-background/10 flex items-center justify-center hover:bg-background/20 transition-colors text-background/60 hover:text-background text-sm">𝕏</a>
-              <a href="#" className="w-9 h-9 rounded-full bg-background/10 flex items-center justify-center hover:bg-background/20 transition-colors text-background/60 hover:text-background text-sm">fb</a>
+              {/* ponytail: only X has a known URL (from layout.tsx sameAs); add LinkedIn/Facebook once real profile URLs exist */}
+              <a href="https://twitter.com/lekvya" target="_blank" rel="noopener noreferrer" aria-label="Lekvya on X" className="w-9 h-9 rounded-full bg-background/10 flex items-center justify-center hover:bg-background/20 transition-colors text-background/60 hover:text-background text-sm">𝕏</a>
             </div>
           </div>
 
           <div>
             <h4 className="font-semibold text-background mb-4">Product</h4>
             <ul className="space-y-2 text-sm text-background/60">
-              <li><a href="/#features" className="hover:text-background transition-colors">Features</a></li>
+              <li><Link href="/#features" className="hover:text-background transition-colors">Features</Link></li>
               <li><a href="/plan" className="hover:text-background transition-colors font-medium text-orange-400">Plans & Pricing</a></li>
-              <li><a href="/#use-cases" className="hover:text-background transition-colors">Use Cases</a></li>
-              <li><a href="/docs" className="hover:text-background transition-colors">Developer Docs</a></li>
-              <li><a href="/#faq" className="hover:text-background transition-colors">FAQ</a></li>
+              <li><Link href="/#use-cases" className="hover:text-background transition-colors">Use Cases</Link></li>
+              <li><Link href="/#faq" className="hover:text-background transition-colors">FAQ</Link></li>
             </ul>
           </div>
 
@@ -38,7 +37,7 @@ export default function Footer() {
                 <Mail className="w-4 h-4" /> contact@navedhana.com
               </li>
               <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4" /> +91 98765 43210
+                <Phone className="w-4 h-4" /> +91 8885026092
               </li>
               <li className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 mt-0.5" /> India
@@ -49,7 +48,7 @@ export default function Footer() {
 
         <div className="border-t border-background/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-background/40">
-            © 2025 Lekvya AI Automation. All rights reserved.
+            © {new Date().getFullYear()} Lekvya AI Automation. All rights reserved.
           </p>
           <p className="text-xs text-background/40">
             Built by <a href="https://www.yugminds.org/" target="_blank" rel="noopener noreferrer" className="text-background/60 hover:text-background transition-colors">Yugminds</a> × <a href="https://navedhana.com" target="_blank" rel="noopener noreferrer" className="text-background/60 hover:text-background transition-colors">Navedhana Software Services</a>

@@ -173,7 +173,7 @@ export function SmtpSetupGuideDialog({
                 <Icon className={`h-3.5 w-3.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                 {tab.label}
                 {tab.badge && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary">
+                  <span className="ml-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-primary/15 text-primary">
                     {tab.badge}
                   </span>
                 )}
@@ -269,7 +269,7 @@ export function SmtpSetupGuideDialog({
                   <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
                     Gmail Connection Parameters
                   </span>
-                  <Badge variant="secondary" className="text-[11px]">Port 587 (TLS Recommended)</Badge>
+                  <Badge variant="secondary" className="text-xs">Port 587 (TLS Recommended)</Badge>
                 </div>
                 <div className="divide-y divide-border text-xs sm:text-sm">
                   {[
@@ -381,7 +381,7 @@ export function SmtpSetupGuideDialog({
                   <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
                     Microsoft 365 Connection Parameters
                   </span>
-                  <Badge variant="secondary" className="text-[11px]">Port 587 (STARTTLS)</Badge>
+                  <Badge variant="secondary" className="text-xs">Port 587 (STARTTLS)</Badge>
                 </div>
                 <div className="divide-y divide-border text-xs sm:text-sm">
                   {[
@@ -492,7 +492,7 @@ export function SmtpSetupGuideDialog({
                   <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
                     Hostinger Connection Parameters
                   </span>
-                  <Badge variant="secondary" className="text-[11px]">Port 465 (SSL Encrypted)</Badge>
+                  <Badge variant="secondary" className="text-xs">Port 465 (SSL Encrypted)</Badge>
                 </div>
                 <div className="divide-y divide-border text-xs sm:text-sm">
                   {[
@@ -603,7 +603,7 @@ export function SmtpSetupGuideDialog({
                   <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
                     GoDaddy Connection Parameters
                   </span>
-                  <Badge variant="secondary" className="text-[11px]">Port 465 (SSL)</Badge>
+                  <Badge variant="secondary" className="text-xs">Port 465 (SSL)</Badge>
                 </div>
                 <div className="divide-y divide-border text-xs sm:text-sm">
                   {[
@@ -722,7 +722,7 @@ export function SmtpSetupGuideDialog({
                   <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
                     Zoho Mail Parameters
                   </span>
-                  <Badge variant="secondary" className="text-[11px]">Port 465 (SSL)</Badge>
+                  <Badge variant="secondary" className="text-xs">Port 465 (SSL)</Badge>
                 </div>
                 <div className="divide-y divide-border text-xs sm:text-sm">
                   {[
