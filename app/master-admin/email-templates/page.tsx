@@ -535,6 +535,7 @@ export default function MasterAdminEmailTemplates() {
               ) : (
                 <div className="rounded-md border border-border overflow-hidden" style={{ height: 300 }}>
                   <iframe
+                    sandbox=""
                     srcDoc={previewEmailTemplate(formData.body, formData.subject || "Preview", previewValues)}
                     title="Email preview"
                     className="w-full h-full border-0"
@@ -575,6 +576,7 @@ export default function MasterAdminEmailTemplates() {
                 <Label className="text-sm font-medium mb-2 block">Email Preview:</Label>
                 <div className="border rounded-md bg-card overflow-auto" style={{ maxHeight: "calc(90vh - 250px)" }}>
                   <iframe
+                    sandbox=""
                     srcDoc={previewEmailTemplate(previewTemplate.body, previewTemplate.subject, previewValues)}
                     title="Email preview"
                     className="w-full border-0"

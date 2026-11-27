@@ -1,3 +1,4 @@
+import { PwaRegister } from "@/components/pwa-register";
 import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
@@ -31,6 +32,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lekvya.navedhana.com"),
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Lekvya", statusBarStyle: "default" },
   title: {
     default: "Lekvya | AI Automation, Transactional Email API & Multi-Industry Workflows",
     template: "%s | Lekvya",
@@ -180,6 +183,7 @@ export default function RootLayout({
           {children}
           <Toaster />
           <NetworkStatus />
+          <PwaRegister />
         </ThemeProvider>
       </body>
     </html>

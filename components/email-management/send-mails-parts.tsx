@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { safeHtml } from '@/lib/safe-html'
 
 export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
   const letter = name.trim().charAt(0).toUpperCase() || '?'
@@ -88,7 +89,7 @@ export function LivePreview({
             <div className={device === 'mobile'
               ? 'mx-auto w-[375px] max-w-full rounded-[24px] border-[6px] border-foreground/80 bg-background px-4 py-4 text-sm leading-relaxed break-words [&_img]:h-auto [&_img]:max-w-full [&_table]:max-w-full'
               : 'mx-auto max-w-3xl px-6 py-5 text-sm leading-relaxed break-words [&_img]:h-auto [&_img]:max-w-full'}>
-              <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+              <div dangerouslySetInnerHTML={{ __html: safeHtml(bodyHtml) }} />
               <p className="mt-6 border-t border-border/60 pt-3 text-center text-xs text-muted-foreground">
                 Email sent via <span className="font-semibold text-primary">Lekvya</span>
               </p>

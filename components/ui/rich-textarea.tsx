@@ -18,6 +18,7 @@ import type { TemplateVar } from "@/lib/template-variables"
 import { chipify, relabelChips, useVarTags, type VarTagOptions } from "@/components/email-management/var-tags"
 import { stripChips } from "@/components/email-management/send-mails-utils"
 import { isHtmlBody } from "@/lib/utils/email-template"
+import { safeHtml } from "@/lib/safe-html"
 
 export interface RichTextareaRef {
   insert: (text: string) => void
@@ -47,7 +48,7 @@ export const RichTextarea = forwardRef<RichTextareaRef, RichTextareaProps>(
     // a plain-text body (no tags) keeps its line breaks, as the email itself does
     const toHtml = (v: string) => {
       const h = isHtmlBody(v) ? v : v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\r?\n/g, "<br>")
-      return variables ? chipify(h, variables) : h
+      return variables ? chipify(h, variables) : safeHtml(h)
     }
     const fromHtml = (h: string) => (variables ? stripChips(h) : h)
 

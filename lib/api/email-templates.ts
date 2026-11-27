@@ -46,10 +46,16 @@ export async function createTemplate(
   );
 }
 
-export async function listTemplates(params?: { category?: string; organizationId?: number; limit?: number }): Promise<EmailTemplate[]> {
+export async function listTemplates(params?: {
+  category?: string;
+  organizationId?: number;
+  businessUnitId?: number;
+  limit?: number;
+}): Promise<EmailTemplate[]> {
   const search = new URLSearchParams();
   if (params?.category) search.set('category', params.category);
   if (params?.organizationId != null) search.set('organizationId', String(params.organizationId));
+  if (params?.businessUnitId != null) search.set('businessUnitId', String(params.businessUnitId));
   const query = search.toString();
   const url = query ? `${API_CONFIG.endpoints.emailTemplates.base}?${query}` : API_CONFIG.endpoints.emailTemplates.base;
   return apiRequestWithRefresh<EmailTemplate[]>(url, {

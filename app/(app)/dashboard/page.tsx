@@ -33,7 +33,7 @@ export default function DashboardHomePage() {
   }, [])
 
   return (
-    <div className="flex min-h-full flex-col lg:h-full">
+    <div className="flex min-h-full flex-col">
       {trialNotice && (
         <div
           role="status"

@@ -15,6 +15,7 @@ import {
   type EmailTemplate,
 } from "@/lib/api/index"
 import { getTypesByCategory } from "@/lib/api/email-templates"
+import { BusinessUnit, listBusinessUnits } from "@/lib/api/business-units"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,6 +37,7 @@ import { VarLineInput, VarPickerButton, UnknownVarsNotice, type VarLineInputHand
 import { getIndustryMailConfig } from "@/lib/industry-config"
 import { getOrganizationData } from "@/lib/api/index"
 import { getClients } from "@/lib/api/clients"
+import { pickerLabel, activeBrands } from "@/lib/unit-structure";
 import { clientVariables, orgVariables, transformClient, type ClientItem } from "@/components/email-management/send-mails-utils"
 
 const CATEGORIES: { value: string; label: string; icon: typeof Clock }[] = [
@@ -53,7 +55,7 @@ const isBuiltIn = (t: EmailTemplate) => t.organizationId == null
 type Owner = "all" | "yours" | "builtin"
 /** create: new · edit: one of yours · customize: your version of a built-in · copy: a new one from any template */
 type EditorMode = "create" | "edit" | "customize" | "copy"
-interface Editor { mode: EditorMode; source: EmailTemplate | null; name: string; category: string; type: string; subject: string; body: string }
+interface Editor { mode: EditorMode; source: EmailTemplate | null; name: string; category: string; type: string; subject: string; body: string; businessUnitId: number | null }
 
 export default function EmailTemplatesPage() {
   const router = useRouter()
@@ -68,6 +70,7 @@ export default function EmailTemplatesPage() {
   const [editor, setEditor] = useState<Editor | null>(null)
   const [saving, setSaving] = useState(false)
   const [types, setTypes] = useState<{ value: string; label: string }[]>([])
+  const [units, setUnits] = useState<BusinessUnit[]>([])
   const [wide, setWide] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)")
@@ -75,6 +78,10 @@ export default function EmailTemplatesPage() {
     sync()
     mq.addEventListener("change", sync)
     return () => mq.removeEventListener("change", sync)
+  }, [])
+  // Units for the "Used by" picker. Failure just hides the picker.
+  useEffect(() => {
+    listBusinessUnits().then((all) => setUnits(activeBrands(all))).catch(() => setUnits([]))
   }, [])
 
   // ─── Variables (shared with Send Mails) ─────────────────────────────────
@@ -174,6 +181,7 @@ export default function EmailTemplatesPage() {
       type: from?.type ?? "",
       subject: from?.subject ?? "",
       body: from?.body ?? "",
+      businessUnitId: from?.businessUnitId ?? null,
     })
   }
   const patch = (p: Partial<Editor>) => setEditor((e) => (e ? { ...e, ...p } : e))
@@ -204,11 +212,11 @@ export default function EmailTemplatesPage() {
     if (!editor || editorProblem) return
     setSaving(true)
     try {
-      const { mode, source, name, category, type, subject, body } = editor
+      const { mode, source, name, category, type, subject, body, businessUnitId } = editor
       let saved: EmailTemplate | undefined
       if (mode === "edit" && source) saved = await updateOrgEmailTemplate(source.id, { name, subject, body }) as EmailTemplate
       else if (mode === "customize" && source) saved = await customizeMasterTemplate(source, undefined, { subject, body }) as EmailTemplate
-      else saved = await createOrgEmailTemplate({ name, category, type, subject, body, is_default: false }) as EmailTemplate
+      else saved = await createOrgEmailTemplate({ name, category, type, subject, body, is_default: false, businessUnitId }) as EmailTemplate
       toast({ title: mode === "edit" ? "Template saved" : "Template created", variant: "success" })
       setEditor(null)
       await fetchTemplates()
@@ -389,6 +397,18 @@ export default function EmailTemplatesPage() {
                       </div>
                     </div>
                   )}
+                  {editor.mode === "create" && units.length > 1 && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="template-unit">Used by</Label>
+                      <select id="template-unit" value={editor.businessUnitId == null ? "all" : String(editor.businessUnitId)}
+                        onChange={(e) => patch({ businessUnitId: e.target.value === "all" ? null : Number(e.target.value) })}
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                        <option value="all">Whole organization</option>
+                        {units.map((u) => <option key={u.id} value={u.id}>{pickerLabel(u, units)} only</option>)}
+                      </select>
+                      <p className="text-xs text-muted-foreground">A unit template is sent from that unit&apos;s sending account.</p>
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="template-subject">Subject</Label>
@@ -438,7 +458,7 @@ function EmailCard({ subject, html, title }: { subject: string; html: string; ti
       <p className="truncate border-b border-gray-200 px-4 py-2.5 text-sm text-gray-900" title={subject}>
         <span className="text-gray-500">Subject: </span>{subject || <span className="text-gray-400">No subject yet</span>}
       </p>
-      <iframe srcDoc={html} title={title} className="w-full flex-1 border-0 bg-white px-4 py-3" />
+      <iframe srcDoc={html} sandbox="" title={title} className="w-full flex-1 border-0 bg-white px-4 py-3" />
     </div>
   )
 }

@@ -27,7 +27,9 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { signupOrganization } from "@/lib/api/auth";
+import { getPublicPlans, type PlanCatalogItem, type PlanKey } from "@/lib/api/billing";
 import { getPublicWorkspaceFeatures } from "@/lib/api/workspace-features";
+import { UNIT_STRUCTURE_OPTIONS, allowsManyBrands, type UnitStructure } from "@/lib/unit-structure";
 
 const ICON_LOOKUP: Record<string, React.ElementType> = {
   Globe,
@@ -171,6 +173,14 @@ export default function SignupPage() {
   const [allowedDomain, setAllowedDomain] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  // null until the user says how their business is laid out
+  const [structure, setStructure] = useState<UnitStructure | null>(null);
+  // The plan on offer at signup; Starter is pre-picked. If the list can't load, the plan is simply left out.
+  const [plans, setPlans] = useState<PlanCatalogItem[]>([]);
+  const [planKey, setPlanKey] = useState<PlanKey>("starter");
+  useEffect(() => {
+    getPublicPlans().then(setPlans).catch(() => setPlans([]));
+  }, []);
 
   const handleSelectIndustry = (item: IndustryOption) => {
     if (item.isLocked) {
@@ -198,6 +208,15 @@ export default function SignupPage() {
       return;
     }
 
+    if (structure === null) {
+      toast({
+        title: "One more question",
+        description: "Tell us how your business is set up: units and brands.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (adminPassword.length < 6) {
       toast({
         title: "Weak Password",
@@ -216,6 +235,8 @@ export default function SignupPage() {
           name: orgName.trim(),
           industry: selectedIndustry,
           allowedOrigins,
+          unitStructure: structure,
+          planKey: plans.length ? planKey : undefined,
           city: city.trim() || undefined,
           state: state.trim() || undefined,
         },
@@ -637,6 +658,100 @@ export default function SignupPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* How the business is laid out: units (places) and brands inside them */}
+                <div role="radiogroup" aria-label="How is your business set up?" className="pt-1">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    How is your business set up? *
+                  </p>
+                  <p className="text-[11px] text-slate-500 mb-2 pl-0.5">
+                    A unit is a place, like a plant or an office. A brand is a line of business inside a unit.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {UNIT_STRUCTURE_OPTIONS.map((opt) => {
+                      const checked = structure === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={checked}
+                          onClick={() => setStructure(opt.value)}
+                          className={`text-left rounded-2xl border p-3.5 transition-colors cursor-pointer ${
+                            checked
+                              ? "border-orange-400 bg-orange-50/60 ring-1 ring-orange-300"
+                              : "border-slate-200 bg-white hover:border-orange-200 hover:bg-orange-50/30"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                checked ? "border-orange-500" : "border-slate-300"
+                              }`}
+                            >
+                              {checked && <span className="w-2 h-2 rounded-full bg-orange-500" />}
+                            </span>
+                            <span className="text-sm font-bold text-slate-900">{opt.title}</span>
+                          </span>
+                          <span className="block text-[11px] text-slate-500 mt-1.5 pl-6 leading-snug">{opt.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5 pl-1">
+                    You can&apos;t change this later yourself. Contact support if your needs change.
+                  </p>
+                </div>
+
+                {/* Plan: can be changed later from Settings, Plan & billing */}
+                {plans.length > 0 && (
+                  <div role="radiogroup" aria-label="Choose your plan" className="pt-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Choose your plan</p>
+                    <p className="text-[11px] text-slate-500 mb-2 pl-0.5">You can switch plans any time from Settings.</p>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      {plans.map((p) => {
+                        const checked = planKey === p.key;
+                        const cap = (n: number | null) => (n === null ? "Unlimited" : String(n));
+                        return (
+                          <button
+                            key={p.key}
+                            type="button"
+                            role="radio"
+                            aria-checked={checked}
+                            onClick={() => setPlanKey(p.key)}
+                            className={`text-left rounded-2xl border p-3.5 transition-colors cursor-pointer ${
+                              checked
+                                ? "border-orange-400 bg-orange-50/60 ring-1 ring-orange-300"
+                                : "border-slate-200 bg-white hover:border-orange-200 hover:bg-orange-50/30"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <span
+                                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                  checked ? "border-orange-500" : "border-slate-300"
+                                }`}
+                              >
+                                {checked && <span className="w-2 h-2 rounded-full bg-orange-500" />}
+                              </span>
+                              <span className="text-sm font-bold text-slate-900">{p.name}</span>
+                            </span>
+                            <span className="block text-[11px] text-slate-500 mt-1.5 pl-6 leading-snug">
+                              {cap(p.units)} {p.units === 1 ? "brand" : "brands"} · {cap(p.users)} staff
+                              <br />
+                              {p.aiCreditsPerMonth > 0 ? `${p.aiCreditsPerMonth.toLocaleString("en-IN")} AI credits/mo` : "No AI credits"}
+                              {p.automations ? " · Automations" : ""}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {structure !== null && allowsManyBrands(structure) && plans.find((p) => p.key === planKey)?.units === 1 && (
+                      <p className="text-[11px] text-amber-700 mt-1.5 pl-1">
+                        {plans.find((p) => p.key === planKey)?.name} includes one brand. Pick Growth or above to run several brands.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Bottom Bar: Terms + Action Buttons */}
                 <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">

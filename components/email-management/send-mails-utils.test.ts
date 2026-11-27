@@ -5,6 +5,7 @@ import {
   stripChips,
   substituteVars,
   substituteVarsHtml,
+  leadAsRecipient,
   transformClient,
 } from "./send-mails-utils";
 
@@ -57,5 +58,19 @@ describe("transformClient", () => {
       city: undefined, status: undefined, phone: "9", services: [{ id: 2, name: "GST" }], tags: [],
     });
     expect(transformClient({ id: 2, businessType: { name: "Firm" } }).businessType).toBe("Firm");
+  });
+});
+
+describe("leadAsRecipient", () => {
+  it("keeps a lead id from colliding with a client id and carries the fields a mail can fill", () => {
+    const r = leadAsRecipient({
+      id: 5, name: "Ravi", email: "r@x.com", phone: null, company: "Rice mills",
+      status: "open", tags: ["hot"], source: "Form", nextFollowUpAt: "2026-12-01T10:00:00.000Z",
+    });
+    expect(r.id).toBe("lead:5");
+    expect(r.email).toBe("r@x.com");
+    expect(r.companyName).toBe("Rice mills");
+    expect(r.followUpOn).toBe("2026-12-01");
+    expect(r.additionalNotes).toBe("Source: Form");
   });
 });

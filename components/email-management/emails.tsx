@@ -24,6 +24,7 @@ import type { MailAttachment, RecurringSchedule } from '@/lib/api/types'
 import type { SendDraft } from './send-mails-draft'
 import { describeRepeat } from '@/lib/schedule-rule'
 import { NO_ATTACHMENTS } from './attachments-panel'
+import { safeHtml } from '@/lib/safe-html'
 
 /** One time an email goes out (a row of email_schedules) */
 export interface SendRow {
@@ -555,7 +556,7 @@ function EmailDetail({ group: g, busy, onAsk, onDuplicate, onEdit, onCancelAll, 
           <div className="rounded-lg border border-border">
             <p className="border-b border-border px-3 py-2 text-sm"><span className="text-muted-foreground">Subject: </span>{preview.subject || '—'}</p>
             <div className="max-h-64 overflow-y-auto px-3 py-2 text-sm [&_a]:text-primary [&_a]:underline [&_p]:my-1"
-              dangerouslySetInnerHTML={{ __html: preview.bodyHtml }} />
+              dangerouslySetInnerHTML={{ __html: safeHtml(preview.bodyHtml) }} />
             {m.attachments.length > 0 && (
               <p className="border-t border-border px-3 py-2 text-sm text-muted-foreground">Attached: {m.attachments.map((a) => a.name).join(', ')}</p>
             )}

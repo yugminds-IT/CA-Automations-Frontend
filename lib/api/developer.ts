@@ -2,6 +2,7 @@ import { apiRequest } from './client';
 
 export interface ApiKeyItem {
   id: number;
+  businessUnitId?: number | null;
   name: string;
   keyType: 'public' | 'secret';
   keyPrefix: string;
@@ -10,12 +11,14 @@ export interface ApiKeyItem {
   allowedDomains: string[];
   rateLimitPerMinute: number;
   isActive: boolean;
+  autoCreateLead?: boolean;
   lastUsedAt?: string;
   createdAt: string;
 }
 
 export interface FormSubmissionItem {
   id: number;
+  businessUnitId?: number | null;
   formName: string | null;
   senderName: string | null;
   senderEmail: string | null;
@@ -28,6 +31,7 @@ export interface FormSubmissionItem {
   createdAt: string;
   isExistingClient?: boolean;
   convertedClientId?: number | null;
+  convertedLeadId?: number | null;
   matchedClientName?: string | null;
 }
 
@@ -66,10 +70,23 @@ export async function getApiKeys(): Promise<ApiKeyItem[]> {
 export async function createApiKey(dto: {
   name: string;
   keyType: 'public' | 'secret';
+  businessUnitId?: number;
   allowedDomains?: string[];
+  autoCreateLead?: boolean;
 }): Promise<ApiKeyItem> {
   return apiRequest<ApiKeyItem>('/developer/api-keys', {
     method: 'POST',
+    body: dto,
+    requiresAuth: true,
+  });
+}
+
+export async function updateApiKey(
+  id: number,
+  dto: { autoCreateLead?: boolean; isActive?: boolean; name?: string; businessUnitId?: number },
+): Promise<ApiKeyItem> {
+  return apiRequest<ApiKeyItem>(`/developer/api-keys/${id}`, {
+    method: 'PATCH',
     body: dto,
     requiresAuth: true,
   });
@@ -82,8 +99,15 @@ export async function revokeApiKey(id: number): Promise<{ success: boolean }> {
   });
 }
 
-export async function getFormSubmissions(status?: string): Promise<FormSubmissionItem[]> {
-  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+export async function getFormSubmissions(
+  status?: string,
+  businessUnitId?: number,
+): Promise<FormSubmissionItem[]> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (businessUnitId != null) params.set('businessUnitId', String(businessUnitId));
+  const qs = params.toString();
+  const query = qs ? `?${qs}` : '';
   return apiRequest<FormSubmissionItem[]>(`/developer/inbox${query}`, {
     method: 'GET',
     requiresAuth: true,
@@ -99,6 +123,16 @@ export async function updateSubmissionStatus(
     body: { status },
     requiresAuth: true,
   });
+}
+
+export async function convertSubmissionToLead(id: number): Promise<{
+  leadId: number;
+  duplicate: boolean;
+}> {
+  return apiRequest<{ leadId: number; duplicate: boolean }>(
+    `/developer/inbox/${id}/convert-to-lead`,
+    { method: 'POST', requiresAuth: true },
+  );
 }
 
 export async function convertSubmissionToClient(id: number): Promise<{

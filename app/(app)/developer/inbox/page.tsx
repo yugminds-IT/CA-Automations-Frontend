@@ -17,6 +17,7 @@ import {
   UserPlus,
   UserCheck,
   ExternalLink,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,20 +27,26 @@ import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/components/ui/use-toast";
 import {
   getFormSubmissions,
   updateSubmissionStatus,
   convertSubmissionToClient,
+  convertSubmissionToLead,
   deleteFormSubmission,
   FormSubmissionItem,
 } from "@/lib/api/developer";
+import { BusinessUnit, listBusinessUnits } from "@/lib/api/business-units";
+import { pickerLabel, activeBrands } from "@/lib/unit-structure";
 import { useRealtimeEvent } from "@/lib/realtime";
 
 export default function FormInboxPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [submissions, setSubmissions] = useState<FormSubmissionItem[]>([]);
+  const [units, setUnits] = useState<BusinessUnit[]>([]);
+  const [brandFilter, setBrandFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [convertingId, setConvertingId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -53,10 +60,25 @@ export default function FormInboxPage() {
     setPayloadView("table");
   }, [selectedItem?.id]);
 
+  useEffect(() => {
+    listBusinessUnits()
+      .then(setUnits)
+      .catch(() => setUnits([]));
+  }, []);
+
+  const brandLabelFor = (businessUnitId?: number | null) => {
+    if (businessUnitId == null) return "—";
+    const u = units.find((x) => x.id === businessUnitId);
+    return u ? pickerLabel(u, units) : `Brand #${businessUnitId}`;
+  };
+
   const fetchSubmissions = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const data = await getFormSubmissions(statusFilter === "all" ? undefined : statusFilter);
+      const data = await getFormSubmissions(
+        statusFilter === "all" ? undefined : statusFilter,
+        brandFilter === "all" ? undefined : Number(brandFilter),
+      );
       setSubmissions(data);
     } catch (err: any) {
       if (silent) return;
@@ -72,7 +94,7 @@ export default function FormInboxPage() {
 
   useEffect(() => {
     fetchSubmissions();
-  }, [statusFilter]);
+  }, [statusFilter, brandFilter]);
 
   // Live refresh as soon as a new form submission arrives
   useRealtimeEvent('developer.submission.created', () => {
@@ -91,6 +113,33 @@ export default function FormInboxPage() {
       toast({ title: "Status Updated", description: `Marked as ${status}.` });
     } catch (err: any) {
       toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleConvertToLead = async (item: FormSubmissionItem) => {
+    setConvertingId(item.id);
+    try {
+      const res = await convertSubmissionToLead(item.id);
+      const patch = { status: "converted" as const, convertedLeadId: res.leadId };
+      setSubmissions((prev) => prev.map((s) => (s.id === item.id ? { ...s, ...patch } : s)));
+      if (selectedItem?.id === item.id) {
+        setSelectedItem((prev) => (prev ? { ...prev, ...patch } : null));
+      }
+      toast({
+        title: res.duplicate ? "Added to Existing Lead" : "Lead Created",
+        description: res.duplicate
+          ? "A lead with the same email or phone already exists in this unit, so this response was added to it."
+          : "This response is now a lead in its business unit.",
+        variant: "success",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Could not create lead",
+        description: err?.message || "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setConvertingId(null);
     }
   };
 
@@ -172,39 +221,28 @@ export default function FormInboxPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, search]);
+  }, [statusFilter, brandFilter, search]);
 
   const totalItems = filtered.length;
   const startIndex = (currentPage - 1) * pageSize;
   const displayedSubmissions = filtered.slice(startIndex, startIndex + pageSize);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Inbox className="w-6 h-6 text-orange-500" /> Form Inquiries
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Messages people send through the contact forms on your website. New ones appear here automatically.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/client-management")}
-            className="text-xs"
-          >
-            <UserCheck className="w-4 h-4 mr-1.5 text-zinc-600" />
-            Clients & Contacts
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => fetchSubmissions()}>
-            <RefreshCw className="w-4 h-4 mr-1.5" /> Refresh
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col gap-4 p-4 sm:p-5">
+      <PageHeader
+        title="Form inquiries"
+        description="Messages people send through the contact forms on your website. New ones appear here automatically."
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => router.push("/client-management")}>
+              <UserCheck className="mr-1 h-4 w-4" /> Clients &amp; Contacts
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => fetchSubmissions()}>
+              <RefreshCw className="mr-1 h-4 w-4" /> Refresh
+            </Button>
+          </>
+        }
+      />
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -222,14 +260,31 @@ export default function FormInboxPage() {
           ))}
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-          <Input
-            placeholder="Search by name, email, message…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 text-xs h-8"
-          />
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {activeBrands(units).length > 1 && (
+            <select
+              aria-label="Filter by brand"
+              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs"
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+            >
+              <option value="all">All brands</option>
+              {activeBrands(units).map((u) => (
+                <option key={u.id} value={String(u.id)}>
+                  {pickerLabel(u, units)}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="relative w-full sm:w-72">
+            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+            <Input
+              placeholder="Search by name, email, message…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 text-xs h-8"
+            />
+          </div>
         </div>
       </div>
 
@@ -251,6 +306,7 @@ export default function FormInboxPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
+                  {units.length > 1 && <TableHead>Brand</TableHead>}
                   <TableHead>Sender Name</TableHead>
                   <TableHead>Email / Contact</TableHead>
                   <TableHead>Form Name</TableHead>
@@ -294,6 +350,11 @@ export default function FormInboxPage() {
                         </Badge>
                       )}
                     </TableCell>
+                    {units.length > 1 && (
+                      <TableCell className="text-xs font-medium whitespace-nowrap">
+                        {brandLabelFor(item.businessUnitId)}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-semibold text-sm">
@@ -327,7 +388,34 @@ export default function FormInboxPage() {
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
-                        {item.status === "converted" || item.convertedClientId ? (
+                        {item.convertedLeadId ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100"
+                            onClick={() => router.push(`/leads/${item.convertedLeadId}`)}
+                            title="Open this lead"
+                          >
+                            <Target className="w-3.5 h-3.5 mr-1 text-sky-600" />
+                            Lead
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-black text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+                            disabled={convertingId === item.id}
+                            onClick={() => handleConvertToLead(item)}
+                            title="Create a lead from this response in its brand (existing lead with the same email or phone is reused)"
+                          >
+                            {convertingId === item.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            ) : (
+                              <Target className="w-3.5 h-3.5 mr-1" />
+                            )}
+                            To lead
+                          </Button>
+                        )}
+                        {item.convertedClientId ? (
                           <Button
                             variant="outline"
                             size="sm"
@@ -340,8 +428,9 @@ export default function FormInboxPage() {
                           </Button>
                         ) : (
                           <Button
+                            variant="outline"
                             size="sm"
-                            className="h-7 text-xs bg-black text-white hover:bg-zinc-800"
+                            className="h-7 text-xs"
                             disabled={convertingId === item.id}
                             onClick={() => handleConvertToClient(item)}
                             title="Convert submission to Client (Duplicate checked automatically)"
@@ -351,7 +440,7 @@ export default function FormInboxPage() {
                             ) : (
                               <UserPlus className="w-3.5 h-3.5 mr-1" />
                             )}
-                            Convert
+                            To client
                           </Button>
                         )}
                         <Button
@@ -391,7 +480,33 @@ export default function FormInboxPage() {
                   {selectedItem.senderName || "Website Visitor"}
                 </DialogTitle>
                 <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                  {selectedItem.status === "converted" || selectedItem.convertedClientId ? (
+                  {selectedItem.convertedLeadId ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7"
+                      onClick={() => router.push(`/leads/${selectedItem.convertedLeadId}`)}
+                    >
+                      <Target className="w-3.5 h-3.5 mr-1.5 text-sky-600" />
+                      Open Lead
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7"
+                      disabled={convertingId === selectedItem.id}
+                      onClick={() => handleConvertToLead(selectedItem)}
+                    >
+                      {convertingId === selectedItem.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                      ) : (
+                        <Target className="w-3.5 h-3.5 mr-1.5" />
+                      )}
+                      Convert to Lead
+                    </Button>
+                  )}
+                  {selectedItem.convertedClientId ? (
                     <Button
                       size="sm"
                       className="bg-zinc-900 hover:bg-zinc-800 text-white text-xs h-7 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
@@ -440,30 +555,49 @@ export default function FormInboxPage() {
             </DialogHeader>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
-              {/* Client duplicate / status banner */}
-              {(selectedItem.status === "converted" || selectedItem.isExistingClient) && (
+              {/* Lead / Client conversion banner */}
+              {(selectedItem.convertedLeadId || selectedItem.convertedClientId || selectedItem.isExistingClient) && (
                 <div className="p-3 rounded-lg border bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-xs flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
                     <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                     <span>
-                      {selectedItem.status === "converted"
+                      {selectedItem.convertedLeadId && !selectedItem.convertedClientId
+                        ? "Converted to a Lead in its brand."
+                        : selectedItem.convertedClientId
                         ? "Successfully linked to Clients & Contacts Management."
                         : "Sender recognized as an existing client."}{" "}
-                      Duplicate records are strictly prevented.
+                      Duplicate records are prevented.
                     </span>
                   </div>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-xs text-emerald-700 dark:text-emerald-300 underline font-semibold flex-shrink-0"
-                    onClick={() => router.push("/client-management")}
-                  >
-                    Open Client →
-                  </Button>
+                  {selectedItem.convertedLeadId && !selectedItem.convertedClientId ? (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs text-emerald-700 dark:text-emerald-300 underline font-semibold flex-shrink-0"
+                      onClick={() => router.push(`/leads/${selectedItem.convertedLeadId}`)}
+                    >
+                      Open Lead →
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs text-emerald-700 dark:text-emerald-300 underline font-semibold flex-shrink-0"
+                      onClick={() => router.push("/client-management")}
+                    >
+                      Open Client →
+                    </Button>
+                  )}
                 </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-muted/40 p-3 rounded-lg border">
+                {units.length > 1 && (
+                  <div className="min-w-0 break-words sm:col-span-2">
+                    <span className="text-muted-foreground font-medium">Brand:</span>{" "}
+                    <span className="font-semibold">{brandLabelFor(selectedItem.businessUnitId)}</span>
+                  </div>
+                )}
                 <div className="min-w-0 break-words">
                   <span className="text-muted-foreground font-medium">Email:</span>{" "}
                   {selectedItem.senderEmail ? (
@@ -523,6 +657,7 @@ export default function FormInboxPage() {
                   'query',
                   'formName',
                   'convertedClientId',
+                  'convertedLeadId',
                   'duplicateDetected',
                   'convertedAt',
                   'customFields',
@@ -586,6 +721,7 @@ export default function FormInboxPage() {
                   "notificationEmail",
                   "notifyEmail",
                   "convertedClientId",
+                  "convertedLeadId",
                   "duplicateDetected",
                   "convertedAt",
                   "customFields",

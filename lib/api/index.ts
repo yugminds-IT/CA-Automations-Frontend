@@ -67,7 +67,7 @@ export {
 } from './email-templates';
 
 /** List templates for the current org (passes user's organizationId so backend returns global + org templates). */
-export async function getOrgEmailTemplates(params?: { limit?: number; category?: string }) {
+export async function getOrgEmailTemplates(params?: { limit?: number; category?: string; businessUnitId?: number }) {
   const { listTemplates } = await import('./email-templates');
   const { getUserData } = await import('./client');
   const user = getUserData();

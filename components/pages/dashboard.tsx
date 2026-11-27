@@ -2,18 +2,23 @@
 
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { AlertCircle, CheckCircle2, Clock, Repeat, SquarePen, UserPlus } from "lucide-react"
+import { AlertCircle, CheckCircle2, Clock, Loader2, Repeat, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useToast } from "@/components/ui/use-toast"
 import { SmtpAlertBanner } from "@/components/dashboard/smtp-alert-banner"
-import { Calendar3D, Clock3D, Draft3D, Folder3D, Mail3D, Person3D, Sent3D } from "@/components/dashboard/illustrations"
 import { getUserData, getRoleFromUser, getOrganizationData } from "@/lib/api/index"
 import { getClients } from "@/lib/api/clients"
-import { getFormSubmissions } from "@/lib/api/developer"
-import { listDrafts, listRecurringSchedules, listSchedules } from "@/lib/api/mail-management"
+import { convertSubmissionToLead, getFormSubmissions, type FormSubmissionItem } from "@/lib/api/developer"
+import { listLeads, listOpenTasks, type Lead, type LeadTask } from "@/lib/api/leads"
+import { listBusinessUnits, type BusinessUnit } from "@/lib/api/business-units"
+import { getStandardReport, type StandardReport } from "@/lib/api/reports"
+import { listRecurringSchedules, listSchedules } from "@/lib/api/mail-management"
 import type { RecurringSchedule } from "@/lib/api/types"
 import { useRealtimeEvent } from "@/lib/realtime"
 import { COMPOSE_PATH, pagesFor, toIndustry } from "@/lib/nav"
+import { usePermissions } from "@/lib/use-permissions"
+import { pickerLabel } from "@/lib/unit-structure"
 import { transformClient, type ClientItem } from "@/components/email-management/send-mails-utils"
 import {
   groupEmails, messageOf, statusOf, toLabel, toMs, whenLabel, type EmailGroup, type SendRow,
@@ -23,6 +28,7 @@ import { cn } from "@/lib/utils"
 const DAY = 86_400_000
 const EMAILS = "/email-management/scheduled-mails"
 const emailLink = (g: EmailGroup, tab: "scheduled" | "sent") => `${EMAILS}?tab=${tab}&open=${encodeURIComponent(g.key)}`
+const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
 
 /** YYYY-MM-DD in the viewer's own calendar */
 const localDay = (ms: number) => {
@@ -39,19 +45,34 @@ const shortDate = (ms: number, now: number) => {
   return new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" })
 }
 
+/** The pill on a task or follow-up: how far away it is. */
+const dueChip = (inDays: number) => ({
+  text: inDays < 0 ? `${-inDays}d overdue` : inDays === 0 ? "Today" : inDays === 1 ? "Tomorrow" : `In ${inDays} days`,
+  cls: inDays < 0
+    ? "bg-red-500/10 text-red-700 dark:text-red-300"
+    : inDays === 0 ? "bg-amber-500/15 text-amber-800 dark:text-amber-200" : "bg-muted text-muted-foreground",
+})
+
 interface Data {
   sends: SendRow[]
   repeats: RecurringSchedule[]
-  drafts: number
   clients: ClientItem[] | null
-  inquiries: number
+  /** New form submissions, null when the viewer cannot see the inbox */
+  inquiries: FormSubmissionItem[] | null
+  /** Open lead count and the most recently active leads, null when the viewer cannot see leads */
+  leads: { open: number; recent: Lead[] } | null
+  tasks: LeadTask[] | null
+  report: StandardReport | null
+  units: BusinessUnit[]
   /** when it was loaded */
   at: number
 }
 
 export function Dashboard() {
+  const { toast } = useToast()
   const [data, setData] = useState<Data | null>(null)
   const [failed, setFailed] = useState(false)
+  const [converting, setConverting] = useState<number | null>(null)
   const [me, setMe] = useState<{ name: string; industry: ReturnType<typeof toIndustry>; role: string | null }>({ name: "", industry: toIndustry(null), role: null })
 
   useEffect(() => {
@@ -63,33 +84,52 @@ export function Dashboard() {
       role: getRoleFromUser(user),
     })
   }, [])
-  const pages = useMemo(() => pagesFor(me.industry, me.role), [me.industry, me.role])
+  const permissions = usePermissions(me.role)
+  const can = useCallback((key: string) => !permissions || permissions.includes(key), [permissions])
+  const pages = useMemo(() => pagesFor(me.industry, me.role, permissions), [me.industry, me.role, permissions])
   const clientsPage = pages.find((p) => p.id === "clients")
   const inquiriesPage = pages.find((p) => p.id === "inquiries")
   const hasInquiries = !!inquiriesPage
+  const hasLeads = pages.some((p) => p.id === "leads")
+  const hasReports = pages.some((p) => p.id === "reports")
 
   const load = useCallback(async () => {
-    const [s, r, d, c, i] = await Promise.all([
+    const [s, r, c, i, lo, lr, t, rep, u] = await Promise.all([
       listSchedules().catch(() => null),
       listRecurringSchedules().catch(() => null),
-      listDrafts().catch(() => null),
       getClients().catch(() => null),
       hasInquiries ? getFormSubmissions("new").catch(() => null) : Promise.resolve(null),
+      hasLeads ? listLeads({ status: "open", limit: 1 }).catch(() => null) : Promise.resolve(null),
+      hasLeads ? listLeads({ limit: 8 }).catch(() => null) : Promise.resolve(null),
+      hasLeads ? listOpenTasks().catch(() => null) : Promise.resolve(null),
+      hasReports ? getStandardReport({}).catch(() => null) : Promise.resolve(null),
+      listBusinessUnits().catch(() => [] as BusinessUnit[]),
     ])
-    if (!s) { setFailed(true); return }
+    // Nothing at all loaded: show the retry notice instead of an empty page.
+    if (!s && !i && !lo && !t) { setFailed(true); return }
     setFailed(false)
     setData({
-      sends: (Array.isArray(s) ? s : (s as { schedules?: SendRow[] }).schedules ?? []) as SendRow[],
+      sends: (Array.isArray(s) ? s : (s as { schedules?: SendRow[] } | null)?.schedules ?? []) as SendRow[],
       repeats: Array.isArray(r) ? (r as RecurringSchedule[]) : [],
-      drafts: d?.length ?? 0,
       clients: c ? c.clients.map(transformClient) : null,
-      inquiries: Array.isArray(i) ? i.length : 0,
+      inquiries: Array.isArray(i) ? i : null,
+      leads: lo && lr ? { open: lo.total, recent: lr.items } : null,
+      tasks: Array.isArray(t) ? t : null,
+      report: rep,
+      units: u,
       at: Date.now(),
     })
-  }, [hasInquiries])
+  }, [hasInquiries, hasLeads, hasReports])
 
   useEffect(() => { void load() }, [load])
   useRealtimeEvent("mail.status", () => { void load() })
+  useRealtimeEvent("developer.submission.created", () => { void load() })
+
+  const brandOf = useCallback((id?: number | null) => {
+    if (!data || id == null || data.units.length <= 1) return ""
+    const u = data.units.find((x) => x.id === id)
+    return u ? pickerLabel(u, data.units) : ""
+  }, [data])
 
   const view = useMemo(() => {
     if (!data) return null
@@ -98,48 +138,85 @@ export function Dashboard() {
     const monthAgo = now - 30 * DAY
     const groups = groupEmails(data.sends, data.repeats)
 
-    let sent = 0, bounced = 0
+    let sent = 0
     for (const s of data.sends) {
       if (toMs(s.sentAt ?? s.scheduledAt) < monthAgo) continue
       if (s.status === "sent") sent += s.recipientEmails.length
-      if (s.status === "failed") bounced += s.recipientEmails.length
     }
     const upcoming = groups.filter((g) => g.upcoming).sort((a, b) => (a.next ?? Infinity) - (b.next ?? Infinity))
     const recent = groups.filter((g) => !g.upcoming && g.last != null).sort((a, b) => b.last! - a.last!)
     const failedWeek = recent.filter((g) => g.problems && g.last! >= now - 7 * DAY)
+
+    // Lead tasks due within a week, soonest first. Tasks with no date are left to the Tasks page.
+    const tasks = (data.tasks ?? [])
+      .filter((t) => t.dueAt)
+      .map((t) => ({ ...t, inDays: daysBetween(today, localDay(Date.parse(t.dueAt as string))) }))
+      .filter((t) => t.inDays <= 7)
+      .sort((a, b) => Date.parse(a.dueAt as string) - Date.parse(b.dueAt as string))
     const followUps = (data.clients ?? [])
       .filter((c) => c.followUpOn && daysBetween(today, c.followUpOn) <= 7)
       .map((c) => ({ ...c, inDays: daysBetween(today, c.followUpOn!) }))
       .sort((a, b) => a.inDays - b.inDays)
+
+    // Leads by stage. Stages with the same name in different pipelines are added together.
+    const byLabel = new Map<string, number>()
+    for (const row of data.report?.byStage ?? []) {
+      const n = row.values.lead_count ?? 0
+      if (n > 0) byLabel.set(row.label, (byLabel.get(row.label) ?? 0) + n)
+    }
+    const stages = [...byLabel].map(([label, n]) => ({ label, n }))
+
     return {
-      sent, bounced,
-      rate: sent + bounced ? Math.round((sent / (sent + bounced)) * 100) : null,
-      upcoming, recent, failedWeek, followUps,
-      overdue: followUps.filter((c) => c.inDays < 0).length,
-      dueToday: followUps.filter((c) => c.inDays === 0).length,
+      sent, upcoming, recent, failedWeek, tasks, followUps, stages,
+      taskDue: tasks.filter((t) => t.inDays <= 0).length,
+      taskOverdue: tasks.filter((t) => t.inDays < 0).length,
     }
   }, [data])
 
-  const clientsWord = clientsPage?.label ?? "Clients"
+  const convert = async (item: FormSubmissionItem) => {
+    setConverting(item.id)
+    try {
+      const res = await convertSubmissionToLead(item.id)
+      toast({
+        title: res.duplicate ? "Added to existing lead" : "Lead created",
+        description: res.duplicate ? "A lead with the same email or phone already exists." : "The enquiry is now a lead.",
+        variant: "success",
+      })
+      setData((prev) => prev && {
+        ...prev,
+        inquiries: prev.inquiries?.filter((x) => x.id !== item.id) ?? null,
+        leads: prev.leads ? { ...prev.leads, open: prev.leads.open + (res.duplicate ? 0 : 1) } : prev.leads,
+      })
+      void load()
+    } catch (e) {
+      toast({ title: "Could not create the lead", description: (e as Error).message, variant: "destructive" })
+    } finally {
+      setConverting(null)
+    }
+  }
 
+  const clientsWord = clientsPage?.label ?? "Clients"
   const upcoming = view?.upcoming ?? []
   const recent = view?.recent ?? []
+  const tasks = view?.tasks ?? []
   const follow = view?.followUps ?? []
+  const inquiries = data?.inquiries ?? null
+  const canConvert = can("inbox.manage") && can("leads.create")
 
-  const counts = !view || !data ? [] : [
-    { Art: Mail3D, n: view.sent, text: "Delivered in 30 days", href: `${EMAILS}?tab=sent` },
-    { Art: Clock3D, n: upcoming.length, text: "Scheduled", href: `${EMAILS}?tab=scheduled` },
-    { Art: Draft3D, n: data.drafts, text: data.drafts === 1 ? "Draft waiting" : "Drafts waiting", href: `${EMAILS}?tab=drafts` },
-    { Art: Person3D, n: data.clients?.length ?? 0, text: clientsWord, href: clientsPage?.path ?? "/client-management" },
+  type Count = { n: number; text: string; href: string; warn?: boolean }
+  const counts: Count[] = !view || !data ? [] : [
+    ...(inquiries ? [{ n: inquiries.length, text: inquiries.length === 1 ? "New inquiry" : "New inquiries", href: inquiriesPage?.path ?? "/developer/inbox" }] : []),
+    ...(data.leads ? [{ n: data.leads.open, text: data.leads.open === 1 ? "Open lead" : "Open leads", href: "/leads" }] : []),
+    ...(data.tasks ? [{ n: view.taskDue, text: view.taskDue === 1 ? "Task due" : "Tasks due", href: "/tasks", warn: view.taskOverdue > 0 }] : []),
+    { n: view.sent, text: "Emails delivered, 30 days", href: `${EMAILS}?tab=sent` },
     // problems only show up when there are some
-    ...(view.failedWeek.length ? [{ Art: Mail3D, n: view.failedWeek.length, warn: true, text: "Failed this week", href: `${EMAILS}?tab=sent` }] : []),
-    ...(view.overdue ? [{ Art: Calendar3D, n: view.overdue, warn: true, text: view.overdue === 1 ? "Overdue follow-up" : "Overdue follow-ups", href: clientsPage?.path ?? "/client-management" }] : []),
-    ...(inquiriesPage && data.inquiries ? [{ Art: Mail3D, n: data.inquiries, text: data.inquiries === 1 ? "New inquiry" : "New inquiries", href: inquiriesPage.path }] : []),
+    ...(view.failedWeek.length ? [{ n: view.failedWeek.length, warn: true, text: "Emails failed this week", href: `${EMAILS}?tab=sent` }] : []),
   ]
 
+  const totals = data?.report?.totals
+
   return (
-    // Desktop: exactly one screen, lists scroll inside their cards. Phone: a normal scrolling page.
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-4 py-5 sm:px-6 lg:h-full lg:min-h-0">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-4 py-5 sm:px-6">
       <SmtpAlertBanner />
 
       {failed && !data && (
@@ -150,73 +227,187 @@ export function Dashboard() {
 
       <h1 className="sr-only">Dashboard</h1>
       <section aria-label="Today" className="flex shrink-0 flex-wrap items-center gap-3 rounded-3xl border bg-gradient-to-br from-orange-50 via-card to-card p-3 shadow-sm dark:from-orange-950/30 sm:p-4">
-        <ul aria-label="At a glance" className="grid w-full grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] sm:gap-3 lg:w-auto lg:flex-1">
+        <ul aria-label="At a glance" className="grid w-full grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:gap-3 lg:w-auto lg:flex-1">
           {!view && [0, 1, 2, 3].map((i) => <li key={i}><Skeleton className="h-[4.5rem] w-full rounded-2xl" /></li>)}
           {counts.map((c) => (
             <li key={c.text}>
-              <Link href={c.href} className="flex h-full items-center gap-3 rounded-2xl border bg-background/80 py-2 pl-2 pr-4 transition-colors hover:border-primary/40 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <c.Art className="h-12 w-12 sm:h-14 sm:w-14" />
+              <Link href={c.href} className="flex h-full items-center gap-3 rounded-2xl border bg-background/80 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="min-w-0">
-                  <span className={cn("block text-xl font-semibold leading-7 tabular-nums sm:text-2xl sm:leading-8", "warn" in c && c.warn && "text-red-600 dark:text-red-400")}>{c.n.toLocaleString()}</span>
+                  <span className={cn("block text-xl font-semibold leading-7 tabular-nums sm:text-2xl sm:leading-8", c.warn && "text-red-600 dark:text-red-400")}>{c.n.toLocaleString()}</span>
                   <span className="block text-xs leading-4 text-muted-foreground sm:text-sm sm:leading-5">{c.text}</span>
                 </span>
               </Link>
             </li>
           ))}
         </ul>
-        <div className="flex w-full gap-2 sm:justify-end lg:w-auto">
-          {clientsPage && (
-            <Button asChild variant="outline" className="h-10 bg-background/70"><Link href={`${clientsPage.path}?add=1`}><UserPlus className="mr-1.5 h-4 w-4" />Add {clientsWord.toLowerCase().replace(/s$/, "")}</Link></Button>
-          )}
-          <Button asChild className="h-10"><Link href={COMPOSE_PATH}><SquarePen className="mr-1.5 h-4 w-4" />Compose email</Link></Button>
-        </div>
       </section>
 
-      <div className="grid gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-3">
-        <Card Art={Clock3D} title="Up next" count={view ? upcoming.length : undefined} href={`${EMAILS}?tab=scheduled`}>
+      {/* Work to do: new enquiries to review, tasks that are due, and who was active lately */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {(hasInquiries || !data) && (
+          <Card title="New inquiries" count={inquiries?.length} href={inquiriesPage?.path} linkText="Open inbox">
+            {!view ? <Rows /> : !inquiries ? <Empty title="Couldn’t load inquiries" text="Reload the page to try again." />
+              : inquiries.length ? (
+                <ul className="space-y-0.5 p-2">
+                  {inquiries.slice(0, 20).map((q) => {
+                    const brand = brandOf(q.businessUnitId)
+                    const who = q.senderName || q.senderEmail || "Website visitor"
+                    return (
+                      <li key={q.id} className="flex items-center gap-2 rounded-xl px-2.5 py-2 transition-colors hover:bg-muted">
+                        <Link href={inquiriesPage?.path ?? "/developer/inbox"} className="flex min-w-0 flex-1 items-center gap-3 focus-visible:outline-none">
+                          <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-orange-200 to-orange-400 text-sm font-semibold text-orange-950">
+                            {who.trim().slice(0, 1).toUpperCase()}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium">{who}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {[brand, q.formName || "Contact form"].filter(Boolean).join(" · ")} · {shortDate(Date.parse(q.createdAt), data!.at)}
+                            </span>
+                          </span>
+                        </Link>
+                        {canConvert && (
+                          <Button size="sm" variant="outline" className="h-7 shrink-0 text-xs" disabled={converting === q.id} onClick={() => void convert(q)}
+                            title="Create a lead from this enquiry">
+                            {converting === q.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Target className="mr-1 h-3.5 w-3.5" />}To lead
+                          </Button>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : <Empty title="No new inquiries" text="Messages from your website forms show up here, ready to turn into leads." />}
+          </Card>
+        )}
+
+        {(hasLeads || !data) && (
+          <Card title="Tasks due" count={data?.tasks ? tasks.length + follow.length : undefined} href="/tasks" linkText="All tasks">
+            {!view ? <Rows /> : !data?.tasks ? <Empty title="Couldn’t load tasks" text="Reload the page to try again." />
+              : tasks.length || follow.length ? (
+                <div className="space-y-1 p-2">
+                  {tasks.length > 0 && (
+                    <ul className="space-y-0.5">
+                      {tasks.map((t) => {
+                        const chip = dueChip(t.inDays)
+                        return (
+                          <li key={`t-${t.id}`}>
+                            <Link href={`/leads/${t.leadId}`} className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
+                              <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", t.inDays < 0 ? "bg-red-500/10 text-red-600" : "bg-blue-500/10 text-blue-600")}>
+                                <Clock className="h-4 w-4" aria-hidden />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium">{t.title}</span>
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {new Date(t.dueAt as string).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                                </span>
+                              </span>
+                              <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", chip.cls)}>{chip.text}</span>
+                            </Link>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                  {follow.length > 0 && (
+                    <>
+                      <p className="px-2.5 pb-0.5 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{clientsWord} follow-ups</p>
+                      <ul className="space-y-0.5">
+                        {follow.map((c) => {
+                          const chip = dueChip(c.inDays)
+                          return (
+                            <li key={`c-${c.id}`}>
+                              <Link href={`/client-management/${c.id}`} className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
+                                <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-orange-200 to-orange-400 text-sm font-semibold text-orange-950">
+                                  {(c.name || c.email || "?").trim().slice(0, 1).toUpperCase()}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-medium">{c.name || c.companyName || c.email}</span>
+                                  <span className="block truncate text-xs text-muted-foreground">{c.followUpDate}</span>
+                                </span>
+                                <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", chip.cls)}>{chip.text}</span>
+                              </Link>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              ) : <Empty title="Nothing due this week" text="Add a task to a lead and it will show up here when it is due." />}
+          </Card>
+        )}
+
+        {(hasLeads || !data) && (
+          <Card title="Recent leads" href="/leads">
+            {!view ? <Rows /> : !data?.leads ? <Empty title="Couldn’t load leads" text="Reload the page to try again." />
+              : data.leads.recent.length ? (
+                <ul className="space-y-0.5 p-2">
+                  {data.leads.recent.map((l) => {
+                    const brand = brandOf(l.businessUnitId)
+                    const at = Date.parse(l.lastActivityAt ?? l.createdAt)
+                    return (
+                      <li key={l.id}>
+                        <Link href={`/leads/${l.id}`} className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
+                          <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sky-200 to-sky-400 text-sm font-semibold text-sky-950">
+                            {(l.name || l.email || "?").trim().slice(0, 1).toUpperCase()}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium">{l.name || l.email}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {[brand, l.company || l.source].filter(Boolean).join(" · ") || "No details yet"}
+                            </span>
+                          </span>
+                          {l.status !== "open" ? (
+                            <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", l.status === "won" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-red-500/10 text-red-700 dark:text-red-300")}>
+                              {l.status === "won" ? "Won" : "Lost"}
+                            </span>
+                          ) : (
+                            <span className="shrink-0 text-xs text-muted-foreground">{shortDate(at, data.at)}</span>
+                          )}
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : <Empty title="No leads yet" text="Convert a form enquiry or add a lead and it will appear here."
+                  action={<Button asChild size="sm"><Link href="/leads?new=1">Add a lead</Link></Button>} />}
+          </Card>
+        )}
+      </div>
+
+      {/* Pipeline and email activity */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {hasReports && (
+          <Card title="Leads by stage" href="/reports" linkText="Reports">
+            {!view ? <Rows /> : !data?.report ? <Empty title="Couldn’t load the pipeline" text="Reload the page to try again." />
+              : view.stages.length ? (
+                <div>
+                  <p className="px-4 pt-3 text-xs text-muted-foreground">
+                    Leads from the last 30 days
+                    {totals && totals.pipelineValue > 0 ? ` · Open pipeline ${inr.format(totals.pipelineValue)}` : ""}
+                    {totals?.winRate != null ? ` · Win rate ${totals.winRate}%` : ""}
+                  </p>
+                  <StageBars rows={view.stages} />
+                </div>
+              ) : <Empty title="No leads in the last 30 days" text="Once leads come in you will see where each one sits in your pipeline." />}
+          </Card>
+        )}
+
+        <Card title="Up next" count={view ? upcoming.length : undefined} href={`${EMAILS}?tab=scheduled`}>
           {!view ? <Rows /> : upcoming.length
             ? <EmailList groups={upcoming} tab="scheduled" now={data!.at} />
-            : <Empty Art={Clock3D} title="Nothing is scheduled" text="Write an email and pick a time, and it will wait here."
+            : <Empty title="Nothing is scheduled" text="Write an email and pick a time, and it will wait here."
                 action={<Button asChild size="sm"><Link href={COMPOSE_PATH}>Schedule an email</Link></Button>} />}
         </Card>
 
-        <Card Art={Sent3D} title="Just sent" href={`${EMAILS}?tab=sent`}>
+        <Card title="Just sent" href={`${EMAILS}?tab=sent`}>
           {!view ? <Rows /> : recent.length
             ? <EmailList groups={recent.slice(0, 20)} tab="sent" now={data!.at} />
-            : <Empty Art={Sent3D} title="No emails sent yet" text="Emails you send show up here with how they did." />}
-        </Card>
-
-        <Card Art={Folder3D} title="Follow-ups" count={view && data?.clients ? follow.length : undefined}
-          href={clientsPage?.path} linkText={data?.clients ? `All ${clientsWord.toLowerCase()}` : undefined}>
-          {!view ? <Rows /> : !data?.clients ? <Empty Art={Person3D} title={`Couldn’t load ${clientsWord.toLowerCase()}`} text="Reload the page to try again." />
-            : follow.length ? (
-              <ul className="space-y-0.5 p-2">
-                {follow.map((c) => (
-                  <li key={c.id}>
-                    <Link href={`/client-management/${c.id}`} className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
-                      <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-orange-200 to-orange-400 text-sm font-semibold text-orange-950">
-                        {(c.name || c.email || "?").trim().slice(0, 1).toUpperCase()}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{c.name || c.companyName || c.email}</span>
-                        <span className="block truncate text-xs text-muted-foreground">{c.followUpDate}</span>
-                      </span>
-                      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-                        c.inDays < 0 ? "bg-red-500/10 text-red-700 dark:text-red-300" : c.inDays === 0 ? "bg-amber-500/15 text-amber-800 dark:text-amber-200" : "bg-muted text-muted-foreground")}>
-                        {c.inDays < 0 ? `${-c.inDays}d overdue` : c.inDays === 0 ? "Today" : c.inDays === 1 ? "Tomorrow" : `In ${c.inDays} days`}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : <Empty Art={Folder3D} title="No follow-ups this week" text={`Add a follow-up date to any of your ${clientsWord.toLowerCase()} and it will show up here.`} />}
+            : <Empty title="No emails sent yet" text="Emails you send show up here with how they did." />}
         </Card>
       </div>
     </div>
   )
 }
-
-type ArtComponent = (p: { className?: string }) => React.ReactNode
 type Tone = "green" | "red" | "amber" | "blue" | "gray"
 const CHIP: Record<Tone, string> = {
   green: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
@@ -226,20 +417,39 @@ const CHIP: Record<Tone, string> = {
   gray: "bg-muted text-muted-foreground",
 }
 
-function Card({ Art, title, count, href, linkText = "See all", children }: {
-  Art: ArtComponent; title: string; count?: number; href?: string; linkText?: string; children: React.ReactNode
+function Card({ title, count, href, linkText = "See all", children }: {
+  title: string; count?: number; href?: string; linkText?: string; children: React.ReactNode
 }) {
   return (
-    <section aria-label={title} className="flex flex-col overflow-hidden rounded-3xl border bg-card shadow-sm lg:min-h-0">
+    <section aria-label={title} className="flex h-[22rem] flex-col overflow-hidden rounded-3xl border bg-card shadow-sm">
       <div className="flex shrink-0 items-center gap-2.5 border-b px-4 py-2.5">
-        <Art className="h-9 w-9" />
         <h2 className="font-semibold">{title}</h2>
         {count != null && count > 0 && <span className="rounded-full bg-primary/10 px-2 text-xs font-semibold tabular-nums text-orange-800 dark:text-orange-300">{count}</span>}
         {href && <Link href={href} className="ml-auto text-sm font-medium text-primary hover:underline">{linkText}</Link>}
       </div>
       {/* relative: keeps absolutely positioned bits (sr-only labels) inside the scroll box, or they stretch the page */}
-      <div className="relative max-h-96 overflow-y-auto lg:max-h-none lg:min-h-0 lg:flex-1">{children}</div>
+      <div className="relative min-h-0 flex-1 overflow-y-auto">{children}</div>
     </section>
+  )
+}
+
+/** One bar per stage, scaled to the busiest stage. */
+function StageBars({ rows }: { rows: { label: string; n: number }[] }) {
+  const max = Math.max(...rows.map((r) => r.n), 1)
+  return (
+    <ul className="space-y-3 p-4">
+      {rows.map((r) => (
+        <li key={r.label}>
+          <div className="mb-1 flex items-center justify-between gap-2 text-sm">
+            <span className="truncate">{r.label}</span>
+            <span className="shrink-0 font-medium tabular-nums">{r.n}</span>
+          </div>
+          <div className="h-2 rounded-full bg-muted" role="presentation">
+            <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.max(4, (r.n / max) * 100)}%` }} />
+          </div>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -276,10 +486,9 @@ function EmailList({ groups, tab, now }: { groups: EmailGroup[]; tab: "scheduled
   )
 }
 
-function Empty({ Art, title, text, action }: { Art: ArtComponent; title: string; text?: string; action?: React.ReactNode }) {
+function Empty({ title, text, action }: { title: string; text?: string; action?: React.ReactNode }) {
   return (
     <div className="flex h-full min-h-48 flex-col items-center justify-center gap-1.5 px-6 py-6 text-center">
-      <Art className="mb-1 h-28 w-28" />
       <p className="font-semibold">{title}</p>
       {text && <p className="max-w-64 text-sm text-muted-foreground">{text}</p>}
       {action && <div className="mt-2">{action}</div>}

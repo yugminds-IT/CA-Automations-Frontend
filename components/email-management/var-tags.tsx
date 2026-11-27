@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { TOKEN_RE, groupVariables, humanize, keyOf, suggestVariable, usedVariables, type TemplateVar } from '@/lib/template-variables'
 import { VAR_CHIP_CLASS, VAR_CHIP_CUSTOM_CLASS, chipText, escapeHtml } from './send-mails-utils'
+import { parseInert, safeHtml } from '@/lib/safe-html'
 
 export function chipHtml(token: string, vars: TemplateVar[]): string {
   const key = keyOf(token)
@@ -24,9 +25,10 @@ export function chipHtml(token: string, vars: TemplateVar[]): string {
 
 /** Turn {{tokens}} in TEXT into tags. Tokens inside attributes (href="{{login_url}}") stay as they are. */
 export function chipify(html: string, vars: TemplateVar[]): string {
-  if (typeof document === 'undefined' || !html.includes('{{')) return html
-  const root = document.createElement('div')
-  root.innerHTML = html
+  if (typeof document === 'undefined') return ''
+  // Template HTML is not trusted: parse it without running anything, and clean what comes out.
+  if (!html.includes('{{')) return safeHtml(html)
+  const root = parseInert(html)
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   const texts: Text[] = []
   while (walker.nextNode()) texts.push(walker.currentNode as Text)
@@ -45,7 +47,7 @@ export function chipify(html: string, vars: TemplateVar[]): string {
     frag.append(s.slice(last))
     node.replaceWith(frag)
   }
-  return root.innerHTML
+  return safeHtml(root.innerHTML)
 }
 
 /** Re-render existing tags (e.g. once the variable list has loaded and labels are known). */

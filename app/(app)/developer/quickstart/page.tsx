@@ -15,21 +15,29 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/components/ui/use-toast";
 import { getApiKeys, ApiKeyItem } from "@/lib/api/developer";
+import { BusinessUnit, listBusinessUnits } from "@/lib/api/business-units";
+import { pickerLabel } from "@/lib/unit-structure";
 
 export default function QuickstartPage() {
   const { toast } = useToast();
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
+  const [units, setUnits] = useState<BusinessUnit[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>("pk_live_your_public_key");
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await getApiKeys();
+        const [data, unitList] = await Promise.all([
+          getApiKeys(),
+          listBusinessUnits().catch(() => [] as BusinessUnit[]),
+        ]);
         setKeys(data);
-        const firstPublic = data.find((k) => k.keyType === "public");
+        setUnits(unitList);
+        const firstPublic = data.find((k) => k.keyType === "public" && k.publicKey);
         if (firstPublic && firstPublic.publicKey) {
           setSelectedKey(firstPublic.publicKey);
         }
@@ -39,6 +47,13 @@ export default function QuickstartPage() {
     }
     load();
   }, []);
+
+  const publicKeys = keys.filter((k) => k.keyType === "public" && k.publicKey);
+  const brandForKey = (k: ApiKeyItem) => {
+    if (units.length <= 1 || k.businessUnitId == null) return "";
+    const u = units.find((x) => x.id === k.businessUnitId);
+    return u ? ` — ${pickerLabel(u, units)}` : "";
+  };
 
   const handleCopy = (code: string, tab: string) => {
     navigator.clipboard.writeText(code);
@@ -200,18 +215,32 @@ async function sendTransactionalEmail() {
 sendTransactionalEmail();`;
 
   return (
-    <div className="p-4 sm:p-5 max-w-5xl mx-auto space-y-5">
-      {/* Header */}
-      <div className="border-b pb-5">
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Code2 className="w-6 h-6 text-orange-500" /> Developer Quickstart &amp; Code Generator
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Copy-paste ready code to integrate website contact forms or send transactional emails from your backend.
-        </p>
-      </div>
+    <div className="flex flex-col gap-4 p-4 sm:p-5">
+      <PageHeader
+        title="Form & API code"
+        description="Copy-paste code to put a contact form on your website or send emails from your backend."
+      />
 
       {/* Public Key Picker */}
+      {publicKeys.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border bg-muted/30 p-3">
+          <span className="text-xs font-medium text-muted-foreground shrink-0">
+            Brand API key for snippets:
+          </span>
+          <Select value={selectedKey} onValueChange={setSelectedKey}>
+            <SelectTrigger className="h-8 text-xs sm:max-w-md">
+              <SelectValue placeholder="Choose a public key" />
+            </SelectTrigger>
+            <SelectContent>
+              {publicKeys.map((k) => (
+                <SelectItem key={k.id} value={k.publicKey!}>
+                  {k.name}{brandForKey(k)} ({k.publicKey!.slice(0, 14)}…)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
 
       {/* Code Snippets Tabs */}

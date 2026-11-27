@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useToast } from '@/components/ui/use-toast'
 import { getClients } from '@/lib/api/clients'
+import { listLeads } from '@/lib/api/leads'
 import { listTemplates } from '@/lib/api/email-templates'
 import { createDraft, deleteDraft, listDrafts, updateDraft, type ServerDraft } from '@/lib/api/mail-management'
 import { checkSuppressions, deleteSegment, listSegments, saveSegment, scheduleEmail, sendBulkEmail, updateSegment } from '@/lib/api/mail-management'
@@ -33,6 +34,7 @@ import type { EmailTemplate, SavedSegment, ScheduleConfig, SegmentSend, Service 
 
 import {
   type ClientItem,
+  leadAsRecipient,
   transformClient,
   clientVariables,
   orgVariables,
@@ -94,6 +96,10 @@ export function SendMails() {
 
   // Data
   const [clients, setClients] = useState<ClientItem[]>([])
+  const [leadItems, setLeadItems] = useState<ClientItem[]>([])
+  /** Which directory the recipient list is drawn from. */
+  const [directory, setDirectory] = useState<'clients' | 'leads'>('clients')
+  const [isLoadingLeads, setIsLoadingLeads] = useState(true)
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const templatesReady = useRef<Promise<EmailTemplate[]>>(Promise.resolve([]))
   const [services, setServices] = useState<Service[]>([])
@@ -166,6 +172,7 @@ export function SendMails() {
   const hasBody = body !== BLANK_BODY && !!body.replace(/<[^>]*>|&nbsp;/g, '').trim()
   const [previewClientIndex, setPreviewClientIndex] = useState(0)
   const [recipientsOpen, setRecipientsOpen] = useState(false)
+  const [pasteOpen, setPasteOpen] = useState(false)
   const [view, setView] = useState<'write' | 'preview'>('write')
   const [isTesting, setIsTesting] = useState(false)
   const [testOpen, setTestOpen] = useState(false)
@@ -249,6 +256,40 @@ export function SendMails() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    setIsLoadingLeads(true)
+    ;(async () => {
+      const all = []
+      let page = 1
+      let total = Infinity
+      while (all.length < total && page <= 10) {
+        const res = await listLeads({ limit: 200, page })
+        all.push(...res.items)
+        total = res.total
+        if (res.items.length === 0) break
+        page += 1
+      }
+      if (!cancelled) setLeadItems(all.map(leadAsRecipient))
+    })()
+      .catch(() => { if (!cancelled) toast({ title: 'Could not load leads', description: 'You can still send to clients.', variant: 'destructive' }) })
+      .finally(() => { if (!cancelled) setIsLoadingLeads(false) })
+    return () => { cancelled = true }
+  }, [toast])
+
+  const people = directory === 'leads' ? leadItems : clients
+  const who = directory === 'leads' ? 'leads' : industryConfig.recipientPlural.toLowerCase()
+  const whoOne = directory === 'leads' ? 'lead' : industryConfig.recipientSingular.toLowerCase()
+  const directoryLoading = directory === 'leads' ? isLoadingLeads : isLoadingClients
+  const chooseDirectory = (next: 'clients' | 'leads') => {
+    if (next === directory) return
+    setDirectory(next)
+    setAudience(null)
+    setSelectedIds(new Set())
+    setExcluded(new Set())
+    setSearch('')
+  }
+
+  useEffect(() => {
     setIsLoadingTemplates(true)
     const user = getUserData()
     templatesReady.current = listTemplates({ organizationId: user?.organizationId != null ? Number(user.organizationId) : undefined })
@@ -282,38 +323,48 @@ export function SendMails() {
     [services]
   )
 
-  const distinct = (pick: (c: ClientItem) => string | undefined) =>
-    [...new Set(clients.map(pick).map((v) => v?.trim()).filter((v): v is string => !!v))].sort((a, b) => a.localeCompare(b))
-  const ruleFields: RuleFieldInfo[] = useMemo(() => [
-    { field: 'businessType', label: industryConfig.categoryFilterLabel, options: allCategories },
-    { field: 'service', label: industryConfig.serviceFilterLabel, options: serviceOptions.map((s) => s.name) },
-    { field: 'status', label: 'Status', options: distinct((c) => c.status) },
-    { field: 'city', label: 'City', options: distinct((c) => c.city) },
-    { field: 'state', label: 'State', options: distinct((c) => c.state) },
-    { field: 'tags', label: 'Tags', options: [...new Set(clients.flatMap((c) => c.tags ?? []))].sort((a, b) => a.localeCompare(b)) },
-    { field: 'followUp', label: clientLabels.followUpDateLabel },
-    { field: 'onboard', label: clientLabels.onboardDateLabel },
-    ...custom.map((v) => ({
+  const distinct = (list: ClientItem[], pick: (c: ClientItem) => string | undefined) =>
+    [...new Set(list.map(pick).map((v) => v?.trim()).filter((v): v is string => !!v))].sort((a, b) => a.localeCompare(b))
+  const tagsOf = (list: ClientItem[]) => [...new Set(list.flatMap((c) => c.tags ?? []))].sort((a, b) => a.localeCompare(b))
+  const ruleFields: RuleFieldInfo[] = useMemo(() => {
+    const customFields = custom.map((v) => ({
       field: `custom:${v.key}` as const,
       label: v.label,
       options: [...new Set(Object.values(v.values ?? {}).map((x) => x.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    })),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [allCategories, serviceOptions, clients, industryConfig, clientLabels, custom])
+    }))
+    if (directory === 'leads') {
+      return [
+        { field: 'status', label: 'Status', options: ['open', 'won', 'lost'] },
+        { field: 'tags', label: 'Tags', options: tagsOf(leadItems) },
+        { field: 'followUp', label: 'Next follow-up' },
+      ]
+    }
+    return [
+      { field: 'businessType', label: industryConfig.categoryFilterLabel, options: allCategories },
+      { field: 'service', label: industryConfig.serviceFilterLabel, options: serviceOptions.map((s) => s.name) },
+      { field: 'status', label: 'Status', options: distinct(clients, (c) => c.status) },
+      { field: 'city', label: 'City', options: distinct(clients, (c) => c.city) },
+      { field: 'state', label: 'State', options: distinct(clients, (c) => c.state) },
+      { field: 'tags', label: 'Tags', options: tagsOf(clients) },
+      { field: 'followUp', label: clientLabels.followUpDateLabel },
+      { field: 'onboard', label: clientLabels.onboardDateLabel },
+      ...customFields,
+    ]
+  }, [directory, allCategories, serviceOptions, clients, leadItems, industryConfig, clientLabels, custom])
 
   // Clients matching every condition (the "A group" audience)
   const segmentClients = useMemo(() => {
     // each contact's own custom values (a field's default doesn't count as filled in)
     const customOf = (id: string | number) => Object.fromEntries(custom.map((v) => [v.key, v.values?.[String(id)] ?? '']))
-    return clients.filter((c) => matchesRules({ ...c, custom: customOf(c.id) }, rules))
-  }, [clients, rules, custom])
+    return people.filter((c) => matchesRules({ ...c, custom: customOf(c.id) }, rules))
+  }, [people, rules, custom])
 
   // Recipients panel list: the chosen group (or the whole directory), narrowed by search
   // back to the first page whenever the list itself changes
   const listKey = `${audience}|${search}|${JSON.stringify(plainRules(rules))}`
   const shown = shownFor.key === listKey ? shownFor.n : LIST_PAGE
   const filteredClients = useMemo(() => {
-    let list = audience === 'filtered' ? segmentClients : clients
+    let list = audience === 'filtered' ? segmentClients : people
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(
@@ -324,14 +375,14 @@ export function SendMails() {
       )
     }
     return list
-  }, [clients, segmentClients, audience, search])
+  }, [people, segmentClients, audience, search])
 
   // "All" and "A group" drive the selection; "Choose one by one" is manual
   useEffect(() => {
     const keep = (list: ClientItem[]) => new Set(list.filter((c) => !excluded.has(c.id)).map((c) => c.id))
-    if (audience === 'all') setSelectedIds(keep(clients))
+    if (audience === 'all') setSelectedIds(keep(people))
     else if (audience === 'filtered') setSelectedIds(keep(segmentClients))
-  }, [audience, clients, segmentClients, excluded])
+  }, [audience, people, segmentClients, excluded])
 
   const allSelected = filteredClients.length > 0 && filteredClients.every((c) => selectedIds.has(c.id))
 
@@ -364,8 +415,8 @@ export function SendMails() {
   }
 
   const selectedClients = useMemo(
-    () => clients.filter((c) => selectedIds.has(c.id)),
-    [clients, selectedIds]
+    () => people.filter((c) => selectedIds.has(c.id)),
+    [people, selectedIds]
   )
 
   // Pasted addresses; one that belongs to a saved contact is sent with that contact's details
@@ -373,9 +424,9 @@ export function SendMails() {
   const directEmailsList = pasted.valid
   const clientByEmail = useMemo(() => {
     const m = new Map<string, ClientItem>()
-    for (const c of clients) { const e = c.email?.trim().toLowerCase(); if (e && !m.has(e)) m.set(e, c) }
+    for (const c of people) { const e = c.email?.trim().toLowerCase(); if (e && !m.has(e)) m.set(e, c) }
     return m
-  }, [clients])
+  }, [people])
 
   // Who gets it: chosen contacts then pasted addresses, each address once, skipping ones that can't be sent to
   const candidates = useMemo(() => {
@@ -459,7 +510,8 @@ export function SendMails() {
    * (someone added to the group after scheduling is included). Per-client files keep a fixed list.
    */
   const segmentSend = (): SegmentSend | null => {
-    if ((audience !== 'all' && audience !== 'filtered') || attachments.perClient.length > 0 || !hasOrg()) return null
+    // Leads are not in the client groups the server re-checks, so they always go as the exact list.
+    if (directory === 'leads' || (audience !== 'all' && audience !== 'filtered') || attachments.perClient.length > 0 || !hasOrg()) return null
     return {
       rules: audience === 'all' ? [] : plainRules(rules),
       excludeIds: [...excluded].map(Number).filter(Number.isInteger),
@@ -503,7 +555,7 @@ export function SendMails() {
     el?.focus()
   }
   const checks = [
-    { ok: recipientCount > 0, done: `Sending to ${recipientCount.toLocaleString()} ${recipientCount === 1 ? industryConfig.recipientSingular.toLowerCase() : industryConfig.recipientPlural.toLowerCase()}`, todo: 'Choose who should receive it', fix: () => setRecipientsOpen(true) },
+    { ok: recipientCount > 0, done: `Sending to ${recipientCount.toLocaleString()} ${recipientCount === 1 ? whoOne : who}`, todo: 'Choose who should receive it', fix: () => setRecipientsOpen(true) },
     { ok: !!subject.trim(), done: 'Subject added', todo: 'Add a subject', fix: () => focusEditable('compose-subject') },
     { ok: hasBody, done: 'Message written', todo: 'Write a message', fix: () => focusEditable('compose-body') },
   ]
@@ -618,6 +670,7 @@ export function SendMails() {
     d.subject.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) => varLabel(k)).replace(/<[^>]*>/g, '').trim() || 'Untitled email'
   const draftJson = JSON.stringify({
     audience,
+    directory,
     rules,
     pickedIds: audience === 'pick' ? [...selectedIds] : [],
     excludedIds: [...excluded],
@@ -634,6 +687,7 @@ export function SendMails() {
   })
 
   const applyDraft = (d: SendDraft, tpls: EmailTemplate[] = templates) => {
+    setDirectory(d.directory === 'leads' ? 'leads' : 'clients')
     setAudience(d.audience)
     setRules(d.rules ?? [
       ...(d.categories?.length ? [{ id: 'c', field: 'businessType' as const, op: 'any' as const, values: d.categories }] : []),
@@ -740,7 +794,7 @@ export function SendMails() {
   const timeLabel = (ms: number) => new Date(ms).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 
   const groupName = activeGroup?.name || describeRules(rules, ruleFields) || 'A group'
-  const audienceLabel = audience === 'all' ? `All ${industryConfig.recipientPlural.toLowerCase()}` : audience === 'filtered' ? groupName : audience === 'pick' && selectedIds.size ? 'Chosen' : null
+  const audienceLabel = audience === 'all' ? `All ${who}` : audience === 'filtered' ? groupName : audience === 'pick' && selectedIds.size ? 'Chosen' : null
   const fileCount = attachments.shared.length + attachments.perClient.length
 
   return (
@@ -805,7 +859,7 @@ export function SendMails() {
               subjectText={preview?.subject ?? ''}
               bodyHtml={preview?.bodyHtml || '<span class="text-muted-foreground">(no message)</span>'}
               attachments={previewRecipient ? [...attachments.shared, ...filesFor(attachments, previewRecipient.email)].map((a) => a.name) : []}
-              emptyText={`Choose ${industryConfig.recipientPlural.toLowerCase()} to see the email exactly as they will get it.`}
+              emptyText="Choose clients or leads to see the email exactly as they will get it."
             />
           ) : (
           <div className="space-y-3 p-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
@@ -834,7 +888,7 @@ export function SendMails() {
               )}
               <button type="button" onClick={() => setRecipientsOpen(true)}
                 className={cn('text-sm font-medium text-primary hover:underline', !audienceLabel && !directEmailsList.length && 'py-0.5')}>
-                {audienceLabel || directEmailsList.length ? 'Change' : `Choose ${industryConfig.recipientPlural.toLowerCase()}…`}
+                {audienceLabel || directEmailsList.length ? 'Change' : 'Choose clients or leads…'}
               </button>
             </div>
             {/* Its own segment, so it reads as a button and not as part of the recipient list */}
@@ -976,7 +1030,7 @@ export function SendMails() {
           <p className="mr-auto min-w-0 truncate text-sm">
             {recipientCount === 0
               ? <span className="text-muted-foreground">No recipients yet</span>
-              : <span className="font-semibold">{recipientCount.toLocaleString()} {recipientCount === 1 ? industryConfig.recipientSingular.toLowerCase() : industryConfig.recipientPlural.toLowerCase()}</span>}
+              : <span className="font-semibold">{recipientCount.toLocaleString()} {recipientCount === 1 ? whoOne : who}</span>}
             {fileCount > 0 && <span className="text-muted-foreground"> · {fileCount} file{fileCount === 1 ? '' : 's'}</span>}
             {' · '}
             {blockers.length > 0
@@ -1025,20 +1079,37 @@ export function SendMails() {
 
       {/* ── Recipients panel ── */}
       <Sheet open={recipientsOpen} onOpenChange={setRecipientsOpen}>
-        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
           <SheetHeader className="border-b border-border">
             <SheetTitle>Who should receive it?</SheetTitle>
-            <SheetDescription>Pick everyone, a group, or people one by one. Untick anyone to leave them out.</SheetDescription>
+            <SheetDescription>
+              {recipientCount > 0
+                ? `This email will go to ${recipientCount.toLocaleString()} ${recipientCount === 1 ? 'person' : 'people'}.`
+                : 'Choose clients or leads, then everyone, a group, or just the names you tick.'}
+            </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-            <div role="radiogroup" aria-label="Recipients" className="grid gap-2">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+            <div role="radiogroup" aria-label="Directory" className="grid grid-cols-2 rounded-lg bg-muted p-1">
+              {(['clients', 'leads'] as const).map((d) => {
+                const on = directory === d
+                const n = d === 'leads' ? leadItems.length : clients.length
+                const loading = d === 'leads' ? isLoadingLeads : isLoadingClients
+                return (
+                  <button key={d} type="button" aria-pressed={on} onClick={() => chooseDirectory(d)}
+                    className={cn('rounded-md px-3 py-2 text-sm font-medium', on ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                    {d === 'clients' ? 'Clients' : 'Leads'}
+                    <span className="ml-1.5 tabular-nums text-xs font-normal text-muted-foreground">{loading ? '…' : n.toLocaleString()}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div role="radiogroup" aria-label="How to choose" className="grid grid-cols-3 gap-2">
               <AudienceOption checked={audience === 'all'} onSelect={() => chooseAudience('all')}
-                title={`All ${industryConfig.recipientPlural.toLowerCase()}`}
-                detail={isLoadingClients ? 'Loading…' : `${clients.length.toLocaleString()} ${industryConfig.recipientPlural.toLowerCase()}`} />
+                title="Everyone" detail={directoryLoading ? '…' : people.length.toLocaleString()} />
               <AudienceOption checked={audience === 'filtered'} onSelect={() => chooseAudience('filtered')}
-                title="A group" detail={`By ${industryConfig.categoryFilterLabel.toLowerCase()}, ${industryConfig.serviceFilterLabel.toLowerCase()}, status, place or dates`} />
+                title="A group" detail={audience === 'filtered' ? segmentClients.length.toLocaleString() : 'Filter'} />
               <AudienceOption checked={audience === 'pick'} onSelect={() => chooseAudience('pick')}
-                title="Choose one by one" detail="Search and tick individual names" />
+                title="Pick names" detail={audience === 'pick' ? selectedIds.size.toLocaleString() : 'One by one'} />
             </div>
 
           {audience === 'filtered' && (
@@ -1046,12 +1117,12 @@ export function SendMails() {
               <AudienceRules rules={rules} onChange={setRules} fields={ruleFields} />
               <p className="text-sm">
                 <span className="font-semibold">{segmentClients.length.toLocaleString()}</span>{' '}
-                <span className="text-muted-foreground">of {clients.length.toLocaleString()} {industryConfig.recipientPlural.toLowerCase()} match</span>
+                <span className="text-muted-foreground">of {people.length.toLocaleString()} {who} match</span>
                 {rules.length > 0 && (
                   <button type="button" onClick={() => setRules([])} className="ml-2 text-primary hover:underline">Clear</button>
                 )}
               </p>
-              {(savedGroups.length > 0 || (rules.length > 0 && hasOrg())) && (
+              {directory === 'clients' && (savedGroups.length > 0 || (rules.length > 0 && hasOrg())) && (
                 <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
                   {savedGroups.length > 0 && <span className="text-sm text-muted-foreground">Saved groups:</span>}
                   {savedGroups.map((g) => (
@@ -1090,39 +1161,51 @@ export function SendMails() {
             </div>
           )}
 
+            {!audience && (
+              <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                Start with Everyone to include the whole list. Untick anyone you want to leave out.
+              </p>
+            )}
+
             {audience && (
-              <div className="rounded-lg border border-border">
+              <div className="overflow-hidden rounded-lg border border-border">
                 <div className="border-b border-border p-2">
                   <div className="relative">
                     <SearchMd className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={industryConfig.searchPlaceholder} className="pl-9" />
+                    <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={directory === 'leads' ? 'Search leads by name, email or company' : industryConfig.searchPlaceholder} className="pl-9" />
                   </div>
                   <label className="mt-2 flex cursor-pointer items-center gap-2 px-1 text-sm text-muted-foreground">
                     <input type="checkbox" className="h-4 w-4 accent-primary" checked={allSelected} onChange={toggleSelectAll} />
-                    Select all {search.trim() ? 'results' : ''}
-                    <span className="ml-auto font-medium text-foreground">{selectedIds.size.toLocaleString()} selected</span>
+                    Include all shown
+                    <span className="ml-auto font-medium text-foreground">{selectedIds.size.toLocaleString()} included</span>
                   </label>
                 </div>
-                <div>
-                  {isLoadingClients ? (
-                    <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+                <div className="max-h-80 overflow-y-auto">
+                  {directoryLoading ? (
+                    <p className="p-4 text-sm text-muted-foreground">Loading {who}…</p>
                   ) : filteredClients.length === 0 ? (
-                    <p className="p-4 text-sm text-muted-foreground">No {industryConfig.recipientPlural.toLowerCase()} found.</p>
+                    <p className="p-4 text-sm text-muted-foreground">No {who} match.</p>
                   ) : filteredClients.slice(0, shown).map((c) => (
-                    <label key={c.id} className="flex cursor-pointer items-center gap-3 border-b border-border/60 px-3 py-2 last:border-0 hover:bg-muted/50">
+                    <label key={c.id} className="flex cursor-pointer items-center gap-3 border-b border-border/60 px-3 py-2.5 last:border-0 hover:bg-muted/50">
                       <input type="checkbox" className="h-4 w-4 shrink-0 accent-primary" checked={selectedIds.has(c.id)} onChange={() => toggleClient(c.id)} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{c.name}</span>
-                        <span className="block truncate text-xs text-muted-foreground">{c.email}</span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold uppercase">
+                        {(c.name || c.email || '?').slice(0, 1)}
                       </span>
-                      {c.businessType && <span className="shrink-0 text-xs text-muted-foreground">{c.businessType}</span>}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{c.name || 'No name'}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{c.email || 'No email address'}{c.companyName ? ` · ${c.companyName}` : ''}</span>
+                      </span>
+                      {(directory === 'leads' ? c.status : c.businessType) && (
+                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] capitalize text-muted-foreground">
+                          {directory === 'leads' ? c.status : c.businessType}
+                        </span>
+                      )}
                     </label>
                   ))}
                   {filteredClients.length > shown && (
                     <button type="button" onClick={() => setShownFor({ key: listKey, n: shown + LIST_PAGE })}
                       className="w-full px-3 py-2.5 text-sm font-medium text-primary hover:bg-muted/50">
                       Show {Math.min(LIST_PAGE, filteredClients.length - shown).toLocaleString()} more
-                      <span className="font-normal text-muted-foreground"> · {(filteredClients.length - shown).toLocaleString()} not shown (all are still included)</span>
                     </button>
                   )}
                 </div>
@@ -1130,17 +1213,22 @@ export function SendMails() {
             )}
 
             <div>
-              <label htmlFor="also-to" className="mb-1.5 block text-sm font-medium">Paste email addresses <span className="font-normal text-muted-foreground">(optional)</span></label>
-              <textarea id="also-to" rows={3} value={customRecipients} onChange={(e) => setCustomRecipients(e.target.value)}
-                placeholder={'One per line, or separated by commas.\nCopy a column from Excel or a list like: Asha <asha@example.com>'}
-                className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-              {customRecipients.trim() && (
-                <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
-                  {pasted.valid.length.toLocaleString()} address{pasted.valid.length === 1 ? '' : 'es'}
-                  {(() => { const n = pasted.valid.filter((e) => clientByEmail.has(e)).length; return n ? ` · ${n.toLocaleString()} saved ${(n === 1 ? industryConfig.recipientSingular : industryConfig.recipientPlural).toLowerCase()} (sent with their details)` : '' })()}
-                  {pasted.duplicates > 0 && ` · ${pasted.duplicates} repeat${pasted.duplicates === 1 ? '' : 's'} removed`}
-                  {pasted.invalid.length > 0 && <span className="text-destructive"> · {pasted.invalid.length} not valid: {pasted.invalid.slice(0, 3).join(', ')}{pasted.invalid.length > 3 ? '…' : ''}</span>}
-                </p>
+              <button type="button" className="text-sm font-medium text-primary hover:underline" onClick={() => setPasteOpen((o) => !o)}>
+                {pasteOpen || customRecipients.trim() ? 'Other email addresses' : 'Add email addresses that are not in the list'}
+              </button>
+              {(pasteOpen || customRecipients.trim()) && (
+                <>
+                  <textarea id="also-to" rows={3} value={customRecipients} onChange={(e) => setCustomRecipients(e.target.value)}
+                    placeholder={'One address per line, or separated by commas.'}
+                    className="mt-2 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                  {customRecipients.trim() && (
+                    <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
+                      {pasted.valid.length.toLocaleString()} address{pasted.valid.length === 1 ? '' : 'es'} will also get it
+                      {pasted.duplicates > 0 && ` · ${pasted.duplicates} repeat${pasted.duplicates === 1 ? '' : 's'} removed`}
+                      {pasted.invalid.length > 0 && <span className="text-destructive"> · {pasted.invalid.length} not a valid email</span>}
+                    </p>
+                  )}
+                </>
               )}
             </div>
             {leftOut.length > 0 && (
@@ -1195,17 +1283,12 @@ function AudienceOption({ checked, onSelect, title, detail }: { checked: boolean
       aria-checked={checked}
       onClick={onSelect}
       className={cn(
-        'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
-        checked ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50',
+        'rounded-lg border px-2 py-2.5 text-center transition-colors',
+        checked ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted/50',
       )}
     >
-      <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2', checked ? 'border-primary' : 'border-muted-foreground/40')}>
-        {checked && <span className="h-2 w-2 rounded-full bg-primary" />}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-medium">{title}</span>
-        <span className="block text-xs text-muted-foreground">{detail}</span>
-      </span>
+      <span className="block text-sm font-medium">{title}</span>
+      <span className={cn('block text-xs tabular-nums', checked ? 'text-primary/80' : 'text-muted-foreground')}>{detail}</span>
     </button>
   )
 }

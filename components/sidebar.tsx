@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { Search, SquarePen } from "lucide-react"
+import { ChevronDown, Search, SquarePen } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -11,8 +11,10 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 import { Kbd } from "@/components/ui/kbd"
 import { getUserData, getRoleFromUser, getOrganizationData } from "@/lib/api/index"
 import { getFormSubmissions } from "@/lib/api/developer"
+import { globalSearch, type GlobalSearchResult } from "@/lib/api/search"
 import { listSchedules } from "@/lib/api/mail-management"
 import { COMPOSE_PATH, SECTIONS, activePageId, pagesFor, toIndustry, type BadgeKey, type NavPage } from "@/lib/nav"
+import { useAccess } from "@/lib/use-permissions"
 import { cn } from "@/lib/utils"
 
 interface SidebarProps {
@@ -58,6 +60,19 @@ export function Sidebar({ mobileMenuOpen: externalOpen, setMobileMenuOpen: setEx
   const [industry, setIndustry] = useState(() => toIndustry(null))
   const [role, setRole] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [searchText, setSearchText] = useState("")
+  const [records, setRecords] = useState<GlobalSearchResult | null>(null)
+
+  // Records search, debounced. Stale responses are ignored.
+  useEffect(() => {
+    const term = searchText.trim()
+    if (!searchOpen || term.length < 2 || role?.toLowerCase() === "client") return
+    let active = true
+    const timer = setTimeout(() => {
+      globalSearch(term).then((res) => { if (active) setRecords(res) }).catch(() => { if (active) setRecords(null) })
+    }, 250)
+    return () => { active = false; clearTimeout(timer) }
+  }, [searchText, searchOpen, role])
 
   useEffect(() => {
     const refresh = () => {
@@ -80,11 +95,20 @@ export function Sidebar({ mobileMenuOpen: externalOpen, setMobileMenuOpen: setEx
   }, [])
 
   const isClient = role?.toLowerCase() === "client"
-  const pages = useMemo(() => pagesFor(industry, role), [industry, role])
+  const access = useAccess(role)
+  const permissions = access?.permissions ?? null
+  const adminPanel = access?.adminPanel ?? true
+  const pages = useMemo(() => pagesFor(industry, role, permissions, adminPanel), [industry, role, permissions, adminPanel])
   const active = activePageId(pages, pathname)
   const composing = pathname === COMPOSE_PATH
   const badges = useBadges(isClient ? [] : pages, pathname)
   const sections = SECTIONS.map((s) => ({ ...s, pages: pages.filter((p) => p.section === s.id) })).filter((s) => s.pages.length)
+  // Sections start collapsed. Only the one holding the current page starts open, so you never lose your place.
+  // A click on a section title overrides that either way.
+  const [sectionChoice, setSectionChoice] = useState<Record<string, boolean>>({})
+  const activeSectionId = sections.find((s) => s.pages.some((p) => p.id === active))?.id
+  const sectionOpen = (id: string) => sectionChoice[id] ?? id === activeSectionId
+  const toggleSection = (id: string) => setSectionChoice((prev) => ({ ...prev, [id]: !(prev[id] ?? id === activeSectionId) }))
   const go = (path: string) => { setSearchOpen(false); setMobileOpen(false); router.push(path) }
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
 
@@ -122,23 +146,40 @@ export function Sidebar({ mobileMenuOpen: externalOpen, setMobileMenuOpen: setEx
         </div>
       )}
       <nav aria-label="Main navigation" className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 pb-3 [scrollbar-width:thin]">
-        {sections.map((s) => (
-          <div key={s.id} className={s.id === "bottom" ? "mt-auto border-t border-sidebar-border pt-2" : "pt-4"}>
-            {s.id !== "bottom" && <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{s.label}</p>}
-            <ul className="space-y-0.5">
-              {s.pages.map((p) => (
-                <li key={p.id}>
-                  <Link href={p.path} onClick={() => setMobileOpen(false)} aria-current={active === p.id ? "page" : undefined}
-                    className={cn(row, "relative", rowState(active === p.id), active === p.id && "before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-primary")}>
-                    <p.icon className="h-[18px] w-[18px] shrink-0" />
-                    <span className="truncate">{p.label}</span>
-                    <Badge p={p} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        {sections.map((s) => {
+          const collapsible = s.id !== "bottom"
+          const open = !collapsible || sectionOpen(s.id)
+          // A closed section still shows how many things inside it need attention.
+          const alerts = s.pages.reduce((n, p) => n + (p.badge ? (badges[p.badge] ?? 0) : 0), 0)
+          return (
+            <div key={s.id} className={s.id === "bottom" ? "mt-auto border-t border-sidebar-border pt-2" : "pt-3"}>
+              {collapsible && (
+                <button type="button" onClick={() => toggleSection(s.id)} aria-expanded={open} aria-controls={`nav-section-${s.id}`}
+                  className="flex w-full items-center gap-2 rounded-md px-3 pb-1 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+                  <span>{s.label}</span>
+                  {!open && alerts > 0 && (
+                    <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold normal-case text-primary" aria-label={`${alerts} need attention`}>{alerts}</span>
+                  )}
+                  <ChevronDown className={cn("ml-auto h-3.5 w-3.5 shrink-0 transition-transform", !open && "-rotate-90")} aria-hidden />
+                </button>
+              )}
+              {open && (
+                <ul id={`nav-section-${s.id}`} className="space-y-0.5">
+                  {s.pages.map((p) => (
+                    <li key={p.id}>
+                      <Link href={p.path} onClick={() => setMobileOpen(false)} aria-current={active === p.id ? "page" : undefined}
+                        className={cn(row, "relative", rowState(active === p.id), active === p.id && "before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-primary")}>
+                        <p.icon className="h-[18px] w-[18px] shrink-0" />
+                        <span className="truncate">{p.label}</span>
+                        <Badge p={p} />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )
+        })}
       </nav>
     </>
   )
@@ -237,25 +278,50 @@ export function Sidebar({ mobileMenuOpen: externalOpen, setMobileMenuOpen: setEx
         </div>
       </aside>
 
-      {/* Jump to any page by name */}
-      <CommandDialog open={searchOpen} onOpenChange={setSearchOpen} title="Search" description="Go to a page">
-        <CommandInput placeholder="Go to a page…" />
+      {/* Jump to any page, or find a lead, task, client or contact by name */}
+      <CommandDialog open={searchOpen} onOpenChange={(open) => { setSearchOpen(open); if (!open) { setSearchText(""); setRecords(null) } }} title="Search" description="Find a page or a record">
+        <CommandInput placeholder="Search pages, leads, tasks, clients…" value={searchText} onValueChange={setSearchText} />
         <CommandList>
-          <CommandEmpty>No page matches.</CommandEmpty>
-          {!isClient && (
+          <CommandEmpty>Nothing matches.</CommandEmpty>
+          {!isClient && "compose email".includes(searchText.trim().toLowerCase()) && (
             <CommandGroup heading="Actions">
-              <CommandItem onSelect={() => go(COMPOSE_PATH)}><SquarePen className="h-4 w-4" />Compose email</CommandItem>
+              <CommandItem value="compose email" onSelect={() => go(COMPOSE_PATH)}><SquarePen className="h-4 w-4" />Compose email</CommandItem>
             </CommandGroup>
           )}
-          {sections.map((s) => (
-            <CommandGroup key={s.id} heading={s.label}>
-              {s.pages.map((p) => (
-                <CommandItem key={p.id} value={`${p.label} ${s.label}`} onSelect={() => go(p.path)}>
-                  <p.icon className="h-4 w-4" />{p.label}
-                </CommandItem>
+          {records && (records.leads.length + records.tasks.length + records.clients.length + records.contacts.length) > 0 && (
+            <>
+              {([
+                ["Leads", records.leads],
+                ["Tasks", records.tasks],
+                ["Clients", records.clients],
+                ["Contacts", records.contacts],
+              ] as const).map(([heading, hits]) => hits.length > 0 && (
+                <CommandGroup key={heading} heading={heading}>
+                  {hits.map((h) => (
+                    <CommandItem key={`${heading}-${h.id}`} value={`${heading}-${h.id}-${h.label}`} onSelect={() => go(h.href)}>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate">{h.label}</span>
+                        {h.sublabel && <span className="truncate text-xs text-muted-foreground">{h.sublabel}</span>}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
               ))}
-            </CommandGroup>
-          ))}
+            </>
+          )}
+          {sections.map((s) => {
+            const matches = s.pages.filter((p) => !searchText.trim() || `${p.label} ${s.label}`.toLowerCase().includes(searchText.trim().toLowerCase()))
+            if (!matches.length) return null
+            return (
+              <CommandGroup key={s.id} heading={s.label}>
+                {matches.map((p) => (
+                  <CommandItem key={p.id} value={`page-${p.id}`} onSelect={() => go(p.path)}>
+                    <p.icon className="h-4 w-4" />{p.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )
+          })}
         </CommandList>
       </CommandDialog>
     </>
