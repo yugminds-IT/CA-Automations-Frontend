@@ -12,6 +12,8 @@ export interface SendDraft {
   v: 1
   savedAt: number
   audience: Audience
+  /** Whose directory the audience was picked from. Older drafts are clients. */
+  directory?: 'clients' | 'leads'
   /** "A group" conditions; older drafts saved categories/services instead */
   rules?: Rule[]
   categories?: string[]

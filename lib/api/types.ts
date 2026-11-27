@@ -1,6 +1,8 @@
 // API Types - Backend enums and payload structures (from FRONTEND_INTEGRATION.md)
 // No frontend-specific handling - types only
 
+import type { UnitStructure } from '../unit-structure';
+
 // ============ ENUMS (from backend) ============
 
 export enum RoleName {
@@ -62,6 +64,10 @@ export interface SignupOrganizationRequest {
     pincode?: string;
     industry?: string;
     allowedOrigins?: string[];
+    /** Unit and brand layout. Omitted means multi_unit. */
+    unitStructure?: UnitStructure;
+    /** The plan picked at signup. Omitted means starter. */
+    planKey?: 'starter' | 'growth' | 'premium' | 'enterprise';
   };
   admin: {
     name: string;
@@ -122,6 +128,8 @@ export interface Organization {
   accessUntil?: string | null;
   approvedAt?: string | null;
   industrySettings?: { notificationEmail?: string } | null;
+  /** Unit and brand layout chosen at signup. */
+  unitStructure?: UnitStructure;
 }
 
 export interface SmtpConfigResponse {
@@ -168,6 +176,8 @@ export interface UpdateOrganizationRequest {
   country?: string;
   pincode?: string;
   notificationEmail?: string;
+  /** Master admin only. The backend rejects it from anyone else. */
+  unitStructure?: UnitStructure;
 }
 
 // ============ USERS ============
@@ -332,6 +342,8 @@ export interface CreateEmailTemplateRequest {
   subject: string;
   body: string;
   is_default?: boolean;
+  /** Omit or null for an organization-wide template. */
+  businessUnitId?: number | null;
 }
 
 export interface UpdateEmailTemplateRequest {
@@ -360,6 +372,8 @@ export interface EmailTemplate {
   /** null = global (master admin created); number = org-specific */
   organizationId?: number | null;
   organization?: { id: number; name: string } | null;
+  /** null = organization-wide; number = only for that business unit */
+  businessUnitId?: number | null;
   [key: string]: unknown;
 }
 

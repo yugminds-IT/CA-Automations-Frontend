@@ -173,23 +173,10 @@ export function ClientDetails({ clientId }: ClientDetailsProps) {
           setDirectors(transformedDirectors)
         }
         
-        // Extract login credentials: backend may expose login_email/login_password or client.user.email
+        // The login email only: passwords are never sent back, they are shown once when generated.
         const loginEmail = raw.login_email ?? raw.user?.email ?? null
         if (loginEmail) {
-          const passwordValue = (raw.login_password && String(raw.login_password).trim())
-            ? String(raw.login_password).trim()
-            : ''
-          const loginData = {
-            email: loginEmail,
-            password: passwordValue,
-          }
-          console.log('Setting initial logins from API response:', {
-            email: loginData.email,
-            password: loginData.password ? `${loginData.password.substring(0, 3)}***` : 'empty',
-            passwordLength: loginData.password?.length || 0,
-            rawLoginPassword: raw.login_password ? 'present' : 'missing',
-            rawLoginPasswordType: typeof raw.login_password
-          })
+          const loginData = { email: loginEmail, password: '' }
           setInitialLogins([loginData])
         } else {
           setInitialLogins([])

@@ -149,11 +149,20 @@ export async function getGenerationStatus(id: string): Promise<any> {
   return handleRes(res);
 }
 
-export async function getDownloadUrl(id: string, type: 'csi' | 'fvu'): Promise<{ url: string; taskId: string }> {
+/** Downloads a generated CSI/FVU file through the backend and saves it in the browser. */
+export async function downloadTdsFile(id: string, type: 'csi' | 'fvu'): Promise<void> {
   const res = await fetch(`${base}${API_CONFIG.endpoints.tdsFiling.download(id, type)}`, {
     headers: authHeaders(),
   });
-  return handleRes(res);
+  if (!res.ok) await handleRes(res);
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `${type}-file`;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function deleteSession(id: string): Promise<void> {

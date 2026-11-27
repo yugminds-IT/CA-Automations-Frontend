@@ -1,6 +1,7 @@
 // Pure helpers for the Send Mails composer (see send-mails-utils.test.ts).
 import { substituteTokens } from '@/lib/utils/email-template'
 import { formatDate } from '@/lib/template-variables'
+import { parseInert } from '@/lib/safe-html'
 
 
 export interface ClientItem {
@@ -67,6 +68,33 @@ export function transformClient(raw: any): ClientItem {
   }
 }
 
+/** A lead, in the shape the composer already uses for a client. The id cannot clash with a client id. */
+export function leadAsRecipient(lead: {
+  id: number
+  name: string
+  email: string | null
+  phone: string | null
+  company: string | null
+  status: string
+  tags?: string[]
+  source?: string | null
+  nextFollowUpAt?: string | null
+}): ClientItem {
+  const day = isoDay(lead.nextFollowUpAt)
+  return {
+    id: `lead:${lead.id}`,
+    name: lead.name,
+    email: lead.email ?? '',
+    companyName: lead.company ?? '',
+    status: lead.status,
+    phone: lead.phone,
+    tags: lead.tags ?? [],
+    followUpOn: day,
+    followUpDate: day ? formatDate(day) || undefined : undefined,
+    additionalNotes: lead.source ? `Source: ${lead.source}` : undefined,
+  }
+}
+
 /** Sender/org values from the logged-in user (the server re-fills these authoritatively when sending). */
 export function orgVariables(user: any): Record<string, string> {
   return {
@@ -124,8 +152,7 @@ export function substituteVarsHtml(html: string, vars: Record<string, string>): 
 
 /** Strip variable-chip spans and substitute values, then resolve remaining {{}} tokens (HTML-safe). */
 export function cleanAndSubstituteVars(html: string, vars: Record<string, string>): string {
-  const tmp = document.createElement('div')
-  tmp.innerHTML = html
+  const tmp = parseInert(html)
   tmp.querySelectorAll('span[contenteditable="false"]').forEach((span) => {
     span.replaceWith(document.createTextNode(substituteVars((span as HTMLElement).dataset.var ?? span.textContent ?? '', vars)))
   })
@@ -133,8 +160,7 @@ export function cleanAndSubstituteVars(html: string, vars: Record<string, string
 }
 /** Strip variable-chip spans back to their {{var}} text without substituting — backend resolves all variables */
 export function stripChips(html: string): string {
-  const tmp = document.createElement('div')
-  tmp.innerHTML = html
+  const tmp = parseInert(html)
   tmp.querySelectorAll('span[contenteditable="false"]').forEach((span) => {
     span.replaceWith(document.createTextNode((span as HTMLElement).dataset.var ?? span.textContent ?? ''))
   })

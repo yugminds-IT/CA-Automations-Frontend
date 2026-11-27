@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Test a Lekvya form API key</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: #f6f7f9; color: #1c1917; }
+    main { max-width: 32rem; margin: 2rem auto; padding: 0 1rem 3rem; }
+    h1 { font-size: 1.35rem; margin: 0 0 .25rem; }
+    p.hint { margin: 0 0 1.25rem; color: #57534e; font-size: .9rem; }
+    form, .out { background: #fff; border: 1px solid #e7e5e4; border-radius: 12px; padding: 1rem 1.1rem 1.15rem; }
+    label { display: block; font-size: .8rem; font-weight: 600; margin: .75rem 0 .3rem; }
+    input, textarea { width: 100%; box-sizing: border-box; border: 1px solid #d6d3d1; border-radius: 8px; padding: .55rem .7rem; font: inherit; }
+    textarea { min-height: 5rem; resize: vertical; }
+    button { margin-top: 1rem; background: #ea580c; color: #fff; border: 0; border-radius: 8px; padding: .6rem 1rem; font: inherit; font-weight: 650; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: default; }
+    .out { margin-top: 1rem; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, monospace; font-size: .82rem; }
+    .ok { border-color: #86efac; background: #f0fdf4; }
+    .bad { border-color: #fca5a5; background: #fef2f2; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Test a form API key</h1>
+    <p class="hint">Posts to <code>/api/v1/send-form</code> the same way a website form does. A successful send shows up in Form inquiries for the brand that owns the key. Open this page at <code>http://localhost:3000/test-form.html</code> so the origin matches an allowed domain.</p>
+    <form id="f">
+      <label for="api">API base URL</label>
+      <input id="api" name="api" value="http://localhost:3001" autocomplete="off" />
+
+      <label for="publicKey">Public key (pk_live_…)</label>
+      <input id="publicKey" name="publicKey" required placeholder="pk_live_…" autocomplete="off" spellcheck="false" />
+
+      <label for="formName">Form name</label>
+      <input id="formName" name="formName" value="API key test" />
+
+      <label for="name">Name</label>
+      <input id="name" name="name" required value="Test Visitor" />
+
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" required value="test@example.com" />
+
+      <label for="phone">Phone</label>
+      <input id="phone" name="phone" value="+91 90000 00000" />
+
+      <label for="message">Message</label>
+      <textarea id="message" name="message" required>Testing the brand API key from the test form.</textarea>
+
+      <label for="company">Custom field: company</label>
+      <input id="company" name="company" value="Test Co" />
+
+      <button type="submit" id="go">Send test submission</button>
+    </form>
+    <div class="out" id="out" hidden></div>
+  </main>
+  <script>
+    const form = document.getElementById("f");
+    const out = document.getElementById("out");
+    const go = document.getElementById("go");
+    const saved = JSON.parse(localStorage.getItem("lekvya-test-form") || "{}");
+    if (saved.api) document.getElementById("api").value = saved.api;
+    if (saved.publicKey) document.getElementById("publicKey").value = saved.publicKey;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      const base = String(data.api).replace(/\/+$/, "");
+      localStorage.setItem("lekvya-test-form", JSON.stringify({ api: base, publicKey: data.publicKey }));
+      delete data.api;
+      go.disabled = true;
+      out.hidden = false;
+      out.className = "out";
+      out.textContent = "Sending…";
+      try {
+        const res = await fetch(base + "/api/v1/send-form", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const text = await res.text();
+        let body = text;
+        try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { /* keep raw text */ }
+        out.className = "out " + (res.ok ? "ok" : "bad");
+        out.textContent = res.status + " " + res.statusText + "\n\n" + body;
+      } catch (err) {
+        out.className = "out bad";
+        out.textContent = "Could not reach " + base + ".\n" + err.message + "\n\nCheck that the backend is running and the API base URL is right.";
+      } finally {
+        go.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -30,6 +30,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { OrganizationFormFields } from "@/components/master-admin/organization-form-fields"
+import { UNIT_STRUCTURE_OPTIONS, normalizeStructure, type UnitStructure } from "@/lib/unit-structure"
 
 export default function MasterAdminOrganizations() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
@@ -54,6 +55,8 @@ export default function MasterAdminOrganizations() {
     country: "",
     pincode: "",
   })
+  // The edit dialog's unit and brand layout. Only sent when it differs from what the organization has.
+  const [editStructure, setEditStructure] = useState<UnitStructure>("multi_unit")
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false)
   const [isCreatingOrg, setIsCreatingOrg] = useState(false)
   const [isUpdatingOrg, setIsUpdatingOrg] = useState(false)
@@ -281,6 +284,7 @@ export default function MasterAdminOrganizations() {
         state: orgFormData.state || undefined,
         country: orgFormData.country || undefined,
         pincode: orgFormData.pincode || undefined,
+        ...(editStructure !== normalizeStructure(editingOrg.unitStructure) ? { unitStructure: editStructure } : {}),
       }
       
       await masterAdminUpdateOrganization(editingOrg.id, updateData)
@@ -463,6 +467,7 @@ export default function MasterAdminOrganizations() {
       country: org.country || "",
       pincode: org.pincode || "",
     })
+    setEditStructure(normalizeStructure(org.unitStructure))
     setEditOrgDialogOpen(true)
   }
 
@@ -656,6 +661,22 @@ export default function MasterAdminOrganizations() {
                       </DialogDescription>
                     </DialogHeader>
                     <OrganizationFormFields idPrefix="edit-" values={orgFormData} onChange={setOrgFormData} />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-unit-structure">Units and brands</Label>
+                      <select
+                        id="edit-unit-structure"
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        value={editStructure}
+                        onChange={(e) => setEditStructure(e.target.value as UnitStructure)}
+                      >
+                        {UNIT_STRUCTURE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.title}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-muted-foreground">
+                        Chosen at signup. Moving to a layout with fewer units or brands needs the extras to be deactivated first.
+                      </p>
+                    </div>
                     <DialogFooter>
                       <Button
                         variant="outline"

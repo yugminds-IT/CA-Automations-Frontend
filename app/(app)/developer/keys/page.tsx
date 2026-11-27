@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import {
   KeyRound,
   Plus,
@@ -10,9 +11,9 @@ import {
   ShieldCheck,
   Globe,
   Loader2,
-  AlertCircle,
-  Eye,
-  EyeOff,
+  Code2,
+  Inbox,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,12 +22,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/components/ui/use-toast";
-import { getApiKeys, createApiKey, revokeApiKey, ApiKeyItem } from "@/lib/api/developer";
+import { getApiKeys, createApiKey, revokeApiKey, updateApiKey, ApiKeyItem } from "@/lib/api/developer";
+import { BusinessUnit, listBusinessUnits } from "@/lib/api/business-units";
+import { MailAccount, listMailAccounts } from "@/lib/api/mail-accounts";
+import { pickerLabel } from "@/lib/unit-structure";
 
 export default function ApiKeysPage() {
   const { toast } = useToast();
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
+  const [units, setUnits] = useState<BusinessUnit[]>([]);
+  const [mailAccounts, setMailAccounts] = useState<MailAccount[]>([]);
+  const [brandFilter, setBrandFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -34,7 +43,9 @@ export default function ApiKeysPage() {
   // New Key Form
   const [keyName, setKeyName] = useState("");
   const [keyType, setKeyType] = useState<"public" | "secret">("public");
+  const [selectedBrandId, setSelectedBrandId] = useState<string>("");
   const [domains, setDomains] = useState("");
+  const [autoLeads, setAutoLeads] = useState(false);
 
   // Newly Created Key Reveal Modal
   const [revealKey, setRevealKey] = useState<string | null>(null);
@@ -43,8 +54,16 @@ export default function ApiKeysPage() {
   const fetchKeys = async () => {
     setLoading(true);
     try {
-      const data = await getApiKeys();
+      const [data, unitList, mailList] = await Promise.all([
+        getApiKeys(),
+        listBusinessUnits().catch(() => [] as BusinessUnit[]),
+        listMailAccounts().catch(() => [] as MailAccount[]),
+      ]);
       setKeys(data);
+      setUnits(unitList);
+      setMailAccounts(mailList);
+      const defaultBrand = unitList.find((u) => u.isDefault) ?? unitList[0];
+      setSelectedBrandId((prev) => prev || (defaultBrand ? String(defaultBrand.id) : ""));
     } catch (err: any) {
       toast({
         title: "Failed to load API keys",
@@ -57,8 +76,32 @@ export default function ApiKeysPage() {
   };
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const brandParam = new URLSearchParams(window.location.search).get("brand");
+      if (brandParam && /^\d+$/.test(brandParam)) {
+        setBrandFilter(brandParam);
+        setSelectedBrandId(brandParam);
+      }
+    }
     fetchKeys();
   }, []);
+
+  const activeUnits = useMemo(() => units.filter((u) => u.isActive), [units]);
+  const brandLabelFor = (businessUnitId?: number | null) => {
+    if (businessUnitId == null) return "Default brand";
+    const u = units.find((x) => x.id === businessUnitId);
+    return u ? pickerLabel(u, units) : `Brand #${businessUnitId}`;
+  };
+  const smtpFor = (businessUnitId?: number | null) =>
+    mailAccounts.find((m) => m.isActive && m.businessUnitId === (businessUnitId ?? null)) ??
+    mailAccounts.find((m) => m.isActive && m.businessUnitId === null) ??
+    null;
+
+  const visibleKeys = useMemo(() => {
+    if (brandFilter === "all") return keys;
+    const id = Number(brandFilter);
+    return keys.filter((k) => k.businessUnitId === id);
+  }, [keys, brandFilter]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,12 +117,15 @@ export default function ApiKeysPage() {
       const created = await createApiKey({
         name: keyName.trim(),
         keyType,
+        ...(selectedBrandId ? { businessUnitId: Number(selectedBrandId) } : {}),
         allowedDomains,
+        autoCreateLead: autoLeads,
       });
 
       setDialogOpen(false);
       setKeyName("");
       setDomains("");
+      setAutoLeads(false);
 
       if (created.key) {
         setRevealKey(created.key);
@@ -100,6 +146,20 @@ export default function ApiKeysPage() {
       });
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleToggleLeads = async (k: ApiKeyItem, next: boolean) => {
+    setKeys((prev) => prev.map((x) => (x.id === k.id ? { ...x, autoCreateLead: next } : x)));
+    try {
+      await updateApiKey(k.id, { autoCreateLead: next });
+    } catch (err: any) {
+      setKeys((prev) => prev.map((x) => (x.id === k.id ? { ...x, autoCreateLead: !next } : x)));
+      toast({
+        title: "Could not update key",
+        description: err?.message || "Try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -128,21 +188,28 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <KeyRound className="w-6 h-6 text-primary" /> API Keys
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Keys that let your website or app send emails through Lekvya. Use a public key in website forms and a secret key on your server.
-          </p>
-        </div>
-        <Button onClick={() => setDialogOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-          <Plus className="w-4 h-4 mr-1.5" /> Create New Key
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4 p-4 sm:p-5">
+      <PageHeader
+        title="API keys"
+        description="Each key belongs to a brand. Use a public key in website forms and a secret key on your server."
+        actions={
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/developer/quickstart">
+                <Code2 className="mr-1 h-4 w-4" /> Form &amp; API code
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/developer/inbox">
+                <Inbox className="mr-1 h-4 w-4" /> Form inquiries
+              </Link>
+            </Button>
+            <Button size="sm" onClick={() => setDialogOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" /> Create API key
+            </Button>
+          </>
+        }
+      />
 
       {/* Guide Card */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -171,38 +238,76 @@ export default function ApiKeysPage() {
 
       {/* Keys Table */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Active API Keys</CardTitle>
-          <CardDescription className="text-xs">
-            Keys authorized to interact with your organization&apos;s email pipeline.
-          </CardDescription>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <CardTitle className="text-base font-semibold">Active API Keys</CardTitle>
+            <CardDescription className="text-xs">
+              Each key belongs to a brand and sends form replies and notifications through that brand&apos;s SMTP.
+            </CardDescription>
+          </div>
+          {units.length > 1 && (
+            <select
+              aria-label="Filter by brand"
+              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs"
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+            >
+              <option value="all">All brands</option>
+              {units.map((u) => (
+                <option key={u.id} value={String(u.id)}>
+                  {pickerLabel(u, units)}
+                </option>
+              ))}
+            </select>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading keys…
             </div>
-          ) : keys.length === 0 ? (
+          ) : visibleKeys.length === 0 ? (
             <div className="text-center p-12 text-sm text-muted-foreground">
-              No API keys created yet. Click &quot;Create New Key&quot; above.
+              No API keys found{brandFilter !== "all" ? " for this brand" : ""}. Click &quot;Create New Key&quot; above.
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Key Name</TableHead>
+                  {units.length > 1 && <TableHead>Brand</TableHead>}
+                  <TableHead>SMTP</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Key / Token</TableHead>
                   <TableHead>Allowed Domains</TableHead>
-                  <TableHead>Rate Limit</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>Auto-lead</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {keys.map((k) => (
+                {visibleKeys.map((k) => {
+                  const smtp = smtpFor(k.businessUnitId);
+                  return (
                   <TableRow key={k.id}>
                     <TableCell className="font-medium text-sm">{k.name}</TableCell>
+                    {units.length > 1 && (
+                      <TableCell className="text-xs font-medium">{brandLabelFor(k.businessUnitId)}</TableCell>
+                    )}
+                    <TableCell className="text-xs">
+                      {smtp ? (
+                        <span className="text-emerald-700 dark:text-emerald-400">
+                          {smtp.fromEmail}
+                          {smtp.businessUnitId == null && k.businessUnitId != null ? " (org)" : ""}
+                        </span>
+                      ) : (
+                        <Link
+                          href={k.businessUnitId ? `/settings/mail-accounts?brand=${k.businessUnitId}` : "/settings/mail-accounts"}
+                          className="inline-flex items-center gap-1 text-amber-700 underline dark:text-amber-400"
+                        >
+                          <Mail className="w-3 h-3" /> Set up SMTP
+                        </Link>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {k.keyType === "public" ? (
                         <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300">
@@ -233,14 +338,17 @@ export default function ApiKeysPage() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {k.allowedDomains && k.allowedDomains.length > 0 ? (
-                        <span className="truncate max-w-[180px] inline-block">{k.allowedDomains.join(", ")}</span>
+                        <span className="truncate max-w-[160px] inline-block">{k.allowedDomains.join(", ")}</span>
                       ) : (
                         <span className="italic opacity-60">Any domain</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs">{k.rateLimitPerMinute} req/min</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {new Date(k.createdAt).toLocaleDateString()}
+                    <TableCell>
+                      <Switch
+                        checked={Boolean(k.autoCreateLead)}
+                        onCheckedChange={(v) => handleToggleLeads(k, v)}
+                        aria-label="Create leads from submissions"
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -253,7 +361,8 @@ export default function ApiKeysPage() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -271,6 +380,27 @@ export default function ApiKeysPage() {
           </DialogHeader>
 
           <form onSubmit={handleCreate} className="space-y-4 pt-2">
+            {activeUnits.length > 1 && (
+              <div>
+                <Label className="text-xs font-semibold">Brand *</Label>
+                <select
+                  aria-label="Brand"
+                  value={selectedBrandId}
+                  onChange={(e) => setSelectedBrandId(e.target.value)}
+                  className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {activeUnits.map((u) => (
+                    <option key={u.id} value={String(u.id)}>
+                      {pickerLabel(u, units)}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Form submissions on this key land under this brand and send emails via this brand&apos;s SMTP.
+                </p>
+              </div>
+            )}
+
             <div>
               <Label className="text-xs font-semibold">Key Name *</Label>
               <Input
@@ -325,6 +455,16 @@ export default function ApiKeysPage() {
                 </p>
               </div>
             )}
+
+            <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+              <div>
+                <Label className="text-xs font-semibold">Create leads from submissions</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Each accepted form response on this key also becomes a lead in its business unit. A response with the same email or phone as an existing lead is added to that lead.
+                </p>
+              </div>
+              <Switch checked={autoLeads} onCheckedChange={setAutoLeads} aria-label="Create leads automatically" />
+            </div>
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)}>

@@ -227,7 +227,10 @@ export function ClientLoginTab({
     ''
 
   const currentLogin = logins[0] ?? null
-  const hasCredentials = !!currentLogin?.password?.trim()
+  // A login exists when the client has a login email. The password itself is only known right after
+  // it is generated: the server never stores it in a readable form or sends it back later.
+  const hasCredentials = !!currentLogin?.email?.trim()
+  const hasPassword = !!currentLogin?.password?.trim()
 
   const loginPortalUrl =
     (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL?.trim()) || DEFAULT_LOGIN_PORTAL_URL
@@ -397,7 +400,12 @@ export function ClientLoginTab({
           </div>
 
           {/* Password row — only if credentials exist */}
-          {hasCredentials && currentLogin && (
+          {hasCredentials && !hasPassword && (
+            <p className="text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
+              For security, the password is not stored. Regenerate it to send the client new login details.
+            </p>
+          )}
+          {hasPassword && currentLogin && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground font-medium">Password</Label>
@@ -460,8 +468,8 @@ export function ClientLoginTab({
         </CardContent>
       </Card>
 
-      {/* ── Compose Message Card (shown after credentials generated) ── */}
-      {hasCredentials && (
+      {/* ── Compose Message Card (shown right after a password is generated) ── */}
+      {hasPassword && (
         <Card className="py-0 gap-0">
           <CardHeader className="px-5 pt-4 pb-3 border-b border-border">
             <div className="flex items-center justify-between">

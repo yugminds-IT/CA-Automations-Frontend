@@ -229,6 +229,23 @@ export function clearTokens(): void {
   localStorage.removeItem('user_data');
   localStorage.removeItem('organization_data');
   clearTokenExpiration();
+  clearOfflineCache();
+}
+
+/** Drops cached pages and lists so the next person on a shared device sees nothing from this session. */
+export function clearOfflineCache(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('lekvya.snapshot.')) localStorage.removeItem(key);
+    }
+  } catch {
+    // Storage blocked. Nothing to clear.
+  }
+  if ('caches' in window) {
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).catch(() => undefined);
+  }
 }
 
 /**

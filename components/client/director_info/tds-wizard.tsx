@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
 import {
   getSession, uploadChallan, uploadExcel, compareData,
-  setFormType, generateFiles, getDownloadUrl, getForms,
+  setFormType, generateFiles, downloadTdsFile, getForms,
   TdsSession, FormMeta,
 } from '@/lib/api/tds-filing'
 
@@ -316,7 +316,7 @@ export function TdsWizard({ sessionId, onBack }: TdsWizardProps) {
   }
 
   const handleDownload = async (type: 'csi' | 'fvu') => {
-    try { const { url } = await getDownloadUrl(sessionId, type); window.open(url, '_blank') }
+    try { await downloadTdsFile(sessionId, type) }
     catch (e: any) { toast({ title: 'Download failed', description: e.message, variant: 'destructive' }) }
   }
 
